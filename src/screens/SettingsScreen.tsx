@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   deviceName: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '750',
+    fontWeight: '700',
   },
   deviceMeta: {
     color: COLORS.textSecondary,

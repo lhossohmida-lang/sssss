@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Slider, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { useAppStore, Card } from '../store/useAppStore';
 import { PremiumVisaCard } from '../components/PremiumVisaCard';
@@ -18,7 +18,9 @@ export const VirtualCardScreen: React.FC = () => {
       type: 'Virtual',
       spendingLimit: 5000,
       color: design === 'premium' ? '#00FF66' : '#A855F7',
-      design: design
+      design: design,
+      isFrozen: false,
+      showDetails: false
     });
     alert('Premium virtual card generated successfully!');
   };
@@ -257,7 +259,7 @@ const styles = StyleSheet.create({
   controlLabel: {
     color: '#FFF',
     fontSize: 13,
-    fontWeight: '750',
+    fontWeight: '700',
   },
   controlDesc: {
     color: COLORS.textSecondary,

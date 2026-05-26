@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   catTitle: {
     color: '#FFF',
     fontSize: 13,
-    fontWeight: '750',
+    fontWeight: '700',
   },
   catCount: {
     color: COLORS.textSecondary,

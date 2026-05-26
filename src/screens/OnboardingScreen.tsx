@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     borderRadius: 250,
     backgroundColor: 'rgba(0, 255, 102, 0.05)',
     filter: Platform.OS === 'web' ? 'blur(100px)' : undefined,
-  },
+  } as any,
   header: {
     alignItems: 'center',
     marginTop: 20,

@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     borderRadius: 200,
     backgroundColor: 'rgba(0, 255, 102, 0.04)',
     filter: Platform.OS === 'web' ? 'blur(100px)' : undefined,
-  },
+  } as any,
   header: {
     alignItems: 'center',
     marginBottom: 40,

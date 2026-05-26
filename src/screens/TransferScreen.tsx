@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     flex: 1,
     outlineStyle: Platform.OS === 'web' ? 'none' : undefined,
-  },
+  } as any,
   currencySelect: {
     flexDirection: 'row',
   },

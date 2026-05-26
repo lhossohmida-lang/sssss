@@ -263,8 +263,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#050507',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100vh',
-    width: '100vw',
+    height: Platform.OS === 'web' ? '100vh' as any : '100%',
+    width: Platform.OS === 'web' ? '100vw' as any : '100%',
     overflow: 'hidden',
   },
   webPromoColumn: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   promoTitle: {
     color: '#FFF',
     fontSize: 48,
-    fontWeight: '950',
+    fontWeight: '900',
     letterSpacing: 10,
     marginBottom: 20,
   },

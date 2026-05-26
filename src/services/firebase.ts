@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,6 +25,7 @@ if (Platform.OS === 'web') {
   auth = getAuth(app);
 } else {
   // Mobile persistence using AsyncStorage
+  const { getReactNativePersistence } = require('firebase/auth');
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage),
   });

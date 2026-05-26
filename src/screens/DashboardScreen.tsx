@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '850',
+    fontWeight: '800',
     marginBottom: 16,
     letterSpacing: 1.5,
   },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   convertLabel: {
     color: COLORS.textMuted,
     fontSize: 9,
-    fontWeight: '850',
+    fontWeight: '800',
     letterSpacing: 1,
     marginBottom: 6,
   },
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     marginBottom: 10,
     outlineStyle: Platform.OS === 'web' ? 'none' : undefined,
-  },
+  } as any,
   convertedAmount: {
     color: COLORS.primary,
     fontSize: 22,
