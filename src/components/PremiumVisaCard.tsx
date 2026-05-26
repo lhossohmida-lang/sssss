@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Clipboard, ToastAndroid, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { useAppStore, Card } from '../store/useAppStore';
-import { Eye, EyeOff, Copy, Shield, ShieldAlert, Award } from 'lucide-react';
+import { Eye, EyeOff, ShieldAlert, Wifi } from 'lucide-react';
 
 interface PremiumVisaCardProps {
   card: Card;
@@ -12,268 +12,319 @@ interface PremiumVisaCardProps {
 
 export const PremiumVisaCard: React.FC<PremiumVisaCardProps> = ({ card, onToggleFreeze, onToggleDetails }) => {
   const toggleCardDetails = useAppStore((state) => state.toggleCardDetails);
-  
+
   const handleCopyNumber = () => {
-    Clipboard.setString(card.number.replace(/\s/g, ''));
-    if (Platform.OS === 'android') {
-      ToastAndroid.show('Card number copied!', ToastAndroid.SHORT);
-    } else if (Platform.OS === 'web') {
+    if (Platform.OS === 'web') {
+      navigator.clipboard?.writeText(card.number.replace(/\s/g, ''));
       alert('Card number copied to clipboard!');
     }
   };
 
-  const getCardGradient = () => {
-    if (card.design === 'premium') return ['#18181B', '#27272A', '#09090B'];
-    if (card.design === 'neon') return ['#064E3B', '#111827', '#022C22'];
-    return ['#3B0764', '#1E1B4B', '#0F172A'];
-  };
-
-  const gradientColors = getCardGradient();
+  // Grey-style card: dark navy with purple gradient, matching app.grey.co
+  const cardBg1 = card.isFrozen ? '#1a1a1a' : '#1a1a2e';
+  const cardBg2 = card.isFrozen ? '#0d0d0d' : '#16213e';
+  const cardAccent = card.isFrozen ? '#2a2a2a' : '#2d2b55';
 
   return (
-    <View style={[
-      styles.cardContainer,
-      { shadowColor: card.isFrozen ? '#000' : card.color },
-      card.isFrozen && styles.frozenCard
-    ]}>
-      {/* Background stylized vectors */}
-      <View style={[styles.gradientLayer, { backgroundColor: gradientColors[0] }]} />
-      <View style={[styles.glowOrb, { backgroundColor: card.isFrozen ? '#333' : card.color, left: -20, top: -20 }]} />
-      <View style={[styles.glowOrb, { backgroundColor: '#111', right: -40, bottom: -40 }]} />
+    <View style={[styles.cardWrapper]}>
+      <View style={[
+        styles.cardContainer,
+        card.isFrozen && styles.frozenCard
+      ]}>
+        {/* Card background layers */}
+        <View style={[styles.bgBase, { backgroundColor: cardBg1 }]} />
+        {/* Purple gradient orb - top right */}
+        <View style={[styles.orb, styles.orbTopRight, { backgroundColor: card.isFrozen ? '#1a1a1a' : '#312e81' }]} />
+        {/* Subtle orb - bottom left */}
+        <View style={[styles.orb, styles.orbBottomLeft, { backgroundColor: card.isFrozen ? '#111' : '#1e1b4b' }]} />
+        {/* Shine stripe */}
+        <View style={styles.shineStripe} />
 
-      {/* Card Contents */}
-      <View style={styles.cardHeader}>
-        <View>
-          <Text style={styles.brandText}>GRYE <Text style={{ color: COLORS.primary, fontWeight: '900' }}>PREMIUM</Text></Text>
-          <Text style={styles.cardTypeText}>{card.type.toUpperCase()}</Text>
+        {/* ── TOP ROW: Grey logo + VISA ── */}
+        <View style={styles.topRow}>
+          <View style={styles.greyLogoWrap}>
+            <Text style={styles.greyLogoText}>
+              <Text style={styles.greyLogoIcon}>✦ </Text>
+              Grey
+            </Text>
+          </View>
+
+          <View style={styles.visaWrap}>
+            <Text style={styles.visaText}>VISA</Text>
+            <Text style={styles.visaSubText}>P2I num</Text>
+          </View>
         </View>
-        <Award size={28} color={card.isFrozen ? '#666' : COLORS.primary} style={styles.chipIcon} />
-      </View>
 
-      {/* Chip & NFC symbol */}
-      <View style={styles.chipSection}>
-        <View style={styles.goldChip}>
-          <View style={styles.chipGrid} />
+        {/* ── MIDDLE: NFC / Contactless icon ── */}
+        <View style={styles.nfcRow}>
+          <Wifi size={18} color="rgba(255,255,255,0.35)" style={styles.nfcIcon as any} />
         </View>
-        <View style={styles.nfcSymbol}>
-          <View style={styles.nfcWave} />
-          <View style={[styles.nfcWave, { opacity: 0.7 }]} />
-          <View style={[styles.nfcWave, { opacity: 0.4 }]} />
+
+        {/* ── BOTTOM ROW: Card number + eye toggle ── */}
+        <View style={styles.bottomRow}>
+          <TouchableOpacity activeOpacity={0.7} onPress={handleCopyNumber} style={styles.cardNumberWrap}>
+            <Text style={styles.cardNumberText}>
+              {card.showDetails
+                ? card.number
+                : `••••  ••••  ••••  ${card.number.slice(-4)}`}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onToggleDetails ? onToggleDetails() : toggleCardDetails(card.id)}
+            style={styles.eyeBtn}
+          >
+            {card.showDetails
+              ? <EyeOff size={16} color="rgba(255,255,255,0.5)" />
+              : <Eye size={16} color="rgba(255,255,255,0.5)" />
+            }
+          </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Card Number */}
-      <TouchableOpacity activeOpacity={0.7} onPress={handleCopyNumber} style={styles.numberRow}>
-        <Text style={styles.cardNumber}>
-          {card.showDetails ? card.number : `••••  ••••  ••••  ${card.number.slice(-4)}`}
-        </Text>
-        <Copy size={16} color="rgba(255,255,255,0.4)" style={styles.copyIcon} />
-      </TouchableOpacity>
-
-      {/* Expiry & CVV */}
-      <View style={styles.cardFooter}>
-        <View>
-          <Text style={styles.label}>CARDHOLDER</Text>
+        {/* ── CARDHOLDER name line ── */}
+        <View style={styles.holderRow}>
+          <Text style={styles.holderLabel}>CARDHOLDER</Text>
           <Text style={styles.holderName}>{card.holder}</Text>
         </View>
 
-        <View style={styles.footerRight}>
-          <View style={{ marginRight: 24 }}>
-            <Text style={styles.label}>EXPIRES</Text>
-            <Text style={styles.footerVal}>{card.expiry}</Text>
+        {/* ── Expiry / CVV row ── */}
+        <View style={styles.metaRow}>
+          <View>
+            <Text style={styles.metaLabel}>EXPIRES</Text>
+            <Text style={styles.metaValue}>{card.expiry}</Text>
           </View>
-          <TouchableOpacity 
-            activeOpacity={0.7} 
-            onPress={() => onToggleDetails ? onToggleDetails() : toggleCardDetails(card.id)}
-            style={styles.cvvContainer}
-          >
-            <View>
-              <Text style={[styles.label, { textAlign: 'right' }]}>CVV</Text>
-              <Text style={[styles.footerVal, { textAlign: 'right' }]}>
-                {card.showDetails ? card.cvv : '•••'}
-              </Text>
-            </View>
-            {card.showDetails ? (
-              <EyeOff size={16} color={COLORS.primary} style={styles.eyeIcon} />
-            ) : (
-              <Eye size={16} color="rgba(255,255,255,0.6)" style={styles.eyeIcon} />
-            )}
-          </TouchableOpacity>
+          <View>
+            <Text style={[styles.metaLabel, { textAlign: 'right' }]}>CVV</Text>
+            <Text style={[styles.metaValue, { textAlign: 'right' }]}>
+              {card.showDetails ? card.cvv : '•••'}
+            </Text>
+          </View>
         </View>
+
+        {/* ── Frozen Overlay ── */}
+        {card.isFrozen && (
+          <View style={styles.frozenOverlay}>
+            <ShieldAlert size={36} color="#EF4444" />
+            <Text style={styles.frozenText}>CARD FROZEN</Text>
+            <Text style={styles.frozenSubtext}>Tap unfreeze to resume payments</Text>
+          </View>
+        )}
       </View>
 
-      {/* Frozen Overlay */}
-      {card.isFrozen && (
-        <View style={styles.frozenOverlay}>
-          <ShieldAlert size={40} color="#EF4444" />
-          <Text style={styles.frozenText}>CARD FROZEN</Text>
-          <Text style={styles.frozenSubtext}>Tap unfreeze in dashboard to resume payments</Text>
-        </View>
-      )}
+      {/* Card shadow glow */}
+      {!card.isFrozen && <View style={styles.cardGlow} />}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    height: 220,
+  cardWrapper: {
+    alignSelf: 'center',
     width: '100%',
-    maxWidth: 380,
-    borderRadius: 24,
-    padding: 24,
+    maxWidth: 400,
+    marginVertical: 16,
+  },
+
+  // Main card surface
+  cardContainer: {
+    height: 218,
+    borderRadius: 20,
+    padding: 22,
     position: 'relative',
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 8,
-    alignSelf: 'center',
-    marginVertical: 15,
+    // Card border like Grey's subtle white edge
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#312e81',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 28,
+    elevation: 12,
   },
-  gradientLayer: {
+
+  bgBase: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.95,
   },
-  glowOrb: {
+
+  // Purple glow orb top-right (Grey signature look)
+  orb: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    opacity: 0.12,
+    borderRadius: 999,
+    opacity: 0.55,
   },
+  orbTopRight: {
+    width: 220,
+    height: 220,
+    top: -80,
+    right: -60,
+  },
+  orbBottomLeft: {
+    width: 160,
+    height: 160,
+    bottom: -60,
+    left: -40,
+    opacity: 0.3,
+  },
+
+  // Diagonal light shine
+  shineStripe: {
+    position: 'absolute',
+    width: 2,
+    height: 400,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+    top: -80,
+    left: '45%',
+    transform: [{ rotate: '-35deg' }],
+  },
+
   frozenCard: {
-    opacity: 0.8,
+    opacity: 0.75,
   },
-  cardHeader: {
+
+  // TOP ROW
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  brandText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 2,
-  },
-  cardTypeText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginTop: 2,
-  },
-  chipIcon: {
-    opacity: 0.8,
-  },
-  chipSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  goldChip: {
-    width: 44,
-    height: 32,
-    backgroundColor: '#F59E0B',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#D97706',
-    position: 'relative',
-    overflow: 'hidden',
-    opacity: 0.85,
-  },
-  chipGrid: {
-    width: '100%',
-    height: '100%',
-    borderColor: 'rgba(0,0,0,0.2)',
-    borderWidth: 1,
-    position: 'absolute',
-    top: '30%',
-    left: '20%',
-  },
-  nfcSymbol: {
-    marginLeft: 12,
+  greyLogoWrap: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  nfcWave: {
-    width: 3,
-    height: 12,
-    backgroundColor: '#FFF',
-    marginHorizontal: 1,
-    borderRadius: 2,
+  greyLogoIcon: {
+    color: '#a5b4fc',
+    fontSize: 14,
   },
-  numberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  cardNumber: {
-    color: '#FFF',
+  greyLogoText: {
+    color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+  visaWrap: {
+    alignItems: 'flex-end',
+  },
+  visaText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontStyle: 'italic',
+  },
+  visaSubText: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 9,
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+
+  // NFC
+  nfcRow: {
+    marginTop: 14,
+    marginBottom: 2,
+  },
+  nfcIcon: {
+    transform: [{ rotate: '90deg' }],
+  },
+
+  // Card Number
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+  },
+  cardNumberWrap: {
+    flex: 1,
+  },
+  cardNumberText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '500',
     letterSpacing: 3,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
   },
-  copyIcon: {
-    marginLeft: 10,
-    opacity: 0.7,
+  eyeBtn: {
+    padding: 6,
+    marginLeft: 8,
   },
-  cardFooter: {
+
+  // Holder row
+  holderRow: {
+    marginTop: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 'auto',
+    alignItems: 'center',
+    gap: 8,
   },
-  label: {
-    color: 'rgba(255,255,255,0.4)',
+  holderLabel: {
+    color: 'rgba(255,255,255,0.3)',
     fontSize: 8,
     fontWeight: '700',
     letterSpacing: 1.5,
-    marginBottom: 4,
   },
   holderName: {
-    color: '#FFF',
-    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+
+  // Meta row (expiry + cvv)
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  metaLabel: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 8,
     fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  metaValue: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontWeight: '600',
     letterSpacing: 1,
   },
-  footerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  footerVal: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  cvvContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  eyeIcon: {
-    marginLeft: 6,
-    marginTop: 10,
-  },
+
+  // Frozen overlay
   frozenOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 10, 12, 0.92)',
+    backgroundColor: 'rgba(10, 10, 14, 0.92)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    borderRadius: 20,
   },
   frozenText: {
     color: '#EF4444',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     letterSpacing: 2,
-    marginTop: 12,
+    marginTop: 10,
   },
   frozenSubtext: {
-    color: '#9CA3AF',
-    fontSize: 12,
+    color: '#6B7280',
+    fontSize: 11,
     textAlign: 'center',
     marginTop: 4,
-  }
+  },
+
+  // Bottom glow under the card
+  cardGlow: {
+    position: 'absolute',
+    bottom: -18,
+    left: '15%',
+    right: '15%',
+    height: 30,
+    backgroundColor: '#4338ca',
+    borderRadius: 50,
+    opacity: 0.25,
+    ...(Platform.OS === 'web' ? { filter: 'blur(18px)' } as any : {}),
+  },
 });

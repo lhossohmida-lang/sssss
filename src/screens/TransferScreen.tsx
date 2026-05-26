@@ -3,16 +3,23 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Activi
 import { COLORS } from '../theme/colors';
 import { useAppStore } from '../store/useAppStore';
 import { GlassCard } from '../components/GlassCard';
-import { ArrowRight, CheckCircle2, User, Globe, Shield, RefreshCw } from 'lucide-react';
+import { translations } from '../theme/translations';
+import { ArrowRight, CheckCircle2, User, Globe, Shield } from 'lucide-react';
 
 export const TransferScreen: React.FC = () => {
-  const { wallets, updateWalletBalance, addTransaction } = useAppStore();
+  const { wallets, updateWalletBalance, addTransaction, language } = useAppStore();
   const [recipientName, setRecipientName] = useState('');
   const [iban, setIban] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState<'USD' | 'EUR'>('USD');
   const [status, setStatus] = useState<'input' | 'processing' | 'success'>('input');
   const [txReceipt, setTxReceipt] = useState<any>(null);
+
+  const t = (key: string) => {
+    return translations[language]?.[key] || translations['en']?.[key] || key;
+  };
+
+  const isRtl = language === 'ar';
 
   const mockBeneficiaries = [
     { name: 'John Doe', email: 'john@gmail.com', iban: 'DE90370400440532013000' },
@@ -28,21 +35,21 @@ export const TransferScreen: React.FC = () => {
   const handleTransfer = () => {
     const parsedAmount = parseFloat(amount);
     if (!recipientName) {
-      alert('Please fill out the recipient name.');
+      alert(isRtl ? 'يرجى إدخال اسم المستلم.' : 'Please fill out the recipient name.');
       return;
     }
     if (!iban) {
-      alert('Please enter a valid Account Number or IBAN.');
+      alert(isRtl ? 'يرجى إدخال رقم حساب أو آيبان صالح.' : 'Please enter a valid Account Number or IBAN.');
       return;
     }
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('Please enter a valid amount.');
+      alert(isRtl ? 'يرجى إدخال مبلغ صالح.' : 'Please enter a valid amount.');
       return;
     }
 
     const currentWallet = wallets.find(w => w.currency === currency);
     if (!currentWallet || currentWallet.balance < parsedAmount) {
-      alert('Insufficient funds in the selected wallet.');
+      alert(isRtl ? 'الرصيد غير كافٍ في المحفظة المختارة.' : 'Insufficient funds in the selected wallet.');
       return;
     }
 
@@ -60,7 +67,7 @@ export const TransferScreen: React.FC = () => {
         type: 'send' as const,
         amount: parsedAmount,
         currency: currency,
-        title: `Transfer to ${recipientName}`,
+        title: isRtl ? `حوالة إلى ${recipientName}` : `Transfer to ${recipientName}`,
         subtitle: `IBAN: ${iban.slice(0, 8)}...`,
         status: 'completed' as const
       };
@@ -94,8 +101,8 @@ export const TransferScreen: React.FC = () => {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loaderText}>SECURING TRANSACTION CHANNEL...</Text>
-        <Text style={styles.loaderSub}>Processing instant SWIFT / SEPA transfer</Text>
+        <Text style={styles.loaderText}>{t('TX_PROCESSING')}</Text>
+        <Text style={styles.loaderSub}>{t('TX_PROCESSING_SUB')}</Text>
       </View>
     );
   }
@@ -104,35 +111,35 @@ export const TransferScreen: React.FC = () => {
     return (
       <View style={styles.successContainer}>
         <CheckCircle2 size={72} color={COLORS.primary} style={{ marginBottom: 20 }} />
-        <Text style={styles.successTitle}>TRANSFER DISPATCHED</Text>
-        <Text style={styles.successSub}>Your funds are traversing the financial grid in real-time</Text>
+        <Text style={styles.successTitle}>{t('TX_SUCCESS_TITLE')}</Text>
+        <Text style={styles.successSub}>{t('TX_SUCCESS_SUB')}</Text>
 
         <GlassCard style={styles.receiptBox}>
-          <Text style={styles.receiptHeader}>TRANSACTION RECEIPT</Text>
+          <Text style={styles.receiptHeader}>{t('TX_RECEIPT_HEADER')}</Text>
           
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Transaction ID</Text>
+          <View style={[styles.receiptRow, isRtl && styles.rtlRow]}>
+            <Text style={styles.receiptLabel}>{t('TX_RECEIPT_ID')}</Text>
             <Text style={styles.receiptVal}>{txReceipt.id}</Text>
           </View>
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Recipient</Text>
+          <View style={[styles.receiptRow, isRtl && styles.rtlRow]}>
+            <Text style={styles.receiptLabel}>{t('TX_RECIPIENT')}</Text>
             <Text style={styles.receiptVal}>{txReceipt.recipient}</Text>
           </View>
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Account / IBAN</Text>
+          <View style={[styles.receiptRow, isRtl && styles.rtlRow]}>
+            <Text style={styles.receiptLabel}>{t('TX_ACC_IBAN')}</Text>
             <Text style={styles.receiptVal}>{txReceipt.iban.slice(0, 10)}...</Text>
           </View>
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Total Amount</Text>
+          <View style={[styles.receiptRow, isRtl && styles.rtlRow]}>
+            <Text style={styles.receiptLabel}>{t('TX_TOTAL_AMOUNT')}</Text>
             <Text style={styles.receiptVal}>{txReceipt.currency} {txReceipt.amount.toFixed(2)}</Text>
           </View>
-          <View style={styles.receiptRow}>
-            <Text style={styles.receiptLabel}>Grye Processing Fee</Text>
+          <View style={[styles.receiptRow, isRtl && styles.rtlRow]}>
+            <Text style={styles.receiptLabel}>{t('TX_FEE')}</Text>
             <Text style={styles.receiptVal}>{txReceipt.currency} {txReceipt.fee.toFixed(2)}</Text>
           </View>
           <View style={styles.receiptDivider} />
-          <View style={styles.receiptRow}>
-            <Text style={[styles.receiptLabel, { color: '#FFF', fontWeight: '800' }]}>Settled Sum</Text>
+          <View style={[styles.receiptRow, isRtl && styles.rtlRow]}>
+            <Text style={[styles.receiptLabel, { color: '#FFF', fontWeight: '800' }]}>{t('TX_SETTLED_SUM')}</Text>
             <Text style={[styles.receiptVal, { color: COLORS.primary, fontWeight: '900' }]}>
               {txReceipt.currency} {txReceipt.netAmount.toFixed(2)}
             </Text>
@@ -140,7 +147,7 @@ export const TransferScreen: React.FC = () => {
         </GlassCard>
 
         <TouchableOpacity onPress={resetForm} style={styles.doneBtn}>
-          <Text style={styles.doneBtnText}>NEW TRANSFER</Text>
+          <Text style={styles.doneBtnText}>{t('TX_NEW_TRANSFER')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -148,40 +155,40 @@ export const TransferScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>SEND MONEY</Text>
-        <Text style={styles.subtitle}>Wire assets instantly across global networks</Text>
+      <View style={[styles.header, isRtl && styles.rtlAlign]}>
+        <Text style={styles.title}>{t('TX_TITLE')}</Text>
+        <Text style={styles.subtitle}>{t('TX_SUBTITLE')}</Text>
       </View>
 
       {/* Recipient Details */}
       <GlassCard style={styles.box}>
-        <Text style={styles.boxTitle}>Recipient Credentials</Text>
+        <Text style={[styles.boxTitle, isRtl && styles.rtlText]}>{t('TX_RECIPIENT_CREDENTIALS')}</Text>
         
-        <View style={styles.inputWrapper}>
-          <User size={20} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+        <View style={[styles.inputWrapper, isRtl && styles.rtlRow]}>
+          <User size={20} color="rgba(255,255,255,0.4)" style={isRtl ? { marginLeft: 12 } : { marginRight: 12 }} />
           <TextInput 
-            placeholder="Beneficiary Name" 
+            placeholder={t('TX_BENEFICIARY_NAME')} 
             placeholderTextColor="rgba(255,255,255,0.25)"
-            style={styles.input}
+            style={[styles.input, isRtl && styles.rtlText]}
             value={recipientName}
             onChangeText={setRecipientName}
           />
         </View>
 
-        <View style={styles.inputWrapper}>
-          <Globe size={20} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+        <View style={[styles.inputWrapper, isRtl && styles.rtlRow]}>
+          <Globe size={20} color="rgba(255,255,255,0.4)" style={isRtl ? { marginLeft: 12 } : { marginRight: 12 }} />
           <TextInput 
-            placeholder="IBAN or Account Number" 
+            placeholder={t('TX_IBAN_PLACEHOLDER')} 
             placeholderTextColor="rgba(255,255,255,0.25)"
-            style={styles.input}
+            style={[styles.input, isRtl && styles.rtlText]}
             value={iban}
             onChangeText={setIban}
           />
         </View>
 
         {/* Quick Beneficiaries Select */}
-        <Text style={styles.smallLabel}>QUICK ADD BENEFICIARY</Text>
-        <View style={styles.bList}>
+        <Text style={[styles.smallLabel, isRtl && styles.rtlText]}>{t('TX_QUICK_BENEFICIARIES')}</Text>
+        <View style={[styles.bList, isRtl && styles.rtlRow]}>
           {mockBeneficiaries.map((b, i) => (
             <TouchableOpacity key={i} onPress={() => handleSelectBeneficiary(b)} style={styles.bBadge}>
               <Text style={styles.bBadgeText}>{b.name}</Text>
@@ -192,19 +199,19 @@ export const TransferScreen: React.FC = () => {
 
       {/* Amount and Wallet conversion */}
       <GlassCard style={[styles.box, { marginTop: 20 }]}>
-        <Text style={styles.boxTitle}>Asset Volume</Text>
+        <Text style={[styles.boxTitle, isRtl && styles.rtlText]}>{t('TX_VOLUME')}</Text>
         
-        <View style={styles.amountInputRow}>
+        <View style={[styles.amountInputRow, isRtl && styles.rtlRow]}>
           <TextInput 
             placeholder="0.00" 
             placeholderTextColor="rgba(255,255,255,0.25)"
-            style={styles.amountInput}
+            style={[styles.amountInput, isRtl && styles.rtlText]}
             keyboardType="numeric"
             value={amount}
             onChangeText={setAmount}
           />
           
-          <View style={styles.currencySelect}>
+          <View style={[styles.currencySelect, isRtl && styles.rtlRow]}>
             <TouchableOpacity 
               style={[styles.currencyBtn, currency === 'USD' && styles.currencyBtnActive]}
               onPress={() => setCurrency('USD')}
@@ -221,20 +228,20 @@ export const TransferScreen: React.FC = () => {
         </View>
 
         {/* Transaction protection detail */}
-        <View style={styles.protectionRow}>
-          <Shield size={16} color={COLORS.primary} style={{ marginRight: 8 }} />
-          <Text style={styles.protectionText}>Encrypted & SECURE via SEPA / SWIFT network</Text>
+        <View style={[styles.protectionRow, isRtl && styles.rtlRow]}>
+          <Shield size={16} color={COLORS.primary} style={isRtl ? { marginLeft: 8 } : { marginRight: 8 }} />
+          <Text style={styles.protectionText}>{t('TX_PROTECTION')}</Text>
         </View>
 
         {/* Interactive Fee calculation display */}
         {amount ? (
           <View style={styles.feeBreakdown}>
-            <View style={styles.feeItem}>
-              <Text style={styles.feeLabel}>Exchange Margin</Text>
+            <View style={[styles.feeItem, isRtl && styles.rtlRow]}>
+              <Text style={styles.feeLabel}>{t('TX_EXCHANGE_MARGIN')}</Text>
               <Text style={styles.feeValText}>0.00%</Text>
             </View>
-            <View style={styles.feeItem}>
-              <Text style={styles.feeLabel}>Network Fee (0.5%)</Text>
+            <View style={[styles.feeItem, isRtl && styles.rtlRow]}>
+              <Text style={styles.feeLabel}>{t('TX_NETWORK_FEE')}</Text>
               <Text style={styles.feeValText}>{currency} {(parseFloat(amount) * 0.005).toFixed(2)}</Text>
             </View>
           </View>
@@ -243,9 +250,9 @@ export const TransferScreen: React.FC = () => {
 
       {/* Action Transfer button */}
       <TouchableOpacity onPress={handleTransfer} style={styles.submitBtn}>
-        <View style={styles.btnContent}>
-          <Text style={styles.submitText}>EXECUTE WIRE TRANSFER</Text>
-          <ArrowRight size={18} color="#000" style={{ marginLeft: 8 }} />
+        <View style={[styles.btnContent, isRtl && styles.rtlRow]}>
+          <Text style={styles.submitText}>{t('TX_EXECUTE')}</Text>
+          <ArrowRight size={18} color="#000" style={isRtl ? { marginRight: 8 } : { marginLeft: 8 }} />
         </View>
       </TouchableOpacity>
 
@@ -296,9 +303,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
     height: 52,
-  },
-  inputIcon: {
-    marginRight: 12,
   },
   input: {
     flex: 1,
@@ -358,8 +362,8 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   currencyBtnActive: {
-    backgroundColor: 'rgba(0, 255, 102, 0.15)',
-    borderColor: 'rgba(0, 255, 102, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     borderWidth: 1,
   },
   currencyBtnText: {
@@ -405,7 +409,7 @@ const styles = StyleSheet.create({
     marginTop: 30,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
   },
   btnContent: {
@@ -507,5 +511,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 2,
+  },
+  
+  // RTL Utilities
+  rtlRow: {
+    flexDirection: 'row-reverse',
+  },
+  rtlAlign: {
+    alignItems: 'flex-end',
+  },
+  rtlText: {
+    textAlign: 'right',
   }
 });

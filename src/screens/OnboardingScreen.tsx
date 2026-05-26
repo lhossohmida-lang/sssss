@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { COLORS } from '../theme/colors';
+import { useAppStore } from '../store/useAppStore';
+import { translations } from '../theme/translations';
 import { GlassCard } from '../components/GlassCard';
-import { Shield, Globe, Compass, Landmark } from 'lucide-react';
+import { Shield, Globe, Landmark } from 'lucide-react';
 
 const { width } = Dimensions.get('window');
 
@@ -11,26 +13,30 @@ interface OnboardingScreenProps {
 }
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) => {
+  const { language } = useAppStore();
   const [activeStep, setActiveStep] = useState(0);
+
+  const t = (key: string) => {
+    return translations[language]?.[key] || translations['en']?.[key] || key;
+  };
+
+  const isRtl = language === 'ar';
 
   const steps = [
     {
-      title: 'Global Banking without Borders',
-      description: 'Open premium USD, EUR, and GBP multi-currency accounts instantly. Send, receive, and spend internationally with absolute freedom.',
-      icon: <Globe size={48} color={COLORS.primary} />,
-      gradient: COLORS.cardGradients.usd
+      title: t('ONBOARDING_TITLE_1'),
+      description: t('ONBOARDING_DESC_1'),
+      icon: <Globe size={48} color={COLORS.primary} />
     },
     {
-      title: 'Premium Virtual Visa Cards',
-      description: 'Issue highly secure 3D virtual Visa cards instantly. Freeze, unfreeze, and adjust spending controls directly from the palm of your hand.',
-      icon: <Shield size={48} color={COLORS.primary} />,
-      gradient: COLORS.cardGradients.premiumVisa
+      title: t('ONBOARDING_TITLE_2'),
+      description: t('ONBOARDING_DESC_2'),
+      icon: <Shield size={48} color={COLORS.primary} />
     },
     {
-      title: 'Institutional Grade Security',
-      description: 'Protected by industry-leading biometrics, smart transaction filters, and full compliance structures. Your capital is safe, always.',
-      icon: <Landmark size={48} color={COLORS.primary} />,
-      gradient: COLORS.cardGradients.eur
+      title: t('ONBOARDING_TITLE_3'),
+      description: t('ONBOARDING_DESC_3'),
+      icon: <Landmark size={48} color={COLORS.primary} />
     }
   ];
 
@@ -63,13 +69,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
             {steps[activeStep].icon}
           </View>
           
-          <Text style={styles.stepTitle}>{steps[activeStep].title}</Text>
-          <Text style={styles.stepDesc}>{steps[activeStep].description}</Text>
+          <Text style={[styles.stepTitle, isRtl && styles.rtlText]}>{steps[activeStep].title}</Text>
+          <Text style={[styles.stepDesc, isRtl && styles.rtlText]}>{steps[activeStep].description}</Text>
 
           {/* Premium card illustration placeholder rendering beautifully */}
           <View style={styles.cardIllustration}>
             <View style={styles.illustrationOverlay} />
-            <Text style={styles.illustrationText}>VISUAL STORYTELLING ACTIVE</Text>
+            <Text style={styles.illustrationText}>VISUAL LEADERSHIP ACTIVE</Text>
           </View>
         </GlassCard>
       </View>
@@ -94,7 +100,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
         style={styles.actionBtn}
       >
         <Text style={styles.actionBtnText}>
-          {activeStep === steps.length - 1 ? 'GET STARTED' : 'CONTINUE'}
+          {activeStep === steps.length - 1 ? t('ONBOARDING_GET_STARTED') : t('ONBOARDING_CONTINUE')}
         </Text>
       </TouchableOpacity>
     </View>
@@ -116,7 +122,7 @@ const styles = StyleSheet.create({
     width: 500,
     height: 500,
     borderRadius: 250,
-    backgroundColor: 'rgba(0, 255, 102, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     filter: Platform.OS === 'web' ? 'blur(100px)' : undefined,
   } as any,
   header: {
@@ -159,7 +165,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(0, 255, 102, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -181,8 +187,8 @@ const styles = StyleSheet.create({
   cardIllustration: {
     width: '100%',
     height: 50,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.01)',
+    borderColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderRadius: 12,
     marginTop: 24,
@@ -199,7 +205,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 12,
   },
   illustrationText: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.2)',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 2,
@@ -229,7 +235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 6,
   },
@@ -238,5 +244,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 2,
+  },
+  rtlText: {
+    textAlign: 'right',
   }
 });

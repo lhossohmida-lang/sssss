@@ -3,12 +3,19 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { COLORS } from '../theme/colors';
 import { useAppStore } from '../store/useAppStore';
 import { GlassCard } from '../components/GlassCard';
+import { translations } from '../theme/translations';
 import { Camera, FileText, CheckCircle2, ShieldAlert, Award, ArrowUp, RefreshCw } from 'lucide-react';
 
 export const KYCScreen: React.FC = () => {
-  const { kyc, updateKYC } = useAppStore();
+  const { kyc, updateKYC, language } = useAppStore();
   const [uploadingId, setUploadingId] = useState(false);
   const [uploadingSelfie, setUploadingSelfie] = useState(false);
+
+  const t = (key: string) => {
+    return translations[language]?.[key] || translations['en']?.[key] || key;
+  };
+
+  const isRtl = language === 'ar';
 
   const handleUploadId = () => {
     setUploadingId(true);
@@ -16,7 +23,7 @@ export const KYCScreen: React.FC = () => {
     setTimeout(() => {
       setUploadingId(false);
       updateKYC({ idUploaded: true });
-      alert('Passport / ID verified via smart OCR matrix!');
+      alert(isRtl ? 'تم التحقق من جواز السفر / الهوية عبر مصفوفة OCR الذكية!' : 'Passport / ID verified via smart OCR matrix!');
     }, 2000);
   };
 
@@ -25,18 +32,18 @@ export const KYCScreen: React.FC = () => {
     setTimeout(() => {
       setUploadingSelfie(false);
       updateKYC({ selfieUploaded: true });
-      alert('Biometric selfie matching complete!');
+      alert(isRtl ? 'اكتملت مطابقة الصور الحيوية للوجه بنجاح!' : 'Biometric selfie matching complete!');
     }, 2000);
   };
 
   const handleSubmitKYC = () => {
     if (!kyc.idUploaded || !kyc.selfieUploaded) {
-      alert('Please upload both Passport/ID and Selfie documents.');
+      alert(isRtl ? 'يرجى تحميل وثيقة الهوية والصورة الشخصية أولاً.' : 'Please upload both Passport/ID and Selfie documents.');
       return;
     }
 
     updateKYC({ status: 'pending', submittedAt: new Date().toLocaleDateString() });
-    alert('Verification packet dispatched to security compliance division!');
+    alert(isRtl ? 'تم إرسال مستندات التحقق لقسم الامتثال بنجاح!' : 'Verification packet dispatched to security compliance division!');
     
     // Simulate instant compliance approval after 5 seconds to show rich verified state!
     setTimeout(() => {
@@ -46,40 +53,48 @@ export const KYCScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>IDENTITY VERIFICATION</Text>
-        <Text style={styles.subtitle}>Institutional compliance and multi-layer KYC protection</Text>
+      <View style={[styles.header, isRtl && styles.rtlAlign]}>
+        <Text style={styles.title}>{isRtl ? 'توثيق الهوية' : 'IDENTITY VERIFICATION'}</Text>
+        <Text style={styles.subtitle}>
+          {isRtl ? 'الامتثال التنظيمي المؤسسي وحماية الحساب متعددة الطبقات' : 'Institutional compliance and multi-layer KYC protection'}
+        </Text>
       </View>
 
       {/* KYC Status Header Card */}
       <GlassCard glowing={kyc.status === 'verified'} style={styles.statusBox}>
-        <View style={styles.statusHeaderRow}>
+        <View style={[styles.statusHeaderRow, isRtl && styles.rtlRow]}>
           {kyc.status === 'none' && (
             <>
-              <ShieldAlert size={28} color={COLORS.warning} />
-              <View style={styles.statusMeta}>
-                <Text style={styles.statusTitle}>UNVERIFIED ACCOUNT</Text>
-                <Text style={styles.statusDesc}>Upload credentials to unlock unlimited global wire capabilities.</Text>
+              <ShieldAlert size={28} color="#FFF" />
+              <View style={[styles.statusMeta, isRtl && styles.rtlAlign, isRtl ? { marginRight: 15, marginLeft: 0 } : { marginLeft: 15 }]}>
+                <Text style={styles.statusTitle}>{isRtl ? 'حساب غير موثق' : 'UNVERIFIED ACCOUNT'}</Text>
+                <Text style={[styles.statusDesc, isRtl && styles.rtlText]}>
+                  {isRtl ? 'قم بتحميل وثائق الهوية لتفعيل خيارات التحويل غير المحدودة.' : 'Upload credentials to unlock unlimited global wire capabilities.'}
+                </Text>
               </View>
             </>
           )}
 
           {kyc.status === 'pending' && (
             <>
-              <RefreshCw size={28} color={COLORS.info} style={styles.spinIcon} />
-              <View style={styles.statusMeta}>
-                <Text style={styles.statusTitle}>VERIFICATION IN PROGRESS</Text>
-                <Text style={styles.statusDesc}>Compliance division reviewing documents. Average approval: 5s.</Text>
+              <RefreshCw size={28} color="#FFF" style={styles.spinIcon} />
+              <View style={[styles.statusMeta, isRtl && styles.rtlAlign, isRtl ? { marginRight: 15, marginLeft: 0 } : { marginLeft: 15 }]}>
+                <Text style={styles.statusTitle}>{isRtl ? 'جاري مراجعة الطلب' : 'VERIFICATION IN PROGRESS'}</Text>
+                <Text style={[styles.statusDesc, isRtl && styles.rtlText]}>
+                  {isRtl ? 'قسم الامتثال يراجع المستندات حالياً. متوسط وقت الموافقة: 5 ثوانٍ.' : 'Compliance division reviewing documents. Average approval: 5s.'}
+                </Text>
               </View>
             </>
           )}
 
           {kyc.status === 'verified' && (
             <>
-              <CheckCircle2 size={28} color={COLORS.primary} />
-              <View style={styles.statusMeta}>
-                <Text style={styles.statusTitle}>GRYE COMPLIANCE STATUS: VERIFIED</Text>
-                <Text style={styles.statusDesc}>Unlimited account access, premium virtual Visa, and infinite transfer caps active.</Text>
+              <CheckCircle2 size={28} color="#FFF" />
+              <View style={[styles.statusMeta, isRtl && styles.rtlAlign, isRtl ? { marginRight: 15, marginLeft: 0 } : { marginLeft: 15 }]}>
+                <Text style={styles.statusTitle}>{isRtl ? 'حالة الامتثال: موثق بالكامل' : 'GRYE COMPLIANCE STATUS: VERIFIED'}</Text>
+                <Text style={[styles.statusDesc, isRtl && styles.rtlText]}>
+                  {isRtl ? 'تفعيل كامل الحساب، بطاقات فيزا الافتراضية الفاخرة، وسقف تحويل غير محدود.' : 'Unlimited account access, premium virtual Visa, and infinite transfer caps active.'}
+                </Text>
               </View>
             </>
           )}
@@ -89,32 +104,36 @@ export const KYCScreen: React.FC = () => {
       {kyc.status !== 'verified' && (
         <View>
           {/* Upload Grid */}
-          <Text style={styles.sectionTitle}>Required Verification Credentials</Text>
+          <Text style={[styles.sectionTitle, isRtl && styles.rtlText]}>
+            {isRtl ? 'المستندات المطلوبة للتوثيق' : 'Required Verification Credentials'}
+          </Text>
 
           <GlassCard style={styles.uploadCard}>
-            <View style={styles.uploadHeader}>
+            <View style={[styles.uploadHeader, isRtl && styles.rtlRow]}>
               <View style={styles.uploadIconWrapper}>
-                <FileText size={22} color={COLORS.primary} />
+                <FileText size={22} color="#FFF" />
               </View>
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={styles.uploadCardTitle}>Government Passport or National ID</Text>
-                <Text style={styles.uploadCardDesc}>High-resolution photo of front & back page. Format: JPG, PNG.</Text>
+              <View style={[{ flex: 1 }, isRtl ? { marginRight: 15, marginLeft: 0 } : { marginLeft: 15 }, isRtl && styles.rtlAlign]}>
+                <Text style={styles.uploadCardTitle}>{isRtl ? 'جواز السفر الحكومي أو الهوية الوطنية' : 'Government Passport or National ID'}</Text>
+                <Text style={[styles.uploadCardDesc, isRtl && styles.rtlText]}>
+                  {isRtl ? 'صورة واضحة وعالية الدقة للجهة الأمامية والخلفية. الصيغة: JPG, PNG.' : 'High-resolution photo of front & back page. Format: JPG, PNG.'}
+                </Text>
               </View>
             </View>
 
             {kyc.idUploaded ? (
-              <View style={styles.successUploadBadge}>
-                <CheckCircle2 size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.successUploadText}>DOCUMENT UPLOADED & OCR PROCESSED</Text>
+              <View style={[styles.successUploadBadge, isRtl && styles.rtlRow]}>
+                <CheckCircle2 size={16} color="#FFF" style={isRtl ? { marginLeft: 6 } : { marginRight: 6 }} />
+                <Text style={styles.successUploadText}>{isRtl ? 'تم رفع المستند ومعالجة البيانات ذكياً' : 'DOCUMENT UPLOADED & OCR PROCESSED'}</Text>
               </View>
             ) : (
               <TouchableOpacity onPress={handleUploadId} style={styles.uploadBtn}>
                 {uploadingId ? (
                   <ActivityIndicator color="#000" />
                 ) : (
-                  <View style={styles.btnInner}>
-                    <ArrowUp size={16} color="#000" style={{ marginRight: 6 }} />
-                    <Text style={styles.uploadBtnText}>UPLOAD PASSPORT / ID</Text>
+                  <View style={[styles.btnInner, isRtl && styles.rtlRow]}>
+                    <ArrowUp size={16} color="#000" style={isRtl ? { marginLeft: 6 } : { marginRight: 6 }} />
+                    <Text style={styles.uploadBtnText}>{isRtl ? 'رفع جواز السفر / الهوية' : 'UPLOAD PASSPORT / ID'}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -122,29 +141,31 @@ export const KYCScreen: React.FC = () => {
           </GlassCard>
 
           <GlassCard style={[styles.uploadCard, { marginTop: 15 }]}>
-            <View style={styles.uploadHeader}>
+            <View style={[styles.uploadHeader, isRtl && styles.rtlRow]}>
               <View style={styles.uploadIconWrapper}>
-                <Camera size={22} color={COLORS.primary} />
+                <Camera size={22} color="#FFF" />
               </View>
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={styles.uploadCardTitle}>3D Biometric Liveliness Selfie</Text>
-                <Text style={styles.uploadCardDesc}>Look directly into the camera lens with neutral face lighting.</Text>
+              <View style={[{ flex: 1 }, isRtl ? { marginRight: 15, marginLeft: 0 } : { marginLeft: 15 }, isRtl && styles.rtlAlign]}>
+                <Text style={styles.uploadCardTitle}>{isRtl ? 'صورة حيوية ثلاثية الأبعاد للوجه' : '3D Biometric Liveliness Selfie'}</Text>
+                <Text style={[styles.uploadCardDesc, isRtl && styles.rtlText]}>
+                  {isRtl ? 'انظر مباشرة إلى عدسة الكاميرا مع إضاءة جيدة للوجه.' : 'Look directly into the camera lens with neutral face lighting.'}
+                </Text>
               </View>
             </View>
 
             {kyc.selfieUploaded ? (
-              <View style={styles.successUploadBadge}>
-                <CheckCircle2 size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.successUploadText}>SELFIE PROCESSED & FACEMATCH OK</Text>
+              <View style={[styles.successUploadBadge, isRtl && styles.rtlRow]}>
+                <CheckCircle2 size={16} color="#FFF" style={isRtl ? { marginLeft: 6 } : { marginRight: 6 }} />
+                <Text style={styles.successUploadText}>{isRtl ? 'تم معالجة الصورة ومطابقة الوجه' : 'SELFIE PROCESSED & FACEMATCH OK'}</Text>
               </View>
             ) : (
               <TouchableOpacity onPress={handleUploadSelfie} style={styles.uploadBtn}>
                 {uploadingSelfie ? (
                   <ActivityIndicator color="#000" />
                 ) : (
-                  <View style={styles.btnInner}>
-                    <Camera size={16} color="#000" style={{ marginRight: 6 }} />
-                    <Text style={styles.uploadBtnText}>INITIATE BIOMETRIC SELFIE</Text>
+                  <View style={[styles.btnInner, isRtl && styles.rtlRow]}>
+                    <Camera size={16} color="#000" style={isRtl ? { marginLeft: 6 } : { marginRight: 6 }} />
+                    <Text style={styles.uploadBtnText}>{isRtl ? 'بدء تحقق الوجه البيومتري' : 'INITIATE BIOMETRIC SELFIE'}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -153,17 +174,19 @@ export const KYCScreen: React.FC = () => {
 
           {/* Submission button */}
           <TouchableOpacity onPress={handleSubmitKYC} style={styles.submitBtn}>
-            <Text style={styles.submitBtnText}>SUBMIT PACKET FOR AUDIT</Text>
+            <Text style={styles.submitBtnText}>{isRtl ? 'إرسال الملف للتدقيق والمراجعة' : 'SUBMIT PACKET FOR AUDIT'}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {kyc.status === 'verified' && (
         <GlassCard style={styles.verifiedIntro}>
-          <Award size={36} color={COLORS.primary} style={{ marginBottom: 15 }} />
-          <Text style={styles.verifiedIntroTitle}>Welcome to Grye Wealth Club</Text>
-          <Text style={styles.verifiedIntroDesc}>
-            Your security compliance profile is verified at Level 3. Your limits are fully waived and you are enabled for high-fidelity SWIFT transactions.
+          <Award size={36} color="#FFF" style={{ marginBottom: 15 }} />
+          <Text style={styles.verifiedIntroTitle}>{isRtl ? 'مرحباً بك في نادي غراي للثروة' : 'Welcome to Grye Wealth Club'}</Text>
+          <Text style={[styles.verifiedIntroDesc, isRtl && styles.rtlText]}>
+            {isRtl 
+              ? 'تم توثيق حسابك بالكامل بنجاح. تم إلغاء كافة قيود التحويل وتفعيل خيارات SWIFT الدولية الفاخرة.'
+              : 'Your security compliance profile is verified at Level 3. Your limits are fully waived and you are enabled for high-fidelity SWIFT transactions.'}
           </Text>
         </GlassCard>
       )}
@@ -205,7 +228,6 @@ const styles = StyleSheet.create({
   },
   statusMeta: {
     flex: 1,
-    marginLeft: 15,
   },
   statusTitle: {
     color: '#FFF',
@@ -283,8 +305,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 255, 102, 0.08)',
-    borderColor: 'rgba(0, 255, 102, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderRadius: 12,
     height: 48,
@@ -312,7 +334,7 @@ const styles = StyleSheet.create({
   verifiedIntro: {
     padding: 30,
     alignItems: 'center',
-    borderColor: 'rgba(0, 255, 102, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   verifiedIntroTitle: {
     color: '#FFF',
@@ -326,5 +348,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  
+  // RTL Utilities
+  rtlRow: {
+    flexDirection: 'row-reverse',
+  },
+  rtlAlign: {
+    alignItems: 'flex-end',
+  },
+  rtlText: {
+    textAlign: 'right',
   }
 });

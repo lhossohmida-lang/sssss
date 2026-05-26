@@ -4,12 +4,19 @@ import { COLORS } from '../theme/colors';
 import { useAppStore } from '../store/useAppStore';
 import { GlassCard } from '../components/GlassCard';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
-import { TrendingUp, ArrowDownLeft, ArrowUpRight, Percent, Award } from 'lucide-react';
+import { translations } from '../theme/translations';
+import { TrendingUp, ArrowDownLeft, ArrowUpRight, Award } from 'lucide-react';
 
 const { width } = Dimensions.get('window');
 
 export const AnalyticsScreen: React.FC = () => {
-  const { transactions } = useAppStore();
+  const { transactions, language } = useAppStore();
+
+  const t = (key: string) => {
+    return translations[language]?.[key] || translations['en']?.[key] || key;
+  };
+
+  const isRtl = language === 'ar';
 
   // Simple statistics aggregation
   const income = transactions
@@ -20,11 +27,8 @@ export const AnalyticsScreen: React.FC = () => {
     .filter(tx => tx.type === 'send' || tx.type === 'card_payment')
     .reduce((acc, curr) => acc + curr.amount, 0);
 
-  const netSavings = income - expense;
-
   // Render a custom premium SVG chart representing financial assets trend
   const renderPremiumChart = () => {
-    // Premium custom path values for modern curvy lines
     const chartHeight = 150;
     const chartWidth = width - 40;
     
@@ -43,26 +47,23 @@ export const AnalyticsScreen: React.FC = () => {
         <Svg height={chartHeight} width={chartWidth}>
           <Defs>
             <LinearGradient id="glowGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor={COLORS.primary} stopOpacity="0.25" />
-              <Stop offset="100%" stopColor={COLORS.primary} stopOpacity="0.0" />
+              <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.15" />
+              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
             </LinearGradient>
           </Defs>
           
-          {/* Fills the gradient under the path */}
           <Path d={fillPathData} fill="url(#glowGrad)" />
           
-          {/* Main neon curved line */}
           <Path
             d={pathData}
             fill="none"
-            stroke={COLORS.primary}
+            stroke="#FFFFFF"
             strokeWidth="3.5"
             strokeLinecap="round"
           />
 
-          {/* Interactive node indicator */}
-          <Circle cx={chartWidth} cy={chartHeight * 0.05} r="6" fill={COLORS.primary} />
-          <Circle cx={chartWidth} cy={chartHeight * 0.05} r="12" fill={COLORS.primary} fillOpacity="0.2" />
+          <Circle cx={chartWidth} cy={chartHeight * 0.05} r="6" fill="#FFFFFF" />
+          <Circle cx={chartWidth} cy={chartHeight * 0.05} r="12" fill="#FFFFFF" fillOpacity="0.2" />
         </Svg>
       </View>
     );
@@ -70,27 +71,27 @@ export const AnalyticsScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>ANALYTICS</Text>
-        <Text style={styles.subtitle}>Institutional expense intelligence & insights</Text>
+      <View style={[styles.header, isRtl && styles.rtlAlign]}>
+        <Text style={styles.title}>{t('AN_TITLE')}</Text>
+        <Text style={styles.subtitle}>{t('AN_SUBTITLE')}</Text>
       </View>
 
       {/* SVG Trend Card */}
       <GlassCard glowing={true} style={styles.trendBox}>
-        <View style={styles.trendHeader}>
-          <View>
-            <Text style={styles.trendLabel}>NET EQUITY GROWTH</Text>
+        <View style={[styles.trendHeader, isRtl && styles.rtlRow]}>
+          <View style={isRtl && styles.rtlAlign}>
+            <Text style={styles.trendLabel}>{t('AN_NET_GROWTH')}</Text>
             <Text style={styles.trendVal}>+$3,248.50</Text>
           </View>
-          <View style={styles.trendBadge}>
-            <TrendingUp size={14} color="#00FF66" style={{ marginRight: 4 }} />
+          <View style={[styles.trendBadge, isRtl && styles.rtlRow]}>
+            <TrendingUp size={14} color="#FFF" style={isRtl ? { marginLeft: 4 } : { marginRight: 4 }} />
             <Text style={styles.trendBadgeText}>+18.4%</Text>
           </View>
         </View>
 
         {renderPremiumChart()}
 
-        <View style={styles.chartFooter}>
+        <View style={[styles.chartFooter, isRtl && styles.rtlRow]}>
           <Text style={styles.chartFootLabel}>MAY 1</Text>
           <Text style={styles.chartFootLabel}>MAY 10</Text>
           <Text style={styles.chartFootLabel}>MAY 20</Text>
@@ -99,30 +100,30 @@ export const AnalyticsScreen: React.FC = () => {
       </GlassCard>
 
       {/* Financial metrics boxes */}
-      <View style={styles.statsGrid}>
+      <View style={[styles.statsGrid, isRtl && styles.rtlRow]}>
         <GlassCard style={styles.statsCard}>
-          <ArrowDownLeft size={20} color={COLORS.success} />
-          <Text style={styles.statsLabel}>INFLOWS</Text>
-          <Text style={styles.statsVal}>${income.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+          <ArrowDownLeft size={20} color="#FFF" />
+          <Text style={[styles.statsLabel, isRtl && styles.rtlText]}>{t('AN_INFLOWS')}</Text>
+          <Text style={[styles.statsVal, isRtl && styles.rtlText]}>${income.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
         </GlassCard>
 
         <GlassCard style={styles.statsCard}>
-          <ArrowUpRight size={20} color={COLORS.danger} />
-          <Text style={styles.statsLabel}>OUTFLOWS</Text>
-          <Text style={styles.statsVal}>${expense.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+          <ArrowUpRight size={20} color="#FFF" />
+          <Text style={[styles.statsLabel, isRtl && styles.rtlText]}>{t('AN_OUTFLOWS')}</Text>
+          <Text style={[styles.statsVal, isRtl && styles.rtlText]}>${expense.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
         </GlassCard>
       </View>
 
       {/* Spend allocations */}
-      <Text style={styles.sectionTitle}>Expenditure Categories</Text>
+      <Text style={[styles.sectionTitle, isRtl && styles.rtlText]}>{t('AN_CATEGORIES')}</Text>
       
       <GlassCard style={styles.categoryBox}>
-        <View style={styles.catRow}>
-          <View style={styles.catMeta}>
-            <Text style={styles.catTitle}>Card Payments</Text>
-            <Text style={styles.catCount}>Visa *1024 • 4 purchases</Text>
+        <View style={[styles.catRow, isRtl && styles.rtlRow]}>
+          <View style={[styles.catMeta, isRtl && styles.rtlAlign]}>
+            <Text style={styles.catTitle}>{isRtl ? 'مدفوعات البطاقة' : 'Card Payments'}</Text>
+            <Text style={styles.catCount}>Visa *1024 • 4 {isRtl ? 'عمليات دفع' : 'purchases'}</Text>
           </View>
-          <View style={styles.catStats}>
+          <View style={[styles.catStats, isRtl && styles.rtlAlign]}>
             <Text style={styles.catAmt}>$134.99</Text>
             <Text style={styles.catPerc}>42.6%</Text>
           </View>
@@ -131,41 +132,41 @@ export const AnalyticsScreen: React.FC = () => {
           <View style={[styles.progressVal, { width: '42.6%' }]} />
         </View>
 
-        <View style={[styles.catRow, { marginTop: 20 }]}>
-          <View style={styles.catMeta}>
-            <Text style={styles.catTitle}>Global Bank Wires</Text>
-            <Text style={styles.catCount}>SEPA/SWIFT • 2 transfers</Text>
+        <View style={[styles.catRow, { marginTop: 20 }, isRtl && styles.rtlRow]}>
+          <View style={[styles.catMeta, isRtl && styles.rtlAlign]}>
+            <Text style={styles.catTitle}>{isRtl ? 'الحوالات البنكية الدولية' : 'Global Bank Wires'}</Text>
+            <Text style={styles.catCount}>SEPA/SWIFT • 2 {isRtl ? 'حوالات' : 'transfers'}</Text>
           </View>
-          <View style={styles.catStats}>
+          <View style={[styles.catStats, isRtl && styles.rtlAlign]}>
             <Text style={styles.catAmt}>$150.00</Text>
             <Text style={styles.catPerc}>47.3%</Text>
           </View>
         </View>
         <View style={styles.progressBar}>
-          <View style={[styles.progressVal, { width: '47.3%', backgroundColor: '#60A5FA' }]} />
+          <View style={[styles.progressVal, { width: '47.3%', backgroundColor: '#E4E4E7' }]} />
         </View>
 
-        <View style={[styles.catRow, { marginTop: 20 }]}>
-          <View style={styles.catMeta}>
-            <Text style={styles.catTitle}>Network Exchange Fees</Text>
-            <Text style={styles.catCount}>Grye local ledger fee</Text>
+        <View style={[styles.catRow, { marginTop: 20 }, isRtl && styles.rtlRow]}>
+          <View style={[styles.catMeta, isRtl && styles.rtlAlign]}>
+            <Text style={styles.catTitle}>{isRtl ? 'رسوم الشبكة والصرف' : 'Network Exchange Fees'}</Text>
+            <Text style={styles.catCount}>{isRtl ? 'رسوم دفتر الحسابات غراي' : 'Grye local ledger fee'}</Text>
           </View>
-          <View style={styles.catStats}>
+          <View style={[styles.catStats, isRtl && styles.rtlAlign]}>
             <Text style={styles.catAmt}>$31.20</Text>
             <Text style={styles.catPerc}>10.1%</Text>
           </View>
         </View>
         <View style={styles.progressBar}>
-          <View style={[styles.progressVal, { width: '10.1%', backgroundColor: '#F59E0B' }]} />
+          <View style={[styles.progressVal, { width: '10.1%', backgroundColor: '#71717A' }]} />
         </View>
       </GlassCard>
 
       {/* Premium Wealth badge */}
-      <GlassCard style={styles.wealthBadge}>
-        <Award size={24} color={COLORS.primary} style={{ marginRight: 15 }} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.wealthTitle}>Wealth Intelligence Activated</Text>
-          <Text style={styles.wealthDesc}>Your dynamic financial allocations are optimized. Keep tracking to maintain high compound yield rates.</Text>
+      <GlassCard style={[styles.wealthBadge, isRtl && styles.rtlRow]}>
+        <Award size={24} color="#FFF" style={isRtl ? { marginLeft: 15 } : { marginRight: 15 }} />
+        <View style={[{ flex: 1 }, isRtl && styles.rtlAlign]}>
+          <Text style={styles.wealthTitle}>{t('AN_WEALTH_TITLE')}</Text>
+          <Text style={[styles.wealthDesc, isRtl && styles.rtlText]}>{t('AN_WEALTH_DESC')}</Text>
         </View>
       </GlassCard>
 
@@ -221,8 +222,8 @@ const styles = StyleSheet.create({
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 255, 102, 0.08)',
-    borderColor: 'rgba(0, 255, 102, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 8,
@@ -333,7 +334,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderColor: 'rgba(0, 255, 102, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   wealthTitle: {
     color: '#FFF',
@@ -345,5 +346,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 16,
     marginTop: 4,
+  },
+  
+  // RTL Utilities
+  rtlRow: {
+    flexDirection: 'row-reverse',
+  },
+  rtlAlign: {
+    alignItems: 'flex-end',
+  },
+  rtlText: {
+    textAlign: 'right',
   }
 });

@@ -3,34 +3,42 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Clipboard, Platfo
 import { COLORS } from '../theme/colors';
 import { useAppStore } from '../store/useAppStore';
 import { GlassCard } from '../components/GlassCard';
-import { Copy, QrCode, Globe, Check, Award, AlertCircle } from 'lucide-react';
+import { translations } from '../theme/translations';
+import { Copy, QrCode, Globe, Check, AlertCircle } from 'lucide-react';
 
 export const ReceiveScreen: React.FC = () => {
-  const { wallets } = useAppStore();
+  const { wallets, language } = useAppStore();
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const activeWallet = wallets.find(w => w.currency === selectedCurrency) || wallets[0];
 
+  const t = (key: string) => {
+    return translations[language]?.[key] || translations['en']?.[key] || key;
+  };
+
+  const isRtl = language === 'ar';
+
   const handleCopy = (val: string, field: string) => {
     Clipboard.setString(val);
     setCopiedField(field);
+    alert(t('RX_COPY_SUCCESS'));
     setTimeout(() => setCopiedField(null), 2000);
   };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>RECEIVE FUNDS</Text>
-        <Text style={styles.subtitle}>Display dynamic accounts credentials for wire deposits</Text>
+      <View style={[styles.header, isRtl && styles.rtlAlign]}>
+        <Text style={styles.title}>{t('RX_TITLE')}</Text>
+        <Text style={styles.subtitle}>{t('RX_SUBTITLE')}</Text>
       </View>
 
       {/* Currency Switcher Tabs */}
-      <View style={styles.tabsContainer}>
-        {['USD', 'EUR', 'GBP'].map((cur) => (
+      <View style={[styles.tabsContainer, isRtl && styles.rtlRow]}>
+        {(['USD', 'EUR', 'GBP'] as const).map((cur) => (
           <TouchableOpacity
             key={cur}
-            onPress={() => setSelectedCurrency(cur as any)}
+            onPress={() => setSelectedCurrency(cur)}
             style={[
               styles.tab,
               selectedCurrency === cur && styles.tabActive
@@ -40,7 +48,7 @@ export const ReceiveScreen: React.FC = () => {
               styles.tabText,
               selectedCurrency === cur && styles.tabTextActive
             ]}>
-              {cur} ACCOUNT
+              {cur} {isRtl ? 'حساب' : 'ACCOUNT'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -48,19 +56,19 @@ export const ReceiveScreen: React.FC = () => {
 
       {/* Accounts display card */}
       <GlassCard glowing={true} style={styles.accountBox}>
-        <View style={styles.accountHeader}>
+        <View style={[styles.accountHeader, isRtl && styles.rtlRow]}>
           <Globe size={24} color={COLORS.primary} />
-          <Text style={styles.accountHeaderTitle}>
-            Grye {selectedCurrency} Institutional Bank Account
+          <Text style={[styles.accountHeaderTitle, isRtl ? { marginRight: 12, marginLeft: 0 } : { marginLeft: 12 }]}>
+            {isRtl ? `حساب بنكي مؤسسي غراي بالـ ${selectedCurrency}` : `Grye ${selectedCurrency} Institutional Bank Account`}
           </Text>
         </View>
 
         <View style={styles.detailsList}>
           {selectedCurrency === 'USD' && (
             <>
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
-                  <Text style={styles.detailLabel}>Bank Name</Text>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
+                  <Text style={styles.detailLabel}>{t('RX_BANK_NAME')}</Text>
                   <Text style={styles.detailVal}>Grye Premium Trust LLC</Text>
                 </View>
                 <TouchableOpacity onPress={() => handleCopy('Grye Premium Trust LLC', 'bank')} style={styles.copyBtn}>
@@ -68,9 +76,9 @@ export const ReceiveScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
-                  <Text style={styles.detailLabel}>Routing Number (ACH / Wire)</Text>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
+                  <Text style={styles.detailLabel}>{t('RX_SORT_CODE')}</Text>
                   <Text style={styles.detailVal}>{activeWallet.routingNumber || '021000021'}</Text>
                 </View>
                 <TouchableOpacity onPress={() => handleCopy(activeWallet.routingNumber || '021000021', 'routing')} style={styles.copyBtn}>
@@ -78,9 +86,9 @@ export const ReceiveScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
-                  <Text style={styles.detailLabel}>Account Number</Text>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
+                  <Text style={styles.detailLabel}>{t('DB_ACC_NUMBER')}</Text>
                   <Text style={styles.detailVal}>{activeWallet.accountNumber}</Text>
                 </View>
                 <TouchableOpacity onPress={() => handleCopy(activeWallet.accountNumber, 'account')} style={styles.copyBtn}>
@@ -92,9 +100,9 @@ export const ReceiveScreen: React.FC = () => {
 
           {selectedCurrency === 'EUR' && (
             <>
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
-                  <Text style={styles.detailLabel}>Beneficiary Name</Text>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
+                  <Text style={styles.detailLabel}>{t('RX_BENEFICIARY')}</Text>
                   <Text style={styles.detailVal}>Alexander Moreau</Text>
                 </View>
                 <TouchableOpacity onPress={() => handleCopy('Alexander Moreau', 'name')} style={styles.copyBtn}>
@@ -102,8 +110,8 @@ export const ReceiveScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
                   <Text style={styles.detailLabel}>IBAN</Text>
                   <Text style={styles.detailVal}>{activeWallet.iban || activeWallet.accountNumber}</Text>
                 </View>
@@ -112,8 +120,8 @@ export const ReceiveScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
                   <Text style={styles.detailLabel}>BIC / SWIFT</Text>
                   <Text style={styles.detailVal}>{activeWallet.bic || 'DBREDEDDXXX'}</Text>
                 </View>
@@ -126,9 +134,9 @@ export const ReceiveScreen: React.FC = () => {
 
           {selectedCurrency === 'GBP' && (
             <>
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
-                  <Text style={styles.detailLabel}>Sort Code</Text>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
+                  <Text style={styles.detailLabel}>{t('RX_SORT_CODE')}</Text>
                   <Text style={styles.detailVal}>40-04-01</Text>
                 </View>
                 <TouchableOpacity onPress={() => handleCopy('40-04-01', 'sort')} style={styles.copyBtn}>
@@ -136,9 +144,9 @@ export const ReceiveScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
-                  <Text style={styles.detailLabel}>Account Number</Text>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
+                  <Text style={styles.detailLabel}>{t('DB_ACC_NUMBER')}</Text>
                   <Text style={styles.detailVal}>{activeWallet.accountNumber.slice(10)}</Text>
                 </View>
                 <TouchableOpacity onPress={() => handleCopy(activeWallet.accountNumber.slice(10), 'account')} style={styles.copyBtn}>
@@ -146,8 +154,8 @@ export const ReceiveScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.detailRow}>
-                <View style={styles.detailMeta}>
+              <View style={[styles.detailRow, isRtl && styles.rtlRow]}>
+                <View style={[styles.detailMeta, isRtl && styles.rtlAlign]}>
                   <Text style={styles.detailLabel}>IBAN</Text>
                   <Text style={styles.detailVal}>{activeWallet.iban || activeWallet.accountNumber}</Text>
                 </View>
@@ -159,22 +167,22 @@ export const ReceiveScreen: React.FC = () => {
           )}
         </View>
 
-        <View style={styles.limitDisclaimer}>
-          <AlertCircle size={14} color={COLORS.primary} style={{ marginRight: 8 }} />
+        <View style={[styles.limitDisclaimer, isRtl && styles.rtlRow]}>
+          <AlertCircle size={14} color={COLORS.primary} style={isRtl ? { marginLeft: 8 } : { marginRight: 8 }} />
           <Text style={styles.disclaimerText}>
-            No limits on incoming institutional wire processing.
+            {isRtl ? 'لا توجد قيود على معالجة الحوالات البرقية الواردة للحساب.' : 'No limits on incoming institutional wire processing.'}
           </Text>
         </View>
       </GlassCard>
 
       {/* QR Payments section */}
-      <Text style={styles.sectionTitle}>QR Payments</Text>
+      <Text style={[styles.sectionTitle, isRtl && styles.rtlText]}>{t('RX_QR_TITLE')}</Text>
       <GlassCard style={styles.qrBox}>
         <View style={styles.qrContainer}>
-          <QrCode size={180} color={COLORS.primary} style={styles.qrGraphic} />
+          <QrCode size={180} color="#FFFFFF" style={styles.qrGraphic} />
         </View>
-        <Text style={styles.qrDesc}>
-          Scan this QR to perform instant Grye-to-Grye peer transfers inside our localized premium ledger loop.
+        <Text style={[styles.qrDesc, isRtl && styles.rtlText]}>
+          {t('RX_QR_DESC')}
         </Text>
       </GlassCard>
 
@@ -289,12 +297,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 10,
-    backgroundColor: 'rgba(0, 255, 102, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     padding: 10,
     borderRadius: 8,
   },
   disclaimerText: {
-    color: COLORS.primary,
+    color: COLORS.secondary,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -310,8 +318,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qrContainer: {
-    backgroundColor: 'rgba(0, 255, 102, 0.02)',
-    borderColor: 'rgba(0, 255, 102, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.01)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     padding: 20,
     borderRadius: 20,
@@ -325,5 +333,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  
+  // RTL Utilities
+  rtlRow: {
+    flexDirection: 'row-reverse',
+  },
+  rtlAlign: {
+    alignItems: 'flex-end',
+  },
+  rtlText: {
+    textAlign: 'right',
   }
 });

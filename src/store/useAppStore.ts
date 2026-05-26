@@ -129,12 +129,10 @@ export const useAppStore = create<AppState>((set) => ({
     }
   ],
   transactions: [
-    { id: 't1', type: 'send', amount: 150.00, currency: 'USD', title: 'Transfer to John Doe', subtitle: 'Global Transfer', date: '2026-05-25T14:32:00.000Z', status: 'completed' },
-    { id: 't2', type: 'receive', amount: 2450.00, currency: 'USD', title: 'Salary Deposit', subtitle: 'Grey Technology Inc.', date: '2026-05-24T08:15:00.000Z', status: 'completed' },
-    { id: 't3', type: 'exchange', amount: 400.00, currency: 'EUR', title: 'Exchanged USD to EUR', subtitle: 'Rate: 1 USD = 0.92 EUR', date: '2026-05-22T19:04:00.000Z', status: 'completed' },
-    { id: 't4', type: 'card_payment', amount: 45.99, currency: 'USD', title: 'Netflix Premium', subtitle: 'Visa *1024', date: '2026-05-21T11:45:00.000Z', status: 'completed' },
-    { id: 't5', type: 'card_payment', amount: 89.00, currency: 'USD', title: 'Amazon AWS Cloud', subtitle: 'Visa *1024', date: '2026-05-20T04:22:00.000Z', status: 'completed' },
-    { id: 't6', type: 'receive', amount: 75.00, currency: 'GBP', title: 'Refund payment', subtitle: 'ASOS Marketplace', date: '2026-05-18T16:10:00.000Z', status: 'completed' },
+    { id: 't1', type: 'card_payment', amount: 5.00, currency: 'USD', title: 'سحب فايسبوك', subtitle: '25 ماي', date: '2026-05-25T12:00:00.000Z', status: 'completed' },
+    { id: 't2', type: 'receive', amount: 30.00, currency: 'USD', title: 'ادخال رصيد', subtitle: 'إيداع نقدي', date: '2026-05-24T18:00:00.000Z', status: 'completed' },
+    { id: 't3', type: 'card_payment', amount: 4.00, currency: 'USD', title: 'سحب فايسبوك', subtitle: '24 ماي', date: '2026-05-24T12:00:00.000Z', status: 'completed' },
+    { id: 't4', type: 'card_payment', amount: 5.00, currency: 'USD', title: 'سحب فايسبوك', subtitle: '23 ماي', date: '2026-05-23T12:00:00.000Z', status: 'completed' },
   ],
   kyc: {
     idUploaded: false,
@@ -350,8 +348,10 @@ export const useAppStore = create<AppState>((set) => ({
       }
     ],
     transactions: [
-      { id: 't1', type: 'send', amount: 150.00, currency: 'USD', title: 'Transfer to John Doe', subtitle: 'Global Transfer', date: '2026-05-25T14:32:00.000Z', status: 'completed' },
-      { id: 't2', type: 'receive', amount: 2450.00, currency: 'USD', title: 'Salary Deposit', subtitle: 'Grey Technology Inc.', date: '2026-05-24T08:15:00.000Z', status: 'completed' },
+      { id: 't1', type: 'card_payment', amount: 5.00, currency: 'USD', title: 'سحب فايسبوك', subtitle: '25 ماي', date: '2026-05-25T12:00:00.000Z', status: 'completed' },
+      { id: 't2', type: 'receive', amount: 30.00, currency: 'USD', title: 'ادخال رصيد', subtitle: 'إيداع نقدي', date: '2026-05-24T18:00:00.000Z', status: 'completed' },
+      { id: 't3', type: 'card_payment', amount: 4.00, currency: 'USD', title: 'سحب فايسبوك', subtitle: '24 ماي', date: '2026-05-24T12:00:00.000Z', status: 'completed' },
+      { id: 't4', type: 'card_payment', amount: 5.00, currency: 'USD', title: 'سحب فايسبوك', subtitle: '23 ماي', date: '2026-05-23T12:00:00.000Z', status: 'completed' },
     ],
     logs: [
       { id: 'log_rst', timestamp: new Date().toISOString(), action: 'CACHE_RESET', category: 'system', description: 'Secure storage cache successfully cleared. Token logs purged.' }
