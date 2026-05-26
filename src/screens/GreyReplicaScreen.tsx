@@ -6,11 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import {
   ArrowLeft,
+  ArrowLeftRight,
   ArrowUpRight,
   Banknote,
   ChevronDown,
@@ -18,16 +20,19 @@ import {
   CircleDollarSign,
   Copy,
   CreditCard,
+  Download,
   FileText,
   Gift,
   Home,
   Info,
+  Landmark,
   LockKeyhole,
   Menu,
   MessageCircle,
   Plus,
   ReceiptText,
   RefreshCw,
+  SendHorizontal,
   Snowflake,
   Smartphone,
   Trash2,
@@ -37,7 +42,7 @@ import {
   X,
 } from 'lucide-react';
 
-type PageKey = 'home' | 'accounts' | 'payments' | 'transactions' | 'cards' | 'reports';
+type PageKey = 'home' | 'accounts' | 'payments' | 'transactions' | 'cards' | 'reports' | 'sendRecipient' | 'sendAmount';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -129,6 +134,7 @@ export const GreyReplicaScreen: React.FC = () => {
   const [toast, setToast] = useState('');
 
   const isWide = width >= 720;
+  const isSendFlow = activePage === 'sendRecipient' || activePage === 'sendAmount';
 
   const openPage = (page: PageKey) => {
     setActivePage(page);
@@ -157,15 +163,17 @@ export const GreyReplicaScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.shell}>
         <View style={[styles.appFrame, isWide && styles.appFrameWide]}>
-          <TopBar
-            title={title}
-            activePage={activePage}
-            onMenu={() => setDrawerOpen(true)}
-            onBack={activePage === 'cards' ? () => openPage('home') : undefined}
-          />
+          {!isSendFlow && (
+            <TopBar
+              title={title}
+              activePage={activePage}
+              onMenu={() => setDrawerOpen(true)}
+              onBack={activePage === 'cards' ? () => openPage('home') : undefined}
+            />
+          )}
 
           {activePage === 'home' && <DashboardPage onOpenPage={openPage} />}
-          {activePage === 'accounts' && <AccountsPage />}
+          {activePage === 'accounts' && <AccountsPage onOpenPage={openPage} />}
           {activePage === 'payments' && <PaymentsPage />}
           {activePage === 'transactions' && <TransactionsPage />}
           {activePage === 'cards' && (
@@ -178,6 +186,8 @@ export const GreyReplicaScreen: React.FC = () => {
             />
           )}
           {activePage === 'reports' && <ReportsPage />}
+          {activePage === 'sendRecipient' && <RecipientDetailsPage onBack={() => openPage('accounts')} onContinue={() => openPage('sendAmount')} />}
+          {activePage === 'sendAmount' && <SendAmountPage onBack={() => openPage('sendRecipient')} />}
 
           <TouchableOpacity activeOpacity={0.85} style={styles.chatButton}>
             <MessageCircle size={22} color="#ffffff" />
@@ -264,7 +274,7 @@ const TopBar: React.FC<{
 
     <View style={styles.topTools}>
       <TouchableOpacity activeOpacity={0.85} style={styles.languagePill}>
-        <Text style={styles.languageText}>Arabic</Text>
+        <Text style={styles.languageText}>English</Text>
         <ChevronDown size={15} color="#111827" />
       </TouchableOpacity>
       <View style={styles.avatar}>
@@ -296,9 +306,9 @@ const DashboardPage: React.FC<{ onOpenPage: (page: PageKey) => void }> = ({ onOp
         </View>
 
         <View style={styles.mainActions}>
-          <ActionCircle label="Add money" Icon={Plus} onPress={() => onOpenPage('accounts')} />
-          <ActionCircle label="Send" Icon={ArrowUpRight} onPress={() => onOpenPage('payments')} />
-          <ActionCircle label="Convert" Icon={RefreshCw} onPress={() => onOpenPage('transactions')} />
+          <ActionCircle label="Add money" Icon={Download} tint="#e8f5e9" iconColor="#2e7d32" onPress={() => onOpenPage('accounts')} />
+          <ActionCircle label="Send" Icon={SendHorizontal} tint="#e3f2fd" iconColor="#1565c0" onPress={() => onOpenPage('sendRecipient')} />
+          <ActionCircle label="Convert" Icon={ArrowLeftRight} tint="#fff3e0" iconColor="#e65100" onPress={() => onOpenPage('accounts')} />
         </View>
       </View>
 
@@ -338,25 +348,289 @@ const DashboardPage: React.FC<{ onOpenPage: (page: PageKey) => void }> = ({ onOp
   </ScrollView>
 );
 
-const AccountsPage: React.FC = () => (
-  <ScrollView style={styles.page} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
-    <View style={styles.sectionBlock}>
-      <Text style={styles.sectionHeading}>My Balances</Text>
-      {BALANCES.map((item) => (
-        <View key={item.name} style={styles.accountRow}>
-          <View style={[styles.currencyBadge, { backgroundColor: item.color }]}>
-            <Text style={styles.currencyBadgeText}>{item.badge}</Text>
+const AccountsPage: React.FC<{ onOpenPage: (page: PageKey) => void }> = ({ onOpenPage }) => {
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+
+  return (
+    <View style={styles.accountPageHost}>
+      <ScrollView style={styles.page} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.accountsOverviewCard}>
+          <View style={styles.accountsOverviewHeader}>
+            <View style={styles.accountsTitleRow}>
+              <Text style={styles.accountsOverviewTitle}>My Balances</Text>
+              <Text style={styles.balanceCount}>(5)</Text>
+              <View style={styles.syncMiniSmall}>
+                <RefreshCw size={13} color="#2f6fe4" />
+              </View>
+            </View>
+            <TouchableOpacity activeOpacity={0.85} style={styles.addBalanceButton}>
+              <Text style={styles.addBalanceText}>Add new balance</Text>
+              <Plus size={21} color="#101828" />
+            </TouchableOpacity>
           </View>
-          <View style={styles.accountMeta}>
-            <Text style={styles.accountName}>{item.name}</Text>
-            <Text style={styles.accountSub}>Available balance</Text>
+
+          <View style={styles.accountBalanceBox}>
+            <View style={styles.currencyTabs}>
+              {[
+                ['USD', '🇺🇸'],
+                ['GBP', '🇬🇧'],
+                ['EUR', '🇪🇺'],
+                ['USDC', '$'],
+                ['USDT', 'T'],
+              ].map(([label, icon], index) => (
+                <TouchableOpacity key={label} activeOpacity={0.85} style={[styles.currencyTab, index === 0 && styles.currencyTabActive]}>
+                  <Text style={styles.currencyTabIcon}>{icon}</Text>
+                  <Text style={[styles.currencyTabText, index === 0 && styles.currencyTabTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.accountAmountsBlock}>
+              <Text style={styles.accountBalanceLabel}>Available USD balance  ⓘ</Text>
+              <Text style={styles.accountMainAmount}>$5.95</Text>
+              <Text style={[styles.accountBalanceLabel, styles.pendingLabel]}>Pending USD balance  ⓘ</Text>
+              <Text style={styles.accountMainAmount}>$0.00</Text>
+            </View>
+
+            <View style={styles.accountActionStack}>
+              <TouchableOpacity activeOpacity={0.85} style={styles.accountOutlineButton}>
+                <Text style={styles.accountOutlineText}>Add Money</Text>
+                <Plus size={18} color="#101828" />
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.85} style={[styles.accountOutlineButton, styles.accountButtonMuted]} onPress={() => setSendModalOpen(true)}>
+                <Text style={styles.accountOutlineText}>Send Money</Text>
+                <ArrowUpRight size={18} color="#101828" />
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.85} style={styles.accountOutlineButton}>
+                <Text style={styles.accountOutlineText}>Convert Funds</Text>
+                <RefreshCw size={16} color="#101828" />
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.accountAmount}>{item.amount}</Text>
-          <ChevronRight size={18} color="#798392" />
         </View>
-      ))}
+
+        <View style={styles.waitlistBanner}>
+          <Text style={styles.waitlistTitle}>You are on the waitlist for a US bank account</Text>
+          <Text style={styles.waitlistCopy}>We will reach out to you as soon as early access opens in your region.</Text>
+          <View style={styles.waitlistObject} />
+        </View>
+      </ScrollView>
+
+      {sendModalOpen && (
+        <SendMoneyModal
+          onClose={() => setSendModalOpen(false)}
+          onStablecoins={() => {
+            setSendModalOpen(false);
+            onOpenPage('sendRecipient');
+          }}
+        />
+      )}
     </View>
-  </ScrollView>
+  );
+};
+
+const SendMoneyModal: React.FC<{ onClose: () => void; onStablecoins: () => void }> = ({ onClose, onStablecoins }) => (
+  <View style={styles.sendModalOverlay}>
+    <TouchableOpacity activeOpacity={1} style={styles.sendModalScrim} onPress={onClose} />
+    <View style={styles.sendModalCard}>
+      <View style={styles.sendModalHeader}>
+        <Text style={styles.sendModalTitle}>Send Money</Text>
+        <TouchableOpacity activeOpacity={0.85} style={styles.sendModalClose} onPress={onClose}>
+          <X size={21} color="#101828" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.sendOptionsList}>
+        <SendOption Icon={Smartphone} title="Send via Mobile Money" copy="Send to a mobile money wallet instantly" />
+        <SendOption Icon={CircleDollarSign} title="Send via Stablecoins" copy="Send stablecoins across supported networks to any wallet" onPress={onStablecoins} />
+        <SendOption Icon={WalletCards} title="Send via PIX" copy="Use pix to send Brazilian Real (BRL) instantly" />
+        <SendOption Icon={ArrowUpRight} title="Send via UPI" copy="Use upi to send Indian Rupee (INR) instantly" />
+        <SendOption Icon={Banknote} title="Send via Interac" copy="Use Interac e-Transfer to send Canadian Dollars (CAD) instantly" />
+        <SendOption Icon={Users} title="Send via GreyTag" copy="Send funds instantly to your friends or colleagues using their GreyTag" />
+      </View>
+    </View>
+  </View>
+);
+
+const SendOption: React.FC<{
+  Icon: React.ComponentType<any>;
+  title: string;
+  copy: string;
+  onPress?: () => void;
+}> = ({ Icon, title, copy, onPress }) => (
+  <TouchableOpacity activeOpacity={0.88} style={styles.sendOptionRow} onPress={onPress}>
+    <View style={styles.sendOptionIcon}>
+      <Icon size={23} color="#2f6fe4" />
+    </View>
+    <View style={styles.sendOptionTextBlock}>
+      <Text style={styles.sendOptionTitle}>{title}</Text>
+      <Text style={styles.sendOptionCopy}>{copy}</Text>
+    </View>
+  </TouchableOpacity>
+);
+
+const RecipientDetailsPage: React.FC<{ onBack: () => void; onContinue: () => void }> = ({ onBack, onContinue }) => {
+  const [currency, setCurrency] = useState('USDC');
+  const [network, setNetwork] = useState('');
+  const [networkOpen, setNetworkOpen] = useState(false);
+  const [address, setAddress] = useState('');
+
+  const needsNetwork = currency === 'USDT';
+
+  return (
+    <View style={styles.sendFlowPage}>
+      <SendFlowHeader step="STEP 1 / 4" label="Enter recipient details" progress="25%" onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.sendFlowContent} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sendFlowTitle}>Recipient details</Text>
+        <Text style={styles.sendFlowSubtitle}>Enter the wallet address you're sending to</Text>
+
+        <View style={styles.recipientCard}>
+          <Text style={styles.formLabel}>Currency</Text>
+          <TouchableOpacity activeOpacity={0.85} style={styles.selectBox} onPress={() => setCurrency(currency === 'USDT' ? 'USDC' : 'USDT')}>
+            <Text style={styles.selectValue}>{currency}</Text>
+            <ChevronDown size={18} color="#101828" />
+          </TouchableOpacity>
+
+          {needsNetwork && (
+            <>
+              <Text style={styles.formLabel}>Network</Text>
+              <TouchableOpacity activeOpacity={0.85} style={[styles.selectBox, networkOpen && styles.selectBoxFocused]} onPress={() => setNetworkOpen((value) => !value)}>
+                <Text style={[styles.selectValue, !network && styles.placeholderValue]}>{network || 'Select network'}</Text>
+                <ChevronDown size={18} color="#101828" />
+              </TouchableOpacity>
+              {networkOpen && (
+                <View style={styles.networkDropdown}>
+                  {['Binance Smart Chain (BEP-20)', 'Tron (TRC-20)'].map((item) => (
+                    <TouchableOpacity
+                      key={item}
+                      activeOpacity={0.85}
+                      style={styles.networkOption}
+                      onPress={() => {
+                        setNetwork(item);
+                        setNetworkOpen(false);
+                      }}
+                    >
+                      <Text style={styles.networkOptionText}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+
+          <Text style={styles.formLabel}>Wallet address</Text>
+          <View style={styles.walletAddressBox}>
+            <TextInput
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Enter wallet address"
+              placeholderTextColor="#98a2b3"
+              style={styles.walletAddressInput}
+            />
+            <TouchableOpacity activeOpacity={0.85} onPress={() => setAddress('0x7A9B...24F1')}>
+              <Text style={styles.pasteText}>Paste</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.warningStrip}>
+            <View style={styles.warningIcon}>
+              <Text style={styles.warningIconText}>i</Text>
+            </View>
+            <Text style={styles.warningText}>Ensure you're sending to the right wallet address, funds cannot be reversed</Text>
+          </View>
+          <TouchableOpacity activeOpacity={0.85} style={styles.primaryBlueButton} onPress={onContinue}>
+            <Text style={styles.primaryBlueButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
+const SendAmountPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const [amount, setAmount] = useState('');
+  const numericAmount = Number(amount || '0');
+  const sendFee = numericAmount > 0 ? 1.0023 : 0;
+  const amountToSend = Math.max(numericAmount - sendFee, 0);
+  const recipientAmount = numericAmount > 0 ? Math.max(amountToSend - 0.01, 0) : 0;
+
+  return (
+    <View style={styles.sendFlowPage}>
+      <SendFlowHeader step="STEP 2 / 4" label="Enter amount" progress="50%" onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.sendFlowContent} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sendFlowTitle}>Send USDT to wallet</Text>
+        <Text style={styles.sendFlowSubtitle}>Enter amount to send to recipient</Text>
+
+        <View style={styles.amountCard}>
+          <Text style={styles.formLabel}>Amount to send</Text>
+          <View style={styles.amountInputBox}>
+            <View style={styles.amountCurrencyBlock}>
+              <View style={styles.amountCurrencyPill}>
+                <Text style={styles.amountCurrencyFlag}>🇺🇸</Text>
+                <Text style={styles.amountCurrencyText}>USD</Text>
+                <ChevronDown size={15} color="#101828" />
+              </View>
+              <Text style={styles.balanceHint}>Bal: $5.95</Text>
+            </View>
+            <View style={styles.amountValueWrap}>
+              <Text style={styles.amountDollar}>$</Text>
+              <TextInput
+                value={amount}
+                onChangeText={(text) => setAmount(text.replace(/[^0-9.]/g, ''))}
+                placeholder="0"
+                placeholderTextColor="#98a2b3"
+                keyboardType="numeric"
+                style={styles.amountInput}
+              />
+            </View>
+          </View>
+
+          <View style={styles.feeBox}>
+            <FeeRow label="Conversion Fee" value={`- $${numericAmount > 0 ? '0' : '0'}`} />
+            <FeeRow label="Send Fee" value={`- $${numericAmount > 0 ? sendFee.toFixed(4) : '0'}`} />
+            <View style={styles.feeDivider} />
+            <FeeRow label="Amount we'll send" value={`= $${numericAmount > 0 ? amountToSend.toFixed(2) : '0'}`} strong />
+            <FeeRow label="Today’s rate" value="x 1" />
+          </View>
+
+          <Text style={styles.formLabel}>Recipient will receive</Text>
+          <View style={styles.recipientReceiveBox}>
+            <View style={styles.usdtPill}>
+              <Text style={styles.usdtIcon}>T</Text>
+              <Text style={styles.usdtText}>USDT</Text>
+            </View>
+            <Text style={styles.recipientReceiveAmount}>₮{numericAmount > 0 ? recipientAmount.toFixed(2) : '0'}</Text>
+          </View>
+
+          <TouchableOpacity activeOpacity={0.85} style={[styles.primaryBlueButton, !numericAmount && styles.disabledButton]}>
+            <Text style={styles.primaryBlueButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
+const SendFlowHeader: React.FC<{ step: string; label: string; progress: string; onBack: () => void }> = ({ step, label, progress, onBack }) => (
+  <View style={styles.sendFlowHeader}>
+    <View style={[styles.sendFlowProgress, { width: progress as any }]} />
+    <TouchableOpacity activeOpacity={0.85} style={styles.sendBackButton} onPress={onBack}>
+      <ArrowLeft size={23} color="#101828" />
+    </TouchableOpacity>
+    <GreyLogo size="large" />
+    <View style={styles.stepBadge}>
+      <View style={styles.stepSpinner} />
+      <View>
+        <Text style={styles.stepText}>{step}</Text>
+        <Text style={styles.stepLabel}>{label}</Text>
+      </View>
+    </View>
+  </View>
+);
+
+const FeeRow: React.FC<{ label: string; value: string; strong?: boolean }> = ({ label, value, strong }) => (
+  <View style={styles.feeRow}>
+    <Text style={[styles.feeLabel, strong && styles.feeStrongText]}>{label}</Text>
+    <Text style={[styles.feeValue, strong && styles.feeStrongText]}>{value}</Text>
+  </View>
 );
 
 const PaymentsPage: React.FC = () => (
@@ -547,11 +821,13 @@ const CurrencyStack: React.FC = () => (
 const ActionCircle: React.FC<{
   label: string;
   Icon: React.ComponentType<any>;
+  tint?: string;
+  iconColor?: string;
   onPress?: () => void;
-}> = ({ label, Icon, onPress }) => (
+}> = ({ label, Icon, tint, iconColor, onPress }) => (
   <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.actionCircleWrap}>
-    <View style={styles.actionCircle}>
-      <Icon size={24} color="#111827" />
+    <View style={[styles.actionCircle, tint ? { backgroundColor: tint, borderColor: tint } : undefined]}>
+      <Icon size={24} color={iconColor || '#111827'} />
     </View>
     <Text style={styles.actionCircleText}>{label}</Text>
   </TouchableOpacity>
@@ -577,15 +853,15 @@ const ActionTile: React.FC<{
 const SetupCard: React.FC = () => (
   <View style={styles.setupCard}>
     <View style={styles.setupTextBlock}>
-      <Text style={styles.setupTitle}>اكمل الاعداد</Text>
-      <Text style={styles.setupCopy}>استخدم هذا الدليل لاكمال اعداد حسابك</Text>
+      <Text style={styles.setupTitle}>Continue setup</Text>
+      <Text style={styles.setupCopy}>Use this guide to finish setting up your account</Text>
     </View>
     <View style={styles.progressRing}>
       <View style={styles.progressGap} />
       <Text style={styles.progressText}>4/5</Text>
     </View>
     <TouchableOpacity activeOpacity={0.85} style={styles.setupButton}>
-      <Text style={styles.setupButtonText}>إكمال الإعداد</Text>
+      <Text style={styles.setupButtonText}>Complete setup</Text>
     </TouchableOpacity>
   </View>
 );
@@ -1041,12 +1317,607 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginRight: 12,
   },
+  accountPageHost: {
+    flex: 1,
+    backgroundColor: '#f7f7fa',
+  },
+  accountsOverviewCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#edf0f4',
+    padding: 20,
+  },
+  accountsOverviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  accountsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  accountsOverviewTitle: {
+    color: '#10131b',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  balanceCount: {
+    color: '#667085',
+    fontSize: 13,
+    fontWeight: '800',
+    marginLeft: 4,
+  },
+  syncMiniSmall: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  addBalanceButton: {
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#f2f4f7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  addBalanceText: {
+    color: '#667085',
+    fontSize: 14,
+    fontWeight: '800',
+    marginRight: 8,
+  },
+  accountBalanceBox: {
+    borderWidth: 1,
+    borderColor: '#e5e9f0',
+    borderRadius: 10,
+    padding: 26,
+  },
+  currencyTabs: {
+    minHeight: 56,
+    borderRadius: 10,
+    backgroundColor: '#f4f5f8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+  currencyTab: {
+    height: 38,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  currencyTabActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#98a2b3',
+    shadowOpacity: 0.12,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  currencyTabIcon: {
+    fontSize: 13,
+    marginRight: 6,
+  },
+  currencyTabText: {
+    color: '#667085',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  currencyTabTextActive: {
+    color: '#111827',
+  },
+  accountAmountsBlock: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  accountBalanceLabel: {
+    color: '#98a2b3',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  pendingLabel: {
+    marginTop: 34,
+  },
+  accountMainAmount: {
+    color: '#111827',
+    fontSize: 31,
+    fontWeight: '900',
+    marginTop: 8,
+  },
+  accountActionStack: {
+    alignItems: 'center',
+  },
+  accountOutlineButton: {
+    width: '76%',
+    height: 50,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#e6eaf0',
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  accountButtonMuted: {
+    backgroundColor: '#f7f7fa',
+  },
+  accountOutlineText: {
+    color: '#101828',
+    fontSize: 14,
+    fontWeight: '900',
+    marginRight: 8,
+  },
+  waitlistBanner: {
+    height: 132,
+    borderRadius: 8,
+    backgroundColor: '#07111f',
+    marginTop: 24,
+    padding: 18,
+    overflow: 'hidden',
+  },
+  waitlistTitle: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 30,
+    maxWidth: 392,
+  },
+  waitlistCopy: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 15,
+    marginTop: 10,
+  },
+  waitlistObject: {
+    position: 'absolute',
+    width: 120,
+    height: 80,
+    borderRadius: 14,
+    backgroundColor: '#9fc7ff',
+    right: 42,
+    bottom: 18,
+    transform: [{ rotate: '-12deg' }],
+  },
+  sendModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 18,
+    alignItems: 'center',
+    paddingTop: 55,
+    paddingHorizontal: 28,
+  },
+  sendModalScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(63, 78, 106, 0.62)',
+  },
+  sendModalCard: {
+    width: '100%',
+    maxWidth: 474,
+    maxHeight: '92%',
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    padding: 20,
+    shadowColor: '#101828',
+    shadowOpacity: 0.2,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 14 },
+  },
+  sendModalHeader: {
+    height: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sendModalTitle: {
+    color: '#101828',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  sendModalClose: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendOptionsList: {
+    gap: 10,
+  },
+  sendOptionRow: {
+    minHeight: 96,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#edf0f4',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+  },
+  sendOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eef4ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 18,
+  },
+  sendOptionTextBlock: {
+    flex: 1,
+  },
+  sendOptionTitle: {
+    color: '#101828',
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  sendOptionCopy: {
+    color: '#344054',
+    fontSize: 14,
+    lineHeight: 20,
+  },
   paymentsPanel: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#edf0f4',
     padding: 20,
+  },
+  sendFlowPage: {
+    flex: 1,
+    backgroundColor: '#f7f7fa',
+  },
+  sendFlowHeader: {
+    height: 89,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e9f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    position: 'relative',
+  },
+  sendFlowProgress: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 4,
+    backgroundColor: '#2f6fe4',
+  },
+  sendBackButton: {
+    width: 41,
+    height: 41,
+    borderRightWidth: 1,
+    borderRightColor: '#edf0f4',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  stepBadge: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepSpinner: {
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    borderWidth: 4,
+    borderColor: '#dbe8ff',
+    borderTopColor: '#2f6fe4',
+    marginRight: 8,
+  },
+  stepText: {
+    color: '#667085',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  stepLabel: {
+    color: '#101828',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  sendFlowContent: {
+    paddingHorizontal: 26,
+    paddingTop: 54,
+    paddingBottom: 90,
+    alignItems: 'center',
+  },
+  sendFlowTitle: {
+    color: '#101828',
+    fontSize: 25,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  sendFlowSubtitle: {
+    color: '#344054',
+    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 38,
+    textAlign: 'center',
+  },
+  recipientCard: {
+    width: '100%',
+    maxWidth: 500,
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+    padding: 25,
+    shadowColor: '#d0d5dd',
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  formLabel: {
+    alignSelf: 'flex-start',
+    color: '#101828',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  selectBox: {
+    width: '100%',
+    height: 51,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#d0d5dd',
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    marginBottom: 18,
+  },
+  selectBoxFocused: {
+    borderColor: '#2f6fe4',
+  },
+  selectValue: {
+    color: '#101828',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  placeholderValue: {
+    color: '#98a2b3',
+    fontWeight: '600',
+  },
+  networkDropdown: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#e5e9f0',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    marginTop: -18,
+    marginBottom: 18,
+    overflow: 'hidden',
+    shadowColor: '#98a2b3',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  networkOption: {
+    height: 42,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    backgroundColor: '#f7f7fa',
+  },
+  networkOptionText: {
+    color: '#101828',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  walletAddressBox: {
+    width: '100%',
+    height: 51,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#d0d5dd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  walletAddressInput: {
+    flex: 1,
+    height: '100%',
+    color: '#101828',
+    fontSize: 14,
+    outlineStyle: isWeb ? 'none' as any : undefined,
+  } as any,
+  pasteText: {
+    color: '#2f6fe4',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  warningStrip: {
+    minHeight: 36,
+    borderRadius: 7,
+    backgroundColor: '#fff7df',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    marginBottom: 18,
+  },
+  warningIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#2f6fe4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  warningIconText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  warningText: {
+    color: '#3f3320',
+    fontSize: 12,
+    flex: 1,
+  },
+  primaryBlueButton: {
+    width: '100%',
+    height: 49,
+    borderRadius: 6,
+    backgroundColor: '#2f6fe4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBlueButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  amountCard: {
+    width: '100%',
+    maxWidth: 500,
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+    padding: 25,
+    shadowColor: '#d0d5dd',
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  amountInputBox: {
+    width: '100%',
+    minHeight: 80,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#1f4f72',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    marginBottom: 18,
+  },
+  amountCurrencyBlock: {
+    alignItems: 'flex-start',
+  },
+  amountCurrencyPill: {
+    height: 35,
+    borderRadius: 18,
+    backgroundColor: '#f4f5f8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  amountCurrencyFlag: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  amountCurrencyText: {
+    color: '#101828',
+    fontSize: 14,
+    fontWeight: '900',
+    marginRight: 4,
+  },
+  balanceHint: {
+    color: '#667085',
+    fontSize: 13,
+    marginTop: 8,
+    marginLeft: 6,
+  },
+  amountValueWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 96,
+    justifyContent: 'flex-end',
+  },
+  amountDollar: {
+    color: '#98a2b3',
+    fontSize: 27,
+    fontWeight: '500',
+  },
+  amountInput: {
+    minWidth: 48,
+    color: '#101828',
+    fontSize: 27,
+    fontWeight: '900',
+    textAlign: 'right',
+    outlineStyle: isWeb ? 'none' as any : undefined,
+  } as any,
+  feeBox: {
+    backgroundColor: '#f4f5f8',
+    borderRadius: 7,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 18,
+  },
+  feeRow: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  feeLabel: {
+    color: '#344054',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  feeValue: {
+    color: '#101828',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  feeStrongText: {
+    color: '#101828',
+    fontWeight: '900',
+  },
+  feeDivider: {
+    height: 1,
+    backgroundColor: '#d0d5dd',
+    marginVertical: 8,
+  },
+  recipientReceiveBox: {
+    width: '100%',
+    height: 80,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#d0d5dd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    marginBottom: 24,
+  },
+  usdtPill: {
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f4f5f8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  usdtIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#20b486',
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginRight: 6,
+  },
+  usdtText: {
+    color: '#101828',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  recipientReceiveAmount: {
+    color: '#101828',
+    fontSize: 27,
+    fontWeight: '900',
+  },
+  disabledButton: {
+    backgroundColor: '#eff1f4',
   },
   transactionsContent: {
     paddingHorizontal: 4,
