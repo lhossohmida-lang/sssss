@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isRecipientOrSender(transactionData) {
+      return request.auth.uid == transactionData.senderId || request.auth.uid == transactionData.recipientId;
+    }
+
+    // Users collection rules
+    match /users/{userId} {
+      allow read, update: if isOwner(userId);
+      allow create: if isAuthenticated();
+      allow delete: if false; // Accounts are never hard-deleted in premium systems
+    }
+
+    // Wallets collection rules
+    match /wallets/{walletId} {
+      allow read, update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Cards collection rules
+    match /cards/{cardId} {
+      allow read, update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Transactions collection rules
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if false; // Transactions are immutable ledger items
+    }
+
+    // KYC verification rules
+    match /kyc/{kycId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.auth.token.admin == true);
+      allow create, update: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Analytics reports rules
+    match /analytics/{analyticsId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Read-only for users, written via secure backend triggers
+    }
+
+    // Real-time Exchange Rates
+    match /exchangeRates/{rateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // Push Notifications rules
+    match /notifications/{notificationId} {
+      allow read, update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,33 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Rules for individual folders
+    match /users/{userId}/{allPaths=**} {
+      // Users can only upload and read files within their own folder
+      allow read, write: if isOwner(userId);
+    }
+    
+    match /kyc/{userId}/{allPaths=**} {
+      // KYC submissions are highly sensitive. Only the user can upload.
+      // Read access allowed for user and system administrators
+      allow read: if isOwner(userId) || (isAuthenticated() && request.auth.token.admin == true);
+      allow write: if isOwner(userId) && request.resource.size < 10 * 1024 * 1024; // Limit to 10MB
+    }
+
+    match /public/{allPaths=**} {
+      // Public assets, readable by anyone, writable by admins
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.token.admin == true;
+    }
+  }
+}
