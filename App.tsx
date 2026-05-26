@@ -11,15 +11,23 @@ import { ReceiveScreen } from './src/screens/ReceiveScreen';
 import { AnalyticsScreen } from './src/screens/AnalyticsScreen';
 import { KYCScreen } from './src/screens/KYCScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
-import { Home, CreditCard, Send, BarChart2, ShieldCheck, ChevronLeft } from 'lucide-react';
+import { AuditLogsScreen } from './src/screens/AuditLogsScreen';
+import { translations } from './src/theme/translations';
+import { Home, CreditCard, Send, BarChart2, ShieldCheck, ChevronLeft, Database } from 'lucide-react';
 
 const { width, height } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 
 export default function App() {
-  const { user, setUser } = useAppStore();
+  const { user, language } = useAppStore();
   const [appState, setAppState] = useState<'onboarding' | 'auth' | 'app'>('onboarding');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'transfer' | 'analytics' | 'kyc' | 'receive' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'cards' | 'transfer' | 'analytics' | 'kyc' | 'receive' | 'settings' | 'logs'>('dashboard');
+
+  const t = (key: string) => {
+    return translations[language]?.[key] || translations['en']?.[key] || key;
+  };
+
+  const isRtl = language === 'ar';
 
   const renderActiveScreen = () => {
     switch (activeTab) {
@@ -35,6 +43,8 @@ export default function App() {
         return <AnalyticsScreen />;
       case 'kyc':
         return <KYCScreen />;
+      case 'logs':
+        return <AuditLogsScreen />;
       case 'settings':
         return <SettingsScreen onLogout={() => setAppState('auth')} />;
       default:
@@ -44,8 +54,8 @@ export default function App() {
 
   const getScreenTitle = () => {
     switch (activeTab) {
-      case 'receive': return 'RECEIVE ASSETS';
-      case 'settings': return 'PREFERENCES';
+      case 'receive': return t('RX_TITLE');
+      case 'settings': return t('ST_TITLE');
       default: return '';
     }
   };
@@ -55,27 +65,33 @@ export default function App() {
     if (!isWeb) return content;
 
     return (
-      <View style={styles.webContainer}>
+      <View style={[styles.webContainer, isRtl && styles.rtlRow]}>
         {/* Decorative background grid and text */}
-        <View style={styles.webPromoColumn}>
+        <View style={[styles.webPromoColumn, isRtl && styles.rtlAlign]}>
           <Text style={styles.promoTitle}>GRYE <Text style={{ color: COLORS.primary }}>ELITE</Text></Text>
-          <Text style={styles.promoDesc}>
-            Experience a new standard of dark luxury fintech neo-banking. 
-            Fully simulated with state storage, real-time conversions, virtual Visa cards, 
-            instant ledger histories, and biometric security features.
+          <Text style={[styles.promoDesc, isRtl && styles.rtlText]}>
+            {isRtl 
+              ? "اختبر معيارًا جديدًا للخدمات المصرفية الرقمية المظلمة والفاخرة. محاكاة كاملة مع تخزين الحالة، وتحويل العملات الفوري، وبطاقات فيزا الافتراضية، وسجلات العمليات المشفرة."
+              : "Experience a new standard of dark luxury fintech neo-banking. Fully simulated with state storage, real-time conversions, virtual Visa cards, instant ledger histories, and biometric security features."}
           </Text>
           
-          <View style={styles.specBox}>
-            <View style={styles.specDot} />
-            <Text style={styles.specText}>Tailwind NativeWind & Reanimated structures ready</Text>
+          <View style={[styles.specBox, isRtl && styles.rtlRow]}>
+            <View style={[styles.specDot, isRtl ? { marginLeft: 12 } : { marginRight: 12 }]} />
+            <Text style={styles.specText}>
+              {isRtl ? "واجهة Tailwind NativeWind و Reanimated جاهزة" : "Tailwind NativeWind & Reanimated structures ready"}
+            </Text>
           </View>
-          <View style={styles.specBox}>
-            <View style={styles.specDot} />
-            <Text style={styles.specText}>Firestore secure data ledger structure</Text>
+          <View style={[styles.specBox, isRtl && styles.rtlRow]}>
+            <View style={[styles.specDot, isRtl ? { marginLeft: 12 } : { marginRight: 12 }]} />
+            <Text style={styles.specText}>
+              {isRtl ? "دفتر أستاذ آمن ومحمي عبر قاعدة بيانات Firestore" : "Firestore secure data ledger structure"}
+            </Text>
           </View>
-          <View style={styles.specBox}>
-            <View style={styles.specDot} />
-            <Text style={styles.specText}>Stripe gateway ready payment channels</Text>
+          <View style={[styles.specBox, isRtl && styles.rtlRow]}>
+            <View style={[styles.specDot, isRtl ? { marginLeft: 12 } : { marginRight: 12 }]} />
+            <Text style={styles.specText}>
+              {isRtl ? "بوابات دفع مجهزة بالكامل للربط مع Stripe" : "Stripe gateway ready payment channels"}
+            </Text>
           </View>
         </View>
 
@@ -117,10 +133,12 @@ export default function App() {
       
       {/* Sub-flow header back button */}
       {(activeTab === 'receive' || activeTab === 'settings') && (
-        <View style={styles.subHeader}>
-          <TouchableOpacity onPress={() => setActiveTab('dashboard')} style={styles.backBtn}>
-            <ChevronLeft size={20} color="#FFF" />
-            <Text style={styles.backBtnText}>Back</Text>
+        <View style={[styles.subHeader, isRtl && styles.rtlRow]}>
+          <TouchableOpacity onPress={() => setActiveTab('dashboard')} style={[styles.backBtn, isRtl && styles.rtlRow]}>
+            <View style={isRtl ? { transform: [{ rotate: '180deg' }] } : undefined}>
+              <ChevronLeft size={20} color="#FFF" />
+            </View>
+            <Text style={[styles.backBtnText, isRtl ? { marginRight: 4 } : { marginLeft: 4 }]}>{t('BACK')}</Text>
           </TouchableOpacity>
           <Text style={styles.subHeaderTitle}>{getScreenTitle()}</Text>
           <View style={{ width: 60 }} />
@@ -134,45 +152,53 @@ export default function App() {
 
       {/* Premium Glassmorphic Bottom Navigation Bar */}
       {activeTab !== 'receive' && activeTab !== 'settings' && (
-        <View style={styles.tabBar}>
+        <View style={[styles.tabBar, isRtl && styles.rtlRow]}>
           <TouchableOpacity 
             onPress={() => setActiveTab('dashboard')} 
             style={[styles.tabItem, activeTab === 'dashboard' && styles.tabItemActive]}
           >
-            <Home size={22} color={activeTab === 'dashboard' ? COLORS.primary : COLORS.textSecondary} />
-            <Text style={[styles.tabLabel, activeTab === 'dashboard' && styles.tabLabelActive]}>Home</Text>
+            <Home size={20} color={activeTab === 'dashboard' ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[styles.tabLabel, activeTab === 'dashboard' && styles.tabLabelActive]}>{t('NAV_HOME')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             onPress={() => setActiveTab('cards')} 
             style={[styles.tabItem, activeTab === 'cards' && styles.tabItemActive]}
           >
-            <CreditCard size={22} color={activeTab === 'cards' ? COLORS.primary : COLORS.textSecondary} />
-            <Text style={[styles.tabLabel, activeTab === 'cards' && styles.tabLabelActive]}>Cards</Text>
+            <CreditCard size={20} color={activeTab === 'cards' ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[styles.tabLabel, activeTab === 'cards' && styles.tabLabelActive]}>{t('NAV_CARDS')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             onPress={() => setActiveTab('transfer')} 
             style={[styles.tabItem, activeTab === 'transfer' && styles.tabItemActive]}
           >
-            <Send size={22} color={activeTab === 'transfer' ? COLORS.primary : COLORS.textSecondary} />
-            <Text style={[styles.tabLabel, activeTab === 'transfer' && styles.tabLabelActive]}>Send</Text>
+            <Send size={20} color={activeTab === 'transfer' ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[styles.tabLabel, activeTab === 'transfer' && styles.tabLabelActive]}>{t('NAV_SEND')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             onPress={() => setActiveTab('analytics')} 
             style={[styles.tabItem, activeTab === 'analytics' && styles.tabItemActive]}
           >
-            <BarChart2 size={22} color={activeTab === 'analytics' ? COLORS.primary : COLORS.textSecondary} />
-            <Text style={[styles.tabLabel, activeTab === 'analytics' && styles.tabLabelActive]}>Reports</Text>
+            <BarChart2 size={20} color={activeTab === 'analytics' ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[styles.tabLabel, activeTab === 'analytics' && styles.tabLabelActive]}>{t('NAV_REPORTS')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={() => setActiveTab('logs')} 
+            style={[styles.tabItem, activeTab === 'logs' && styles.tabItemActive]}
+          >
+            <Database size={20} color={activeTab === 'logs' ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[styles.tabLabel, activeTab === 'logs' && styles.tabLabelActive]}>{t('NAV_LOGS')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             onPress={() => setActiveTab('kyc')} 
             style={[styles.tabItem, activeTab === 'kyc' && styles.tabItemActive]}
           >
-            <ShieldCheck size={22} color={activeTab === 'kyc' ? COLORS.primary : COLORS.textSecondary} />
-            <Text style={[styles.tabLabel, activeTab === 'kyc' && styles.tabLabelActive]}>KYC</Text>
+            <ShieldCheck size={20} color={activeTab === 'kyc' ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[styles.tabLabel, activeTab === 'kyc' && styles.tabLabelActive]}>{t('NAV_KYC')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -202,13 +228,12 @@ const styles = StyleSheet.create({
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 60,
+    width: 80,
   },
   backBtnText: {
     color: '#FFF',
     fontSize: 13,
     fontWeight: '700',
-    marginLeft: 4,
   },
   subHeaderTitle: {
     color: '#FFF',
@@ -238,16 +263,17 @@ const styles = StyleSheet.create({
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 12,
+    flex: 1,
   },
   tabItemActive: {
-    backgroundColor: 'rgba(0, 255, 102, 0.03)',
+    backgroundColor: 'rgba(0, 255, 102, 0.02)',
   },
   tabLabel: {
     color: COLORS.textSecondary,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
     marginTop: 4,
   },
@@ -297,7 +323,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: COLORS.primary,
-    marginRight: 12,
   },
   specText: {
     color: '#FFF',
@@ -308,15 +333,15 @@ const styles = StyleSheet.create({
     width: 390,
     height: 812,
     borderRadius: 48,
-    backgroundColor: '#000',
+    backgroundColor: '#000000',
     padding: 12,
-    borderWidth: 8,
-    borderColor: '#242429',
+    borderWidth: 6,
+    borderColor: '#E4E4E7',
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 30 },
-    shadowOpacity: 0.6,
-    shadowRadius: 50,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.08,
+    shadowRadius: 60,
     elevation: 20,
   },
   phoneNotch: {
@@ -352,5 +377,16 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     overflow: 'hidden',
     backgroundColor: COLORS.background,
+  },
+  
+  // RTL Utilities
+  rtlRow: {
+    flexDirection: 'row-reverse',
+  },
+  rtlAlign: {
+    alignItems: 'flex-end',
+  },
+  rtlText: {
+    textAlign: 'right',
   }
 });

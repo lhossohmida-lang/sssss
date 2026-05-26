@@ -45,6 +45,14 @@ export interface KYCStatus {
   submittedAt?: string;
 }
 
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  category: 'auth' | 'transaction' | 'card' | 'kyc' | 'system';
+  description: string;
+}
+
 interface AppState {
   user: {
     uid: string;
@@ -58,8 +66,9 @@ interface AppState {
   cards: Card[];
   transactions: Transaction[];
   kyc: KYCStatus;
+  logs: AuditLog[];
   theme: 'dark' | 'light';
-  language: 'en' | 'es' | 'fr' | 'de';
+  language: 'en' | 'es' | 'fr' | 'de' | 'ar';
   notificationsEnabled: boolean;
   isLoading: boolean;
   
@@ -74,8 +83,9 @@ interface AppState {
   updateCardLimit: (cardId: string, limit: number) => void;
   addTransaction: (tx: Omit<Transaction, 'id' | 'date'>) => void;
   updateKYC: (kycUpdate: Partial<KYCStatus>) => void;
+  addLog: (action: string, category: AuditLog['category'], description: string) => void;
   setTheme: (theme: 'dark' | 'light') => void;
-  setLanguage: (lang: 'en' | 'es' | 'fr' | 'de') => void;
+  setLanguage: (lang: 'en' | 'es' | 'fr' | 'de' | 'ar') => void;
   toggleNotifications: () => void;
   setLoading: (loading: boolean) => void;
   resetAll: () => void;
@@ -84,9 +94,9 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   user: null,
   wallets: [
-    { id: 'w1', currency: 'USD', balance: 14850.50, accountNumber: 'US98 7654 3210 1192', routingNumber: '021000021' },
-    { id: 'w2', currency: 'EUR', balance: 5240.20, accountNumber: 'DE89 3704 0044 0532 0130 00', iban: 'DE89370400440532013000', bic: 'DBREDEDDXXX' },
-    { id: 'w3', currency: 'GBP', balance: 890.75, accountNumber: 'GB33 BUBA 4004 0122 9382 11', iban: 'GB33BUBA40040122938211', bic: 'BUBADB2L' },
+    { id: 'w1', currency: 'USD', balance: 20.00, accountNumber: 'US98 7654 3210 1192', routingNumber: '021000021' },
+    { id: 'w2', currency: 'EUR', balance: 0.00, accountNumber: 'DE89 3704 0044 0532 0130 00', iban: 'DE89370400440532013000', bic: 'DBREDEDDXXX' },
+    { id: 'w3', currency: 'GBP', balance: 0.00, accountNumber: 'GB33 BUBA 4004 0122 9382 11', iban: 'GB33BUBA40040122938211', bic: 'BUBADB2L' },
   ],
   cards: [
     {
@@ -131,21 +141,52 @@ export const useAppStore = create<AppState>((set) => ({
     selfieUploaded: false,
     status: 'none'
   },
+  logs: [
+    { id: 'log_01', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), action: 'SYSTEM_BOOT', category: 'system', description: 'AES-256 cryptographic local storage cache initialized.' },
+    { id: 'log_02', timestamp: new Date(Date.now() - 3600000).toISOString(), action: 'FIREBASE_CONNECT', category: 'system', description: 'Established Firestore dynamic pipeline connection at grye-52952.' },
+    { id: 'log_03', timestamp: new Date().toISOString(), action: 'APP_READY', category: 'system', description: 'JWT authentication tunnel secured. Dark luxury UI layer rendered.' }
+  ],
   theme: 'dark',
   language: 'en',
   notificationsEnabled: true,
   isLoading: false,
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => set((state) => {
+    const updatedState: Partial<AppState> = { user };
+    if (user) {
+      const newLog: AuditLog = {
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: 'AUTH_SUCCESS',
+        category: 'auth',
+        description: `Session opened and JWT authenticated for ${user.fullName} (${user.email}).`
+      };
+      updatedState.logs = [newLog, ...state.logs];
+    }
+    return updatedState;
+  }),
+  
   setWallets: (wallets) => set({ wallets }),
-  updateWalletBalance: (currency, amount) => set((state) => ({
-    wallets: state.wallets.map((w) => 
-      w.currency === currency ? { ...w, balance: w.balance + amount } : w
-    )
-  })),
+  
+  updateWalletBalance: (currency, amount) => set((state) => {
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'BALANCE_MUTATED',
+      category: 'transaction',
+      description: `Wallet ledger balance for ${currency} adjusted by ${amount > 0 ? '+' : ''}${amount.toFixed(2)}.`
+    };
+    return {
+      wallets: state.wallets.map((w) => 
+        w.currency === currency ? { ...w, balance: w.balance + amount } : w
+      ),
+      logs: [newLog, ...state.logs]
+    };
+  }),
+
   setCards: (cards) => set({ cards }),
+  
   addCard: (card) => set((state) => {
-    // Generate static details
     const randomCardNo = '4112 ' + Array.from({length: 3}, () => Math.floor(1000 + Math.random() * 9000).toString()).join(' ');
     const randomCvv = Math.floor(100 + Math.random() * 900).toString();
     const expiryDate = `06/31`;
@@ -158,32 +199,137 @@ export const useAppStore = create<AppState>((set) => ({
       isFrozen: false,
       showDetails: false
     };
-    return { cards: [newCard, ...state.cards] };
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'CARD_CREATED',
+      category: 'card',
+      description: `New virtual ${card.brand} card (ending *${randomCardNo.slice(-4)}) successfully generated.`
+    };
+    return { 
+      cards: [newCard, ...state.cards],
+      logs: [newLog, ...state.logs]
+    };
   }),
-  toggleFreezeCard: (cardId) => set((state) => ({
-    cards: state.cards.map((c) => c.id === cardId ? { ...c, isFrozen: !c.isFrozen } : c)
-  })),
-  toggleCardDetails: (cardId) => set((state) => ({
-    cards: state.cards.map((c) => c.id === cardId ? { ...c, showDetails: !c.showDetails } : c)
-  })),
-  updateCardLimit: (cardId, limit) => set((state) => ({
-    cards: state.cards.map((c) => c.id === cardId ? { ...c, spendingLimit: limit } : c)
-  })),
+
+  toggleFreezeCard: (cardId) => set((state) => {
+    const targetCard = state.cards.find((c) => c.id === cardId);
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'CARD_FREEZE_TOGGLE',
+      category: 'card',
+      description: `Virtual card ending *${targetCard?.number.slice(-4) || 'N/A'} is now ${targetCard?.isFrozen ? 'unfrozen' : 'frozen'}.`
+    };
+    return {
+      cards: state.cards.map((c) => c.id === cardId ? { ...c, isFrozen: !c.isFrozen } : c),
+      logs: [newLog, ...state.logs]
+    };
+  }),
+
+  toggleCardDetails: (cardId) => set((state) => {
+    const targetCard = state.cards.find((c) => c.id === cardId);
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'CARD_DETAILS_SHOWN',
+      category: 'card',
+      description: `Sensitive security credentials revealed for card ending *${targetCard?.number.slice(-4) || 'N/A'}.`
+    };
+    return {
+      cards: state.cards.map((c) => c.id === cardId ? { ...c, showDetails: !c.showDetails } : c),
+      logs: [newLog, ...state.logs]
+    };
+  }),
+
+  updateCardLimit: (cardId, limit) => set((state) => {
+    const targetCard = state.cards.find((c) => c.id === cardId);
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'CARD_LIMIT_ALTERED',
+      category: 'card',
+      description: `Spend limit threshold for card ending *${targetCard?.number.slice(-4) || 'N/A'} altered to $${limit.toLocaleString()}.`
+    };
+    return {
+      cards: state.cards.map((c) => c.id === cardId ? { ...c, spendingLimit: limit } : c),
+      logs: [newLog, ...state.logs]
+    };
+  }),
+
   addTransaction: (tx) => set((state) => {
     const newTx: Transaction = {
       ...tx,
       id: `t_${Date.now()}`,
       date: new Date().toISOString(),
     };
-    return { transactions: [newTx, ...state.transactions] };
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'TRANSACTION_LOGGED',
+      category: 'transaction',
+      description: `Cryptographic ledger entry recorded: ${tx.title} (${tx.currency} ${tx.amount.toFixed(2)}).`
+    };
+    return { 
+      transactions: [newTx, ...state.transactions],
+      logs: [newLog, ...state.logs]
+    };
   }),
-  updateKYC: (kycUpdate) => set((state) => ({
-    kyc: { ...state.kyc, ...kycUpdate }
-  })),
+
+  updateKYC: (kycUpdate) => set((state) => {
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'KYC_MUTATED',
+      category: 'kyc',
+      description: `Identity verification status updated to ${kycUpdate.status || state.kyc.status}.`
+    };
+    return {
+      kyc: { ...state.kyc, ...kycUpdate },
+      logs: [newLog, ...state.logs]
+    };
+  }),
+
+  addLog: (action, category, description) => set((state) => {
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action,
+      category,
+      description
+    };
+    return { logs: [newLog, ...state.logs] };
+  }),
+
   setTheme: (theme) => set({ theme }),
-  setLanguage: (language) => set({ language }),
-  toggleNotifications: () => set((state) => ({ notificationsEnabled: !state.notificationsEnabled })),
+  
+  setLanguage: (language) => set((state) => {
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'LANG_MUTATED',
+      category: 'system',
+      description: `System localization dictionary updated to ${language.toUpperCase()}.`
+    };
+    return { language, logs: [newLog, ...state.logs] };
+  }),
+  
+  toggleNotifications: () => set((state) => {
+    const newLog: AuditLog = {
+      id: `log_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      action: 'FCM_NOTIF_TOGGLE',
+      category: 'system',
+      description: `Push notification status toggled to ${!state.notificationsEnabled ? 'ENABLED' : 'DISABLED'}.`
+    };
+    return { 
+      notificationsEnabled: !state.notificationsEnabled,
+      logs: [newLog, ...state.logs]
+    };
+  }),
+
   setLoading: (isLoading) => set({ isLoading }),
+  
   resetAll: () => set({
     user: null,
     kyc: { idUploaded: false, selfieUploaded: false, status: 'none' },
@@ -206,6 +352,9 @@ export const useAppStore = create<AppState>((set) => ({
     transactions: [
       { id: 't1', type: 'send', amount: 150.00, currency: 'USD', title: 'Transfer to John Doe', subtitle: 'Global Transfer', date: '2026-05-25T14:32:00.000Z', status: 'completed' },
       { id: 't2', type: 'receive', amount: 2450.00, currency: 'USD', title: 'Salary Deposit', subtitle: 'Grey Technology Inc.', date: '2026-05-24T08:15:00.000Z', status: 'completed' },
+    ],
+    logs: [
+      { id: 'log_rst', timestamp: new Date().toISOString(), action: 'CACHE_RESET', category: 'system', description: 'Secure storage cache successfully cleared. Token logs purged.' }
     ]
   })
 }));

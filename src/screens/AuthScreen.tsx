@@ -222,12 +222,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             <Text style={styles.dividerText}>OR SECURELY ACCESS WITH</Text>
 
             <View style={styles.socialRow}>
-              <TouchableOpacity onPress={handleBiometrics} style={styles.socialBtn}>
-                <Fingerprint size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.socialBtnText}>Biometrics</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity onPress={() => setUseOtp(true)} style={styles.socialBtn}>
+              <TouchableOpacity onPress={() => setUseOtp(true)} style={[styles.socialBtn, { flex: 1, justifyContent: 'center' }]}>
                 <Smartphone size={20} color="#FFF" style={{ marginRight: 6 }} />
                 <Text style={styles.socialBtnText}>OTP Phone</Text>
               </TouchableOpacity>
@@ -237,7 +232,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       </GlassCard>
 
       <Text style={styles.legalText}>
-        By entering Grye, you authorize multi-layer biometric processing in compliance with international compliance structures.
+        By entering Grye, you authorize multi-layer cryptographic authentication in compliance with international security standards.
       </Text>
     </View>
   );

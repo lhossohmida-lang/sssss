@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform 
 import { COLORS } from '../theme/colors';
 import { useAppStore } from '../store/useAppStore';
 import { GlassCard } from '../components/GlassCard';
-import { User, Lock, Bell, Shield, Languages, Laptop, LogOut, ChevronRight, Award } from 'lucide-react';
+import { translations } from '../theme/translations';
+import { Shield, Bell, Lock, Languages, Laptop, LogOut, ChevronRight, Award } from 'lucide-react';
 
 interface SettingsScreenProps {
   onLogout: () => void;
@@ -19,30 +20,36 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
 
   const [useBiometrics, setUseBiometrics] = useState(true);
 
+  const t = (key: string) => {
+    return translations[language]?.[key] || translations['en']?.[key] || key;
+  };
+
+  const isRtl = language === 'ar';
+
   const handleLogout = () => {
     resetAll();
     onLogout();
-    alert('Logged out from all secure JWT sessions.');
+    alert(isRtl ? 'تم تسجيل الخروج بنجاح.' : 'Logged out from all secure JWT sessions.');
   };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>SETTINGS</Text>
-        <Text style={styles.subtitle}>Configure your security profile & preferences</Text>
+      <View style={[styles.header, isRtl && styles.rtlAlign]}>
+        <Text style={styles.title}>{t('ST_TITLE')}</Text>
+        <Text style={styles.subtitle}>{t('ST_SUBTITLE')}</Text>
       </View>
 
       {/* User profile head */}
       <GlassCard glowing={true} style={styles.profileBox}>
-        <View style={styles.profileMeta}>
+        <View style={[styles.profileMeta, isRtl && styles.rtlRow]}>
           <View style={styles.profileAvatar}>
             <Text style={styles.avatarText}>AM</Text>
           </View>
-          <View style={{ marginLeft: 15 }}>
+          <View style={[isRtl ? { marginRight: 15 } : { marginLeft: 15 }, isRtl && styles.rtlAlign]}>
             <Text style={styles.profileName}>{user?.fullName || 'Alexander Moreau'}</Text>
             <Text style={styles.profileEmail}>{user?.email || 'alex.moreau@grye-premium.com'}</Text>
-            <View style={styles.premiumTag}>
-              <Award size={12} color={COLORS.primary} style={{ marginRight: 4 }} />
+            <View style={[styles.premiumTag, isRtl && styles.rtlRow]}>
+              <Award size={12} color={COLORS.primary} style={isRtl ? { marginLeft: 4 } : { marginRight: 4 }} />
               <Text style={styles.premiumTagText}>ELITE VIP PLATINUM</Text>
             </View>
           </View>
@@ -50,16 +57,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
       </GlassCard>
 
       {/* Preferences Section */}
-      <Text style={styles.sectionTitle}>App Preferences</Text>
+      <Text style={[styles.sectionTitle, isRtl && styles.rtlText]}>{t('ST_PREFERENCES')}</Text>
       
       <GlassCard style={styles.settingsGroup}>
         {/* Theme Toggle */}
-        <View style={styles.settingsItem}>
-          <View style={styles.settingsLeft}>
-            <View style={styles.iconWrapper}>
+        <View style={[styles.settingsItem, isRtl && styles.rtlRow]}>
+          <View style={[styles.settingsLeft, isRtl && styles.rtlRow]}>
+            <View style={[styles.iconWrapper, isRtl ? { marginLeft: 12 } : { marginRight: 12 }]}>
               <Shield size={18} color={COLORS.primary} />
             </View>
-            <Text style={styles.settingsLabel}>Dark Mode Luxury Aesthetics</Text>
+            <Text style={styles.settingsLabel}>{t('ST_DARK_MODE')}</Text>
           </View>
           <Switch 
             value={theme === 'dark'} 
@@ -70,12 +77,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
         </View>
 
         {/* Push notifications */}
-        <View style={[styles.settingsItem, styles.borderTop]}>
-          <View style={styles.settingsLeft}>
-            <View style={styles.iconWrapper}>
+        <View style={[styles.settingsItem, styles.borderTop, isRtl && styles.rtlRow]}>
+          <View style={[styles.settingsLeft, isRtl && styles.rtlRow]}>
+            <View style={[styles.iconWrapper, isRtl ? { marginLeft: 12 } : { marginRight: 12 }]}>
               <Bell size={18} color={COLORS.primary} />
             </View>
-            <Text style={styles.settingsLabel}>FCM Push Notifications</Text>
+            <Text style={styles.settingsLabel}>{t('ST_FCM_NOTIFICATIONS')}</Text>
           </View>
           <Switch 
             value={notificationsEnabled} 
@@ -84,30 +91,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
             thumbColor={notificationsEnabled ? COLORS.primary : '#F4F4F5'}
           />
         </View>
-
-        {/* Biometrics */}
-        <View style={[styles.settingsItem, styles.borderTop]}>
-          <View style={styles.settingsLeft}>
-            <View style={styles.iconWrapper}>
-              <Lock size={18} color={COLORS.primary} />
-            </View>
-            <Text style={styles.settingsLabel}>Face ID / Biometric Lock</Text>
-          </View>
-          <Switch 
-            value={useBiometrics} 
-            onValueChange={setUseBiometrics}
-            trackColor={{ false: '#3F3F46', true: COLORS.primaryGlow }}
-            thumbColor={useBiometrics ? COLORS.primary : '#F4F4F5'}
-          />
-        </View>
       </GlassCard>
 
       {/* Language system */}
-      <Text style={styles.sectionTitle}>Language System</Text>
+      <Text style={[styles.sectionTitle, isRtl && styles.rtlText]}>{t('ST_LANGUAGES')}</Text>
       <GlassCard style={styles.settingsGroup}>
-        <View style={styles.langGrid}>
+        <View style={[styles.langGrid, isRtl && styles.rtlRow]}>
           {[
             { code: 'en', label: 'English' },
+            { code: 'ar', label: 'العربية' },
             { code: 'es', label: 'Español' },
             { code: 'fr', label: 'Français' },
             { code: 'de', label: 'Deutsch' },
@@ -132,22 +124,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
       </GlassCard>
 
       {/* Device Management */}
-      <Text style={styles.sectionTitle}>Connected Devices</Text>
+      <Text style={[styles.sectionTitle, isRtl && styles.rtlText]}>{t('ST_DEVICES')}</Text>
       <GlassCard style={styles.settingsGroup}>
-        <View style={styles.deviceItem}>
-          <Laptop size={20} color={COLORS.primary} style={{ marginRight: 15 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.deviceName}>Apple iPhone 15 Pro Max (This Device)</Text>
-            <Text style={styles.deviceMeta}>Active Session • London, UK</Text>
+        <View style={[styles.deviceItem, isRtl && styles.rtlRow]}>
+          <Laptop size={20} color={COLORS.primary} style={isRtl ? { marginLeft: 15 } : { marginRight: 15 }} />
+          <View style={[{ flex: 1 }, isRtl && styles.rtlAlign]}>
+            <Text style={styles.deviceName}>{t('ST_DEVICE_ACTIVE')}</Text>
+            <Text style={styles.deviceMute}>{t('ST_DEVICE_META')}</Text>
           </View>
-          <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
+          <View style={isRtl ? { transform: [{ rotate: '180deg' }] } : undefined}>
+            <ChevronRight size={16} color="rgba(255,255,255,0.3)" />
+          </View>
         </View>
       </GlassCard>
 
       {/* Logout Action button */}
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-        <LogOut size={18} color="#EF4444" style={{ marginRight: 8 }} />
-        <Text style={styles.logoutText}>TERMINATE JWT SESSIONS & LOGOUT</Text>
+      <TouchableOpacity onPress={handleLogout} style={[styles.logoutBtn, isRtl && styles.rtlRow]}>
+        <LogOut size={18} color="#EF4444" style={isRtl ? { marginLeft: 8 } : { marginRight: 8 }} />
+        <Text style={styles.logoutText}>{t('ST_LOGOUT')}</Text>
       </TouchableOpacity>
 
       <View style={{ height: 100 }} />
@@ -259,7 +253,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   settingsLabel: {
     color: '#FFF',
@@ -304,7 +297,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  deviceMeta: {
+  deviceMute: {
     color: COLORS.textSecondary,
     fontSize: 10,
     marginTop: 2,
@@ -325,5 +318,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1.5,
+  },
+  
+  // RTL helpers
+  rtlRow: {
+    flexDirection: 'row-reverse',
+  },
+  rtlAlign: {
+    alignItems: 'flex-end',
+  },
+  rtlText: {
+    textAlign: 'right',
   }
 });

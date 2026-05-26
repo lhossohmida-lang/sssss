@@ -1,29 +1,29 @@
 export const COLORS = {
-  background: '#09090B', // Deep Luxury Obsidian Black
-  cardBg: '#121217',     // Caviar Slate
-  cardBorder: 'rgba(255, 255, 255, 0.08)',
-  glassBg: 'rgba(30, 30, 38, 0.65)',
-  glassBorder: 'rgba(255, 255, 255, 0.05)',
+  background: '#000000', // Pure Luxury Jet Black
+  cardBg: '#09090B',     // Obsidian Dark
+  cardBorder: 'rgba(255, 255, 255, 0.1)',
+  glassBg: 'rgba(20, 20, 20, 0.75)',
+  glassBorder: 'rgba(255, 255, 255, 0.08)',
   
-  primary: '#00FF66',    // Neon Green Fintech Accent
-  primaryHover: '#00E055',
-  primaryGlow: 'rgba(0, 255, 102, 0.15)',
+  primary: '#FFFFFF',    // High-Contrast Pure White Accent
+  primaryHover: '#E4E4E7',
+  primaryGlow: 'rgba(255, 255, 255, 0.12)',
   
-  secondary: '#8E9A9E',  // Sleek Platinum Gray
+  secondary: '#A1A1AA',  // Premium Platinum Grey
   textPrimary: '#FFFFFF',// Crisp White
-  textSecondary: '#9CA3AF', // Cool Muted Gray
-  textMuted: '#6B7280',     // Dark Gray
+  textSecondary: '#71717A', // Sleek Muted Zinc
+  textMuted: '#52525B',     // Deep Slate Grey
   
-  success: '#10B981',    // Emerald Green
-  danger: '#EF4444',     // Crimson Red
-  warning: '#F59E0B',    // Bright Amber
-  info: '#3B82F6',       // Electric Blue
+  success: '#FFFFFF',    // Pure White for success/accents in monochrome
+  danger: '#A1A1AA',     // Platinum for alert status
+  warning: '#71717A',    // Slate for warnings
+  info: '#A1A1AA',       // Silver
   
-  // Luxury card specific gradients
+  // Luxury card specific gradients (Monochrome transitions)
   cardGradients: {
-    premiumVisa: ['#1C1D24', '#0A0A0F'],
-    usd: ['#1E1B4B', '#312E81', '#111827'],
-    eur: ['#064E3B', '#065F46', '#111827'],
-    gbp: ['#581C87', '#4C1D95', '#111827'],
+    premiumVisa: ['#18181B', '#000000'],
+    usd: ['#27272A', '#09090B'],
+    eur: ['#18181B', '#000000'],
+    gbp: ['#3F3F46', '#09090B'],
   }
 };
