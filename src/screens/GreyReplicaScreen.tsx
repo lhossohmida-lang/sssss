@@ -196,7 +196,7 @@ export const GreyReplicaScreen: React.FC = () => {
           )}
           {activePage === 'reports' && <ReportsPage />}
           {activePage === 'sendRecipient' && <RecipientDetailsPage onBack={() => openPage('accounts')} onContinue={() => openPage('sendAmount')} />}
-          {activePage === 'sendAmount' && <SendAmountPage usdBalance={usdBalance} onBack={() => openPage('sendRecipient')} onSend={completeSend} />}
+          {activePage === 'sendAmount' && <SendAmountPage usdBalance={usdBalance} onBack={() => openPage('sendRecipient')} onSend={completeSend} onGoHome={() => openPage('home')} />}
 
           <TouchableOpacity activeOpacity={0.85} style={styles.chatButton}>
             <MessageCircle size={22} color="#ffffff" />
@@ -560,7 +560,7 @@ const RecipientDetailsPage: React.FC<{ onBack: () => void; onContinue: () => voi
   );
 };
 
-const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend: (amount: number) => void }> = ({ usdBalance, onBack, onSend }) => {
+const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend: (amount: number) => void; onGoHome: () => void }> = ({ usdBalance, onBack, onSend, onGoHome }) => {
   const [amount, setAmount] = useState('');
   const [ticketVisible, setTicketVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -699,7 +699,10 @@ const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend:
           <TouchableOpacity
             activeOpacity={1}
             style={styles.ticketScrim}
-            onPress={() => setTicketVisible(false)}
+            onPress={() => {
+              setTicketVisible(false);
+              onGoHome();
+            }}
           />
           <ScrollView style={styles.ticketScroll} contentContainerStyle={styles.ticketScrollContent} showsVerticalScrollIndicator={false}>
             <View style={styles.ticketCard}>
@@ -724,7 +727,14 @@ const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend:
                 <Text style={styles.ticketNoticeText}>تمت العملية بنجاح وآمن.{'\n'}سوف يصلك إشعار عند استلام الأموال.</Text>
               </View>
 
-              <TouchableOpacity activeOpacity={0.85} style={styles.ticketDoneButton} onPress={() => setTicketVisible(false)}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.ticketDoneButton}
+                onPress={() => {
+                  setTicketVisible(false);
+                  onGoHome();
+                }}
+              >
                 <Text style={styles.ticketDoneButtonText}>تم</Text>
               </TouchableOpacity>
             </View>
