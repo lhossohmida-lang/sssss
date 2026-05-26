@@ -15,6 +15,7 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   Banknote,
+  Check,
   ChevronDown,
   ChevronRight,
   CircleDollarSign,
@@ -33,6 +34,7 @@ import {
   ReceiptText,
   RefreshCw,
   SendHorizontal,
+  ShieldCheck,
   Snowflake,
   Smartphone,
   Trash2,
@@ -42,10 +44,12 @@ import {
   X,
 } from 'lucide-react';
 
-type PageKey = 'home' | 'accounts' | 'payments' | 'transactions' | 'cards' | 'reports' | 'sendRecipient' | 'sendAmount';
+type PageKey = 'home' | 'accounts' | 'payments' | 'transactions' | 'cards' | 'reports' | 'sendRecipient' | 'sendAmount' | 'sendConfirm' | 'sendSuccess';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+const INITIAL_USD_BALANCE = 50;
+const formatUsd = (value: number) => `$${Math.max(value, 0).toFixed(2)}`;
 
 const NAV_ITEMS = [
   { key: 'home' as PageKey, label: 'Home', Icon: Home },
@@ -57,7 +61,7 @@ const NAV_ITEMS = [
 ];
 
 const BALANCES = [
-  { name: 'US Dollars', symbol: '$', amount: '$5.95', badge: 'US', color: '#f1f5ff' },
+  { name: 'US Dollars', symbol: '$', amount: '$50.00', badge: 'US', color: '#f1f5ff' },
   { name: 'Tether', symbol: 'T', amount: '\u20AE0.01', badge: 'T', color: '#e8fff5' },
   { name: 'USD Coin', symbol: '$', amount: '$0.00', badge: '$', color: '#edf4ff' },
 ];
@@ -132,9 +136,11 @@ export const GreyReplicaScreen: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cardFrozen, setCardFrozen] = useState(false);
   const [toast, setToast] = useState('');
+  const [balance, setBalance] = useState(50.00);
+  const [sendData, setSendData] = useState({ address: '', currency: 'USDC', network: '', amount: 0 });
 
   const isWide = width >= 720;
-  const isSendFlow = activePage === 'sendRecipient' || activePage === 'sendAmount';
+  const isSendFlow = activePage === 'sendRecipient' || activePage === 'sendAmount' || activePage === 'sendConfirm' || activePage === 'sendSuccess';
 
   const openPage = (page: PageKey) => {
     setActivePage(page);
@@ -172,8 +178,8 @@ export const GreyReplicaScreen: React.FC = () => {
             />
           )}
 
-          {activePage === 'home' && <DashboardPage onOpenPage={openPage} />}
-          {activePage === 'accounts' && <AccountsPage onOpenPage={openPage} />}
+          {activePage === 'home' && <DashboardPage usdBalance={balance} onOpenPage={openPage} />}
+          {activePage === 'accounts' && <AccountsPage usdBalance={balance} onOpenPage={openPage} />}
           {activePage === 'payments' && <PaymentsPage />}
           {activePage === 'transactions' && <TransactionsPage />}
           {activePage === 'cards' && (
@@ -186,8 +192,43 @@ export const GreyReplicaScreen: React.FC = () => {
             />
           )}
           {activePage === 'reports' && <ReportsPage />}
-          {activePage === 'sendRecipient' && <RecipientDetailsPage onBack={() => openPage('accounts')} onContinue={() => openPage('sendAmount')} />}
-          {activePage === 'sendAmount' && <SendAmountPage onBack={() => openPage('sendRecipient')} />}
+          {activePage === 'sendRecipient' && (
+            <RecipientDetailsPage
+              onBack={() => openPage('accounts')}
+              onContinue={(address, currency, network) => {
+                setSendData(prev => ({ ...prev, address, currency, network }));
+                openPage('sendAmount');
+              }}
+            />
+          )}
+          {activePage === 'sendAmount' && (
+            <SendAmountPage
+              balance={balance}
+              onBack={() => openPage('sendRecipient')}
+              onContinue={(amount) => {
+                setSendData(prev => ({ ...prev, amount }));
+                openPage('sendConfirm');
+              }}
+            />
+          )}
+          {activePage === 'sendConfirm' && (
+            <SendConfirmPage
+              sendData={sendData}
+              balance={balance}
+              onBack={() => openPage('sendAmount')}
+              onConfirm={() => {
+                const fee = sendData.amount > 0 ? 1.0023 : 0;
+                setBalance(prev => Math.max(0, prev - sendData.amount));
+                openPage('sendSuccess');
+              }}
+            />
+          )}
+          {activePage === 'sendSuccess' && (
+            <SendSuccessPage
+              sendData={sendData}
+              onDone={() => openPage('home')}
+            />
+          )}
 
           <TouchableOpacity activeOpacity={0.85} style={styles.chatButton}>
             <MessageCircle size={22} color="#ffffff" />
@@ -287,69 +328,75 @@ const TopBar: React.FC<{
   </View>
 );
 
-const DashboardPage: React.FC<{ onOpenPage: (page: PageKey) => void }> = ({ onOpenPage }) => (
-  <ScrollView style={styles.page} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
-    <View style={styles.balancePanel}>
-      <View style={styles.balanceTop}>
-        <View>
-          <View style={styles.balanceLabelRow}>
-            <Text style={styles.balanceLabel}>Total balance</Text>
-            <CurrencyStack />
-            <ChevronDown size={13} color="#6d7786" />
-          </View>
-          <View style={styles.amountRow}>
-            <Text style={styles.totalAmount}>$5.96</Text>
-            <View style={styles.syncMini}>
-              <RefreshCw size={14} color="#2f6fe4" />
+const DashboardPage: React.FC<{ usdBalance: number; onOpenPage: (page: PageKey) => void }> = ({ usdBalance, onOpenPage }) => {
+  const formattedBalance = formatUsd(usdBalance);
+  const balanceCards = BALANCES.map((item) => (item.name === 'US Dollars' ? { ...item, amount: formattedBalance } : item));
+
+  return (
+    <ScrollView style={styles.page} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.balancePanel}>
+        <View style={styles.balanceTop}>
+          <View>
+            <View style={styles.balanceLabelRow}>
+              <Text style={styles.balanceLabel}>Total balance</Text>
+              <CurrencyStack />
+              <ChevronDown size={13} color="#6d7786" />
+            </View>
+            <View style={styles.amountRow}>
+              <Text style={styles.totalAmount}>{formattedBalance}</Text>
+              <View style={styles.syncMini}>
+                <RefreshCw size={14} color="#2f6fe4" />
+              </View>
             </View>
           </View>
+
+          <View style={styles.mainActions}>
+            <ActionCircle label="Add money" Icon={Download} tint="#e8f5e9" iconColor="#2e7d32" onPress={() => onOpenPage('accounts')} />
+            <ActionCircle label="Send" Icon={SendHorizontal} tint="#e3f2fd" iconColor="#1565c0" onPress={() => onOpenPage('sendRecipient')} />
+            <ActionCircle label="Convert" Icon={ArrowLeftRight} tint="#fff3e0" iconColor="#e65100" onPress={() => onOpenPage('accounts')} />
+          </View>
         </View>
 
-        <View style={styles.mainActions}>
-          <ActionCircle label="Add money" Icon={Download} tint="#e8f5e9" iconColor="#2e7d32" onPress={() => onOpenPage('accounts')} />
-          <ActionCircle label="Send" Icon={SendHorizontal} tint="#e3f2fd" iconColor="#1565c0" onPress={() => onOpenPage('sendRecipient')} />
-          <ActionCircle label="Convert" Icon={ArrowLeftRight} tint="#fff3e0" iconColor="#e65100" onPress={() => onOpenPage('accounts')} />
-        </View>
+        <View style={styles.panelDivider} />
+
+        <Text style={styles.sectionHeading}>My Balances</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.balanceCardsRow}>
+            {balanceCards.map((item) => (
+              <TouchableOpacity key={item.name} activeOpacity={0.85} style={styles.currencyCard}>
+                <View style={[styles.currencyBadge, { backgroundColor: item.color }]}>
+                  <Text style={styles.currencyBadgeText}>{item.badge}</Text>
+                </View>
+                <Text style={styles.currencyName}>{item.name}</Text>
+                <Text style={styles.currencyAmount}>{item.amount}</Text>
+                <View style={styles.currencyChevron}>
+                  <ChevronRight size={17} color="#5f6673" />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
-      <View style={styles.panelDivider} />
+      <SetupCard />
 
-      <Text style={styles.sectionHeading}>My Balances</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.balanceCardsRow}>
-          {BALANCES.map((item) => (
-            <TouchableOpacity key={item.name} activeOpacity={0.85} style={styles.currencyCard}>
-              <View style={[styles.currencyBadge, { backgroundColor: item.color }]}>
-                <Text style={styles.currencyBadgeText}>{item.badge}</Text>
-              </View>
-              <Text style={styles.currencyName}>{item.name}</Text>
-              <Text style={styles.currencyAmount}>{item.amount}</Text>
-              <View style={styles.currencyChevron}>
-                <ChevronRight size={17} color="#5f6673" />
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
+      <View style={styles.sectionBlock}>
+        <Text style={styles.sectionHeading}>Quick Actions</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.quickRow}>
+            {QUICK_ACTIONS.map((item) => (
+              <ActionTile key={item.title} {...item} onPress={() => onOpenPage(item.title === 'Virtual card' ? 'cards' : 'payments')} />
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    </ScrollView>
+  );
+};
 
-    <SetupCard />
-
-    <View style={styles.sectionBlock}>
-      <Text style={styles.sectionHeading}>Quick Actions</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.quickRow}>
-          {QUICK_ACTIONS.map((item) => (
-            <ActionTile key={item.title} {...item} onPress={() => onOpenPage(item.title === 'Virtual card' ? 'cards' : 'payments')} />
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  </ScrollView>
-);
-
-const AccountsPage: React.FC<{ onOpenPage: (page: PageKey) => void }> = ({ onOpenPage }) => {
+const AccountsPage: React.FC<{ usdBalance: number; onOpenPage: (page: PageKey) => void }> = ({ usdBalance, onOpenPage }) => {
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const formattedBalance = formatUsd(usdBalance);
 
   return (
     <View style={styles.accountPageHost}>
@@ -387,7 +434,7 @@ const AccountsPage: React.FC<{ onOpenPage: (page: PageKey) => void }> = ({ onOpe
 
             <View style={styles.accountAmountsBlock}>
               <Text style={styles.accountBalanceLabel}>Available USD balance  ⓘ</Text>
-              <Text style={styles.accountMainAmount}>$5.95</Text>
+              <Text style={styles.accountMainAmount}>{formattedBalance}</Text>
               <Text style={[styles.accountBalanceLabel, styles.pendingLabel]}>Pending USD balance  ⓘ</Text>
               <Text style={styles.accountMainAmount}>$0.00</Text>
             </View>
@@ -545,12 +592,16 @@ const RecipientDetailsPage: React.FC<{ onBack: () => void; onContinue: () => voi
   );
 };
 
-const SendAmountPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend: (amount: number) => void }> = ({ usdBalance, onBack, onSend }) => {
   const [amount, setAmount] = useState('');
+  const [ticketVisible, setTicketVisible] = useState(false);
   const numericAmount = Number(amount || '0');
   const sendFee = numericAmount > 0 ? 1.0023 : 0;
   const amountToSend = Math.max(numericAmount - sendFee, 0);
   const recipientAmount = numericAmount > 0 ? Math.max(amountToSend - 0.01, 0) : 0;
+  const displayAmount = `$${numericAmount.toFixed(2)}`;
+  const insufficientBalance = numericAmount > usdBalance;
+  const canSend = numericAmount > 0 && !insufficientBalance;
 
   return (
     <View style={styles.sendFlowPage}>
@@ -568,7 +619,7 @@ const SendAmountPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <Text style={styles.amountCurrencyText}>USD</Text>
                 <ChevronDown size={15} color="#101828" />
               </View>
-              <Text style={styles.balanceHint}>Bal: $5.95</Text>
+              <Text style={styles.balanceHint}>Bal: {formatUsd(usdBalance)}</Text>
             </View>
             <View style={styles.amountValueWrap}>
               <Text style={styles.amountDollar}>$</Text>
@@ -599,12 +650,60 @@ const SendAmountPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </View>
             <Text style={styles.recipientReceiveAmount}>₮{numericAmount > 0 ? recipientAmount.toFixed(2) : '0'}</Text>
           </View>
+          {insufficientBalance && <Text style={styles.insufficientBalanceText}>رصيدك غير كافٍ لإتمام الإرسال</Text>}
 
-          <TouchableOpacity activeOpacity={0.85} style={[styles.primaryBlueButton, !numericAmount && styles.disabledButton]}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.primaryBlueButton, !canSend && styles.disabledButton]}
+            onPress={() => {
+              if (canSend) {
+                onSend(numericAmount);
+                setTicketVisible(true);
+              }
+            }}
+          >
             <Text style={styles.primaryBlueButtonText}>Continue</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {ticketVisible && (
+        <View style={styles.ticketOverlay}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.ticketScrim}
+            onPress={() => setTicketVisible(false)}
+          />
+          <ScrollView style={styles.ticketScroll} contentContainerStyle={styles.ticketScrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.ticketCard}>
+              <View style={styles.ticketIconWrap}>
+                <Check size={38} color="#ffffff" strokeWidth={3.4} />
+              </View>
+              <Text style={styles.ticketTitle}>تم إرسال الأموال بنجاح</Text>
+              <Text style={styles.ticketSubtitle}>تم إرسال الأموال باستخدام Visa Card الخاصة بك.</Text>
+
+              <View style={styles.ticketDetails}>
+                <TicketRow label="المبلغ" value={displayAmount} />
+                <TicketRow label="إلى" value="محفظة USDT" />
+                <TicketRow label="رقم البطاقة" value="Visa •••• 2461" />
+                <TicketRow label="تاريخ العملية" value="26 مايو 2026 - 12:50 م" />
+                <TicketRow label="رقم العملية" value="TRX612458963" />
+                <TicketRow label="رسوم العملية" value="$0.00" />
+                <TicketRow label="المجموع" value={displayAmount} highlight />
+              </View>
+
+              <View style={styles.ticketNotice}>
+                <ShieldCheck size={31} color="#175cff" />
+                <Text style={styles.ticketNoticeText}>تمت العملية بنجاح وآمن.{'\n'}سوف يصلك إشعار عند استلام الأموال.</Text>
+              </View>
+
+              <TouchableOpacity activeOpacity={0.85} style={styles.ticketDoneButton} onPress={() => setTicketVisible(false)}>
+                <Text style={styles.ticketDoneButtonText}>تم</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 };
@@ -630,6 +729,13 @@ const FeeRow: React.FC<{ label: string; value: string; strong?: boolean }> = ({ 
   <View style={styles.feeRow}>
     <Text style={[styles.feeLabel, strong && styles.feeStrongText]}>{label}</Text>
     <Text style={[styles.feeValue, strong && styles.feeStrongText]}>{value}</Text>
+  </View>
+);
+
+const TicketRow: React.FC<{ label: string; value: string; highlight?: boolean }> = ({ label, value, highlight }) => (
+  <View style={[styles.ticketRow, highlight && styles.ticketRowHighlight]}>
+    <Text style={[styles.ticketRowLabel, highlight && styles.ticketRowHighlightText]}>{label}</Text>
+    <Text style={[styles.ticketRowValue, highlight && styles.ticketRowHighlightText]}>{value}</Text>
   </View>
 );
 
@@ -1792,12 +1898,14 @@ const styles = StyleSheet.create({
     borderColor: '#1f4f72',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 14,
     marginBottom: 18,
+    position: 'relative',
   },
   amountCurrencyBlock: {
     alignItems: 'flex-start',
+    width: 132,
+    zIndex: 1,
   },
   amountCurrencyPill: {
     height: 35,
@@ -1824,18 +1932,25 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   amountValueWrap: {
+    position: 'absolute',
+    top: 0,
+    right: 14,
+    bottom: 0,
+    left: 126,
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 96,
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
   },
   amountDollar: {
     color: '#98a2b3',
     fontSize: 27,
     fontWeight: '500',
+    marginRight: 8,
   },
   amountInput: {
-    minWidth: 48,
+    flex: 1,
+    minWidth: 60,
+    height: '100%',
     color: '#101828',
     fontSize: 27,
     fontWeight: '900',
@@ -1916,8 +2031,163 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: '900',
   },
+  insufficientBalanceText: {
+    alignSelf: 'flex-start',
+    color: '#d92d20',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: -14,
+    marginBottom: 16,
+    writingDirection: 'rtl',
+  },
   disabledButton: {
     backgroundColor: '#eff1f4',
+  },
+  ticketOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+  },
+  ticketScrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(248, 250, 252, 0.94)',
+  },
+  ticketScroll: {
+    width: '100%',
+    maxWidth: 790,
+    maxHeight: '100%' as any,
+    zIndex: 1,
+  },
+  ticketScrollContent: {
+    minHeight: '100%' as any,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 0,
+  },
+  ticketCard: {
+    width: '100%',
+    maxWidth: 740,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dce3ef',
+    paddingHorizontal: 34,
+    paddingTop: 18,
+    paddingBottom: 18,
+    alignItems: 'center',
+    shadowColor: '#101828',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  ticketIconWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#31b34a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  ticketTitle: {
+    color: '#101828',
+    fontSize: 25,
+    fontWeight: '900',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  ticketSubtitle: {
+    color: '#667085',
+    fontSize: 16,
+    lineHeight: 23,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  ticketDetails: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  ticketRow: {
+    minHeight: 42,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e6ef',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  ticketRowLabel: {
+    color: '#667085',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  ticketRowValue: {
+    color: '#101828',
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'left',
+    writingDirection: 'auto',
+    marginRight: 12,
+  },
+  ticketRowHighlight: {
+    minHeight: 46,
+    borderBottomWidth: 0,
+    backgroundColor: '#f1fff3',
+    paddingHorizontal: 12,
+    marginTop: 2,
+  },
+  ticketRowHighlightText: {
+    color: '#28a745',
+  },
+  ticketNotice: {
+    width: '100%',
+    minHeight: 62,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#dce3ef',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  ticketNoticeText: {
+    flex: 1,
+    color: '#667085',
+    fontSize: 16,
+    lineHeight: 23,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginRight: 16,
+  },
+  ticketDoneButton: {
+    width: '100%',
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#1557e6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ticketDoneButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   transactionsContent: {
     paddingHorizontal: 4,
