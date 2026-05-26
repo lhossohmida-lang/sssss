@@ -44,7 +44,7 @@ import {
   X,
 } from 'lucide-react';
 
-type PageKey = 'home' | 'accounts' | 'payments' | 'transactions' | 'cards' | 'reports' | 'sendRecipient' | 'sendAmount' | 'sendConfirm' | 'sendSuccess';
+type PageKey = 'home' | 'accounts' | 'payments' | 'transactions' | 'cards' | 'reports' | 'sendRecipient' | 'sendAmount';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -135,12 +135,11 @@ export const GreyReplicaScreen: React.FC = () => {
   const [activePage, setActivePage] = useState<PageKey>('home');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cardFrozen, setCardFrozen] = useState(false);
+  const [usdBalance, setUsdBalance] = useState(INITIAL_USD_BALANCE);
   const [toast, setToast] = useState('');
-  const [balance, setBalance] = useState(50.00);
-  const [sendData, setSendData] = useState({ address: '', currency: 'USDC', network: '', amount: 0 });
 
   const isWide = width >= 720;
-  const isSendFlow = activePage === 'sendRecipient' || activePage === 'sendAmount' || activePage === 'sendConfirm' || activePage === 'sendSuccess';
+  const isSendFlow = activePage === 'sendRecipient' || activePage === 'sendAmount';
 
   const openPage = (page: PageKey) => {
     setActivePage(page);
@@ -150,6 +149,10 @@ export const GreyReplicaScreen: React.FC = () => {
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(''), 2200);
+  };
+
+  const completeSend = (amount: number) => {
+    setUsdBalance((value) => Math.max(value - amount, 0));
   };
 
   const title =
@@ -178,8 +181,8 @@ export const GreyReplicaScreen: React.FC = () => {
             />
           )}
 
-          {activePage === 'home' && <DashboardPage usdBalance={balance} onOpenPage={openPage} />}
-          {activePage === 'accounts' && <AccountsPage usdBalance={balance} onOpenPage={openPage} />}
+          {activePage === 'home' && <DashboardPage usdBalance={usdBalance} onOpenPage={openPage} />}
+          {activePage === 'accounts' && <AccountsPage usdBalance={usdBalance} onOpenPage={openPage} />}
           {activePage === 'payments' && <PaymentsPage />}
           {activePage === 'transactions' && <TransactionsPage />}
           {activePage === 'cards' && (
@@ -192,43 +195,8 @@ export const GreyReplicaScreen: React.FC = () => {
             />
           )}
           {activePage === 'reports' && <ReportsPage />}
-          {activePage === 'sendRecipient' && (
-            <RecipientDetailsPage
-              onBack={() => openPage('accounts')}
-              onContinue={(address, currency, network) => {
-                setSendData(prev => ({ ...prev, address, currency, network }));
-                openPage('sendAmount');
-              }}
-            />
-          )}
-          {activePage === 'sendAmount' && (
-            <SendAmountPage
-              balance={balance}
-              onBack={() => openPage('sendRecipient')}
-              onContinue={(amount) => {
-                setSendData(prev => ({ ...prev, amount }));
-                openPage('sendConfirm');
-              }}
-            />
-          )}
-          {activePage === 'sendConfirm' && (
-            <SendConfirmPage
-              sendData={sendData}
-              balance={balance}
-              onBack={() => openPage('sendAmount')}
-              onConfirm={() => {
-                const fee = sendData.amount > 0 ? 1.0023 : 0;
-                setBalance(prev => Math.max(0, prev - sendData.amount));
-                openPage('sendSuccess');
-              }}
-            />
-          )}
-          {activePage === 'sendSuccess' && (
-            <SendSuccessPage
-              sendData={sendData}
-              onDone={() => openPage('home')}
-            />
-          )}
+          {activePage === 'sendRecipient' && <RecipientDetailsPage onBack={() => openPage('accounts')} onContinue={() => openPage('sendAmount')} />}
+          {activePage === 'sendAmount' && <SendAmountPage usdBalance={usdBalance} onBack={() => openPage('sendRecipient')} onSend={completeSend} />}
 
           <TouchableOpacity activeOpacity={0.85} style={styles.chatButton}>
             <MessageCircle size={22} color="#ffffff" />
@@ -595,6 +563,8 @@ const RecipientDetailsPage: React.FC<{ onBack: () => void; onContinue: () => voi
 const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend: (amount: number) => void }> = ({ usdBalance, onBack, onSend }) => {
   const [amount, setAmount] = useState('');
   const [ticketVisible, setTicketVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  
   const numericAmount = Number(amount || '0');
   const sendFee = numericAmount > 0 ? 1.0023 : 0;
   const amountToSend = Math.max(numericAmount - sendFee, 0);
@@ -603,68 +573,125 @@ const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend:
   const insufficientBalance = numericAmount > usdBalance;
   const canSend = numericAmount > 0 && !insufficientBalance;
 
+  const handleConfirmSend = () => {
+    onSend(numericAmount);
+    setConfirmVisible(false);
+    setTicketVisible(true);
+  };
+
   return (
     <View style={styles.sendFlowPage}>
-      <SendFlowHeader step="STEP 2 / 4" label="Enter amount" progress="50%" onBack={onBack} />
+      <SendFlowHeader 
+        step={confirmVisible ? "STEP 3 / 4" : "STEP 2 / 4"} 
+        label={confirmVisible ? "Confirm details" : "Enter amount"} 
+        progress={confirmVisible ? "75%" : "50%"} 
+        onBack={confirmVisible ? () => setConfirmVisible(false) : onBack} 
+      />
       <ScrollView contentContainerStyle={styles.sendFlowContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sendFlowTitle}>Send USDT to wallet</Text>
-        <Text style={styles.sendFlowSubtitle}>Enter amount to send to recipient</Text>
+        {!confirmVisible ? (
+          <>
+            <Text style={styles.sendFlowTitle}>Send USDT to wallet</Text>
+            <Text style={styles.sendFlowSubtitle}>Enter amount to send to recipient</Text>
 
-        <View style={styles.amountCard}>
-          <Text style={styles.formLabel}>Amount to send</Text>
-          <View style={styles.amountInputBox}>
-            <View style={styles.amountCurrencyBlock}>
-              <View style={styles.amountCurrencyPill}>
-                <Text style={styles.amountCurrencyFlag}>🇺🇸</Text>
-                <Text style={styles.amountCurrencyText}>USD</Text>
-                <ChevronDown size={15} color="#101828" />
+            <View style={styles.amountCard}>
+              <Text style={styles.formLabel}>Amount to send</Text>
+              <View style={styles.amountInputBox}>
+                <View style={styles.amountCurrencyBlock}>
+                  <View style={styles.amountCurrencyPill}>
+                    <Text style={styles.amountCurrencyFlag}>🇺🇸</Text>
+                    <Text style={styles.amountCurrencyText}>USD</Text>
+                    <ChevronDown size={15} color="#101828" />
+                  </View>
+                  <Text style={styles.balanceHint}>Bal: {formatUsd(usdBalance)}</Text>
+                </View>
+                <View style={styles.amountValueWrap}>
+                  <Text style={styles.amountDollar}>$</Text>
+                  <TextInput
+                    value={amount}
+                    onChangeText={(text) => setAmount(text.replace(/[^0-9.]/g, ''))}
+                    placeholder="0"
+                    placeholderTextColor="#98a2b3"
+                    keyboardType="numeric"
+                    style={styles.amountInput}
+                  />
+                </View>
               </View>
-              <Text style={styles.balanceHint}>Bal: {formatUsd(usdBalance)}</Text>
-            </View>
-            <View style={styles.amountValueWrap}>
-              <Text style={styles.amountDollar}>$</Text>
-              <TextInput
-                value={amount}
-                onChangeText={(text) => setAmount(text.replace(/[^0-9.]/g, ''))}
-                placeholder="0"
-                placeholderTextColor="#98a2b3"
-                keyboardType="numeric"
-                style={styles.amountInput}
-              />
-            </View>
-          </View>
 
-          <View style={styles.feeBox}>
-            <FeeRow label="Conversion Fee" value={`- $${numericAmount > 0 ? '0' : '0'}`} />
-            <FeeRow label="Send Fee" value={`- $${numericAmount > 0 ? sendFee.toFixed(4) : '0'}`} />
-            <View style={styles.feeDivider} />
-            <FeeRow label="Amount we'll send" value={`= $${numericAmount > 0 ? amountToSend.toFixed(2) : '0'}`} strong />
-            <FeeRow label="Today’s rate" value="x 1" />
-          </View>
+              <View style={styles.feeBox}>
+                <FeeRow label="Conversion Fee" value={`- $${numericAmount > 0 ? '0' : '0'}`} />
+                <FeeRow label="Send Fee" value={`- $${numericAmount > 0 ? sendFee.toFixed(4) : '0'}`} />
+                <View style={styles.feeDivider} />
+                <FeeRow label="Amount we'll send" value={`= $${numericAmount > 0 ? amountToSend.toFixed(2) : '0'}`} strong />
+                <FeeRow label="Today’s rate" value="x 1" />
+              </View>
 
-          <Text style={styles.formLabel}>Recipient will receive</Text>
-          <View style={styles.recipientReceiveBox}>
-            <View style={styles.usdtPill}>
-              <Text style={styles.usdtIcon}>T</Text>
-              <Text style={styles.usdtText}>USDT</Text>
+              <Text style={styles.formLabel}>Recipient will receive</Text>
+              <View style={styles.recipientReceiveBox}>
+                <View style={styles.usdtPill}>
+                  <Text style={styles.usdtIcon}>T</Text>
+                  <Text style={styles.usdtText}>USDT</Text>
+                </View>
+                <Text style={styles.recipientReceiveAmount}>₮{numericAmount > 0 ? recipientAmount.toFixed(2) : '0'}</Text>
+              </View>
+              {insufficientBalance && <Text style={styles.insufficientBalanceText}>رصيدك غير كافٍ لإتمام الإرسال</Text>}
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.primaryBlueButton, !canSend && styles.disabledButton]}
+                onPress={() => {
+                  if (canSend) {
+                    setConfirmVisible(true);
+                  }
+                }}
+              >
+                <Text style={styles.primaryBlueButtonText}>Continue</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.recipientReceiveAmount}>₮{numericAmount > 0 ? recipientAmount.toFixed(2) : '0'}</Text>
-          </View>
-          {insufficientBalance && <Text style={styles.insufficientBalanceText}>رصيدك غير كافٍ لإتمام الإرسال</Text>}
+          </>
+        ) : (
+          <>
+            <Text style={styles.sendFlowTitle}>تأكيد تفاصيل الحوالة</Text>
+            <Text style={styles.sendFlowSubtitle}>يرجى مراجعة بيانات الحوالة بدقة قبل التأكيد</Text>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[styles.primaryBlueButton, !canSend && styles.disabledButton]}
-            onPress={() => {
-              if (canSend) {
-                onSend(numericAmount);
-                setTicketVisible(true);
-              }
-            }}
-          >
-            <Text style={styles.primaryBlueButtonText}>Continue</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.amountCard}>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <Text style={{ fontSize: 15, color: '#667085', fontWeight: 'bold' }}>إجمالي المبلغ المرسل</Text>
+                <Text style={{ fontSize: 34, color: '#101828', fontWeight: '900', marginTop: 6 }}>{displayAmount}</Text>
+              </View>
+
+              <View style={styles.feeBox}>
+                <FeeRow label="المستلم سيحصل على" value={`₮${recipientAmount.toFixed(2)} USDT`} strong />
+                <View style={styles.feeDivider} />
+                <FeeRow label="عنوان المحفظة" value="0x7A9B...24F1" />
+                <FeeRow label="رسوم الشبكة والتحويل" value={`$${sendFee.toFixed(4)}`} />
+                <FeeRow label="سعر الصرف اليوم" value="1 USD = 1 USDT" />
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f9ff', padding: 12, borderRadius: 8, marginBottom: 20 }}>
+                <ShieldCheck size={20} color="#0086ff" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 13, color: '#005bb7', fontWeight: '700', flex: 1 }}>
+                  تأكد من صحة العنوان، العملية لا يمكن التراجع عنها بعد التأكيد.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.primaryBlueButton}
+                onPress={handleConfirmSend}
+              >
+                <Text style={styles.primaryBlueButtonText}>تأكيد وإرسال الآن</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={{ marginTop: 14, alignItems: 'center', paddingVertical: 8 }}
+                onPress={() => setConfirmVisible(false)}
+              >
+                <Text style={{ fontSize: 15, color: '#667085', fontWeight: '800' }}>العودة للتعديل</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {ticketVisible && (
@@ -688,7 +715,7 @@ const SendAmountPage: React.FC<{ usdBalance: number; onBack: () => void; onSend:
                 <TicketRow label="رقم البطاقة" value="Visa •••• 2461" />
                 <TicketRow label="تاريخ العملية" value="26 مايو 2026 - 12:50 م" />
                 <TicketRow label="رقم العملية" value="TRX612458963" />
-                <TicketRow label="رسوم العملية" value="$0.00" />
+                <TicketRow label="رسوم العملية" value={`$${sendFee.toFixed(4)}`} />
                 <TicketRow label="المجموع" value={displayAmount} highlight />
               </View>
 
@@ -1936,7 +1963,7 @@ const styles = StyleSheet.create({
     top: 0,
     right: 14,
     bottom: 0,
-    left: 126,
+    left: 148,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
