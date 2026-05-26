@@ -147,7 +147,7 @@ export const useAppStore = create<AppState>((set) => ({
     { id: 'log_03', timestamp: new Date().toISOString(), action: 'APP_READY', category: 'system', description: 'JWT authentication tunnel secured. Dark luxury UI layer rendered.' }
   ],
   theme: 'dark',
-  language: 'en',
+  language: 'ar',
   notificationsEnabled: true,
   isLoading: false,
 
