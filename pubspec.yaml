@@ -1,0 +1,30 @@
+name: school_workspace
+description: نظام إدارة مدرسة دروس خصوصية (ثلاثة تطبيقات وحزم مشتركة).
+publish_to: none
+
+environment:
+  sdk: ^3.13.7
+
+workspace:
+  - apps/admin
+  - apps/teacher
+  - apps/student
+  - packages/core
+  - packages/ui
+  - packages/chat
+  - packages/sms
+  - packages/assistant
+
+dev_dependencies:
+  melos: ^8.10.1
+
+melos:
+  scripts:
+    analyze:
+      description: تحليل كل الحزم، وأي تحذير يُعتبر فشلاً.
+      run: flutter analyze --fatal-infos --fatal-warnings
+    test:
+      description: تشغيل اختبارات كل الحزم.
+      exec: flutter test
+      packageFilters:
+        dirExists: test

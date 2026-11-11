@@ -1,0 +1,11 @@
+.dart_tool/
+.idea/
+*.iml
+.pub-cache/
+.pub/
+build/
+coverage/
+.flutter-plugins-dependencies
+*.log
+.DS_Store
+**/test/**/failures/
