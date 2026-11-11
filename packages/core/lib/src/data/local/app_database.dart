@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'tables/people_tables.dart';
+import 'tables/teaching_tables.dart';
 
 part 'app_database.g.dart';
 
@@ -17,6 +18,16 @@ part 'app_database.g.dart';
     Teachers,
     TeacherSubjects,
     Workers,
+    Groups,
+    GroupSlots,
+    GroupStudents,
+    WaitingLists,
+    WaitingEntries,
+    Sessions,
+    Attendance,
+    TeacherAttendance,
+    WorkerAttendance,
+    SessionRequests,
   ],
 )
 class AppDatabase extends _$AppDatabase {
