@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
+import 'package:school_core/testing.dart';
 
-import '../support/fake_auth.dart';
 import '../support/fixtures.dart';
 
 void main() {

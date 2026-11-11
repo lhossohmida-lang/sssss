@@ -13,12 +13,15 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  flutter_riverpod: ^3.4.2
+  flutter_test:
+    sdk: flutter
+  go_router: ^17.5.0
   school_core:
     path: ../core
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
+  drift: ^2.35.4
   flutter_lints: ^6.0.0
 
 flutter:

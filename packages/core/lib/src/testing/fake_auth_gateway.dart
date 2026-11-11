@@ -1,6 +1,7 @@
-import 'package:school_core/school_core.dart';
+import '../auth/auth_gateway.dart';
 
-/// خدمة مصادقة وهمية: حسابات في الذاكرة، وجلسة تُحفظ كما يفعل Supabase.
+/// خدمة مصادقة وهمية للاختبارات (في هذه الحزمة وفي التطبيقات): حسابات في
+/// الذاكرة، وجلسة تُحفظ كما يفعل Supabase.
 class FakeAuthGateway implements AuthGateway {
   FakeAuthGateway(this.accounts);
 

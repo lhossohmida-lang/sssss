@@ -11,6 +11,7 @@ import '../auth/auth_gateway.dart';
 import '../auth/auth_service.dart';
 import '../auth/auth_session.dart';
 import '../auth/local_auth_gateway.dart';
+import '../auth/password_hasher.dart';
 import '../auth/session_store.dart';
 import '../auth/supabase_auth_gateway.dart';
 import '../data/local/app_database.dart';
@@ -100,14 +101,15 @@ class AppRuntime {
 
   /// يهيّئ التطبيق ويستعيد الجلسة المحفوظة.
   ///
-  /// الوسائط الاختيارية للاختبارات: قاعدة جاهزة، بوابة مصادقة، ومصنع
-  /// مزامنة؛ دونها تُبنى الحقيقية من [config].
+  /// الوسائط الاختيارية للاختبارات: قاعدة جاهزة، بوابة مصادقة، مصنع مزامنة،
+  /// وتكرارات اشتقاق كلمات السر المحلية؛ دونها تُبنى الحقيقية من [config].
   static Future<AppRuntime> start({
     required AppIdentity app,
     AppConfig? config,
     AppDatabase? database,
     AuthGateway? gateway,
     SyncFactory? syncFactory,
+    int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
     final settings = config ?? AppConfig.fromEnvironment();
     final db = database ?? await _openDatabase(app);
@@ -128,7 +130,10 @@ class AppRuntime {
     } else if (client != null) {
       chosen = SupabaseAuthGateway(client);
     } else if (app == AppIdentity.admin) {
-      chosen = local = await LocalAuthGateway.open(db);
+      chosen = local = await LocalAuthGateway.open(
+        db,
+        iterations: localPasswordIterations,
+      );
     } else {
       chosen = const UnconfiguredAuthGateway();
     }

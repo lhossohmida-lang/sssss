@@ -1,0 +1,39 @@
+import 'package:school_ui/school_ui.dart';
+
+/// تبويبات تطبيق الوليّ والتلميذ.
+final List<AppTab> studentTabs = [
+  AppTab(
+    path: '/home',
+    destination: const ClayDestination(label: 'الرئيسية', icon: ClayIcons.home),
+    builder: (_) => const TabPlaceholder(title: 'الرئيسية'),
+  ),
+  AppTab(
+    path: '/attendance',
+    destination: const ClayDestination(
+      label: 'الحضور',
+      icon: ClayIcons.attendance,
+    ),
+    builder: (_) => const TabPlaceholder(title: 'الحضور'),
+  ),
+  AppTab(
+    path: '/schedule',
+    destination: const ClayDestination(
+      label: 'الجدول',
+      icon: ClayIcons.schedule,
+    ),
+    builder: (_) => const TabPlaceholder(title: 'الجدول'),
+  ),
+  AppTab(
+    path: '/payments',
+    destination: const ClayDestination(
+      label: 'المدفوعات',
+      icon: ClayIcons.payments,
+    ),
+    builder: (_) => const TabPlaceholder(title: 'المدفوعات'),
+  ),
+  AppTab(
+    path: '/account',
+    destination: const ClayDestination(label: 'حسابي', icon: ClayIcons.parents),
+    builder: (_) => const TabPlaceholder(title: 'حسابي'),
+  ),
+];
