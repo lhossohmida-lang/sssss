@@ -7,6 +7,54 @@ import '../local/sync_writer.dart';
 import 'file_store.dart';
 import 'remote_store.dart';
 
+/// يضيف الملفات إلى طابور الرفع. منفصل عن [UploadWorker] ليستعمله من يريد
+/// الإضافة فقط (حفظ صورة) دون أن يحتاج مخزن ملفات الخادم، فيعمل أيضاً في
+/// الوضع المحلي وتُرفع الملفات لاحقاً حين يُهيَّأ الخادم.
+class UploadQueueWriter {
+  UploadQueueWriter(this.db, this.writer, {int Function()? clock})
+    : _clock = clock ?? (() => DateTime.now().toUtc().millisecondsSinceEpoch);
+
+  final AppDatabase db;
+  final SyncWriter writer;
+  final int Function() _clock;
+
+  /// يضيف ملفاً إلى طابور الرفع. نفس [dedupeKey] لا يدخل مرتين.
+  ///
+  /// يعيد `false` إن كان الملف في الطابور من قبل.
+  Future<bool> enqueue({
+    required String kind,
+    required String bucket,
+    required String localPath,
+    required String remotePath,
+    required String dedupeKey,
+    String? targetTable,
+    String? targetRowId,
+    String? targetColumn,
+  }) async {
+    final existing = await (db.select(
+      db.uploadQueue,
+    )..where((u) => u.dedupeKey.equals(dedupeKey))).getSingleOrNull();
+    if (existing != null) return false;
+    await db
+        .into(db.uploadQueue)
+        .insert(
+          UploadQueueCompanion.insert(
+            id: writer.newId(),
+            kind: kind,
+            bucket: Value(bucket),
+            localPath: localPath,
+            remotePath: remotePath,
+            dedupeKey: dedupeKey,
+            targetTable: Value(targetTable),
+            targetRowId: Value(targetRowId),
+            targetColumn: Value(targetColumn),
+            createdAt: _clock(),
+          ),
+        );
+    return true;
+  }
+}
+
 /// يرفع الملفات المنتظرة في `upload_queue` إلى مخزن الخادم في الخلفية.
 ///
 /// الملف يُعرض فوراً من مساره المحلي؛ وعند اكتمال الرفع يُكتب مساره على
@@ -44,29 +92,16 @@ class UploadWorker {
     String? targetTable,
     String? targetRowId,
     String? targetColumn,
-  }) async {
-    final existing = await (db.select(
-      db.uploadQueue,
-    )..where((u) => u.dedupeKey.equals(dedupeKey))).getSingleOrNull();
-    if (existing != null) return false;
-    await db
-        .into(db.uploadQueue)
-        .insert(
-          UploadQueueCompanion.insert(
-            id: writer.newId(),
-            kind: kind,
-            bucket: Value(bucket),
-            localPath: localPath,
-            remotePath: remotePath,
-            dedupeKey: dedupeKey,
-            targetTable: Value(targetTable),
-            targetRowId: Value(targetRowId),
-            targetColumn: Value(targetColumn),
-            createdAt: _clock(),
-          ),
-        );
-    return true;
-  }
+  }) => UploadQueueWriter(db, writer, clock: _clock).enqueue(
+    kind: kind,
+    bucket: bucket,
+    localPath: localPath,
+    remotePath: remotePath,
+    dedupeKey: dedupeKey,
+    targetTable: targetTable,
+    targetRowId: targetRowId,
+    targetColumn: targetColumn,
+  );
 
   /// يرفع كل ما حان وقته. يعيد عدد الملفات المرفوعة بنجاح.
   ///

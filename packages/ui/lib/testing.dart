@@ -2,6 +2,8 @@
 /// الإنتاج.
 library;
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +35,7 @@ Future<AppRuntime> bootApp(
   required List<TestAccount> accounts,
   List<AppPage> pages = const [],
   AccountProvisioner? provisioner,
+  PhotoSource? photoSource,
 }) async {
   final runtime = (await tester.runAsync(
     () => startTestRuntime(
@@ -49,7 +52,11 @@ Future<AppRuntime> bootApp(
   });
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [runtimeProvider.overrideWithValue(runtime)],
+      overrides: [
+        runtimeProvider.overrideWithValue(runtime),
+        if (photoSource != null)
+          photoSourceProvider.overrideWithValue(photoSource),
+      ],
       child: SchoolApp(tabs: tabs, pages: pages),
     ),
   );
@@ -89,4 +96,18 @@ Future<T> runDb<T>(WidgetTester tester, Future<T> Function() action) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
   return result;
+}
+
+/// مصدر صور وهمي: يعيد [bytes] كأن المستخدم التقطها (أو `null` كأنه ألغى).
+class FakePhotoSource implements PhotoSource {
+  FakePhotoSource(this.bytes);
+
+  Uint8List? bytes;
+  int captures = 0;
+
+  @override
+  Future<Uint8List?> capture(BuildContext context) async {
+    captures++;
+    return bytes;
+  }
 }

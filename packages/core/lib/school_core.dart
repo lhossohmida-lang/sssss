@@ -36,6 +36,8 @@ export 'src/domain/enums.dart';
 export 'src/domain/money.dart';
 export 'src/domain/payout_service.dart';
 export 'src/domain/phone.dart';
+export 'src/domain/photo_processor.dart';
+export 'src/domain/photo_service.dart';
 export 'src/domain/pricing.dart';
 export 'src/domain/qr_code.dart';
 export 'src/domain/request_service.dart';

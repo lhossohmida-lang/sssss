@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
@@ -32,6 +34,9 @@ class RecordingCoordinator extends SyncCoordinator {
 }
 
 void main() {
+  final photos = Directory.systemTemp.createTempSync('school_photos_');
+  tearDownAll(() => photos.deleteSync(recursive: true));
+
   late TestEnv env;
   late FakeAuthGateway gateway;
 
@@ -64,6 +69,7 @@ void main() {
     test('إعدادات الخادم غائبة: تطبيق الإدارة بالوضع المحلي', () async {
       final runtime = await AppRuntime.start(
         app: AppIdentity.admin,
+        photosDirectory: photos,
         database: env.db,
       );
       expect(runtime.isLocalMode, isTrue);
@@ -75,7 +81,11 @@ void main() {
 
     test('إعدادات الخادم غائبة: الأستاذ والوليّ لا يدخلان', () async {
       for (final app in [AppIdentity.teacher, AppIdentity.student]) {
-        final runtime = await AppRuntime.start(app: app, database: env.db);
+        final runtime = await AppRuntime.start(
+          app: app,
+          database: env.db,
+          photosDirectory: photos,
+        );
         expect(runtime.isLocalMode, isFalse);
         await expectLater(
           runtime.auth.signIn(email: 'a@school.local', password: 'x-password'),
@@ -107,6 +117,7 @@ void main() {
       );
       final runtime = await AppRuntime.start(
         app: AppIdentity.admin,
+        photosDirectory: photos,
         database: env.db,
         gateway: gateway,
       );
@@ -118,6 +129,7 @@ void main() {
     test('الكتابة تُنسب إلى المستخدم المسجَّل وتُرفض قبل الدخول', () async {
       final runtime = await AppRuntime.start(
         app: AppIdentity.admin,
+        photosDirectory: photos,
         database: env.db,
         gateway: gateway,
       );
@@ -146,6 +158,7 @@ void main() {
       final log = <String>[];
       final runtime = await AppRuntime.start(
         app: AppIdentity.admin,
+        photosDirectory: photos,
         database: env.db,
         gateway: gateway,
         syncFactory: (session) =>

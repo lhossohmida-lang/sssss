@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,17 +137,14 @@ class _StudentTile extends StatelessWidget {
 
   final StudentListItem item;
 
-  /// الصورة المصغّرة من المسار المحلي؛ دونه تظهر الأحرف الأولى.
-  ImageProvider? get _photo {
-    final path = item.student.photoLocalPath;
-    return path == null || path.isEmpty ? null : FileImage(File(path));
-  }
-
   @override
   Widget build(BuildContext context) {
     final phone = item.student.parentPhone;
     return ClayListTile(
-      leading: ClayAvatar(name: item.fullName, image: _photo),
+      leading: ClayAvatar(
+        name: item.fullName,
+        image: localPhoto(item.student.photoLocalPath),
+      ),
       title: item.fullName,
       subtitle: item.levelName == null ? phone : '${item.levelName} · $phone',
     );

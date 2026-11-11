@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:admin/admin_tabs.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
@@ -34,6 +37,7 @@ class Opened {
 Future<Opened> openTeachers(
   WidgetTester tester, {
   TestAccount account = owner,
+  FakePhotoSource? photoSource,
 }) async {
   final provisioner = FakeAccountProvisioner();
   final runtime = await bootApp(
@@ -43,6 +47,7 @@ Future<Opened> openTeachers(
     accounts: [account],
     pages: adminPages,
     provisioner: provisioner,
+    photoSource: photoSource,
   );
   await loginWith(tester, account.email, account.password);
   await tester.tap(find.text('المزيد').last);
@@ -344,5 +349,77 @@ void main() {
       find.widgetWithText(ClayButton, 'إعادة توليد كلمة السر'),
       findsNothing,
     );
+  });
+
+  group('الصورة', () {
+    appTest('الصورة الملتقطة تُضغط وتُحفظ محلياً وتُوضع في طابور الرفع', (
+      tester,
+    ) async {
+      final source = FakePhotoSource(samplePngBytes(width: 1600, height: 1200));
+      final o = await openTeachers(tester, photoSource: source);
+      await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));
+      await tester.pumpAndSettle();
+      await fillTeacher(tester);
+      await tester.tap(find.widgetWithText(ClayButton, 'التقاط صورة'));
+      await tester.pumpAndSettle();
+      expect(source.captures, 1);
+      // الصورة الملتقطة تظهر وتتحول الأزرار إلى «تغيير».
+      expect(find.widgetWithText(ClayButton, 'تغيير الصورة'), findsOneWidget);
+      expect(find.text('إلغاء الصورة الملتقطة'), findsOneWidget);
+
+      // الضغط يجري في isolate حقيقي: يُنتظر بزمن حقيقي، وبين ذلك تُدفع
+      // الإطارات يدوياً (مؤشر التحميل يمنع pumpAndSettle من الاستقرار).
+      await tester.tap(find.widgetWithText(ClayButton, 'حفظ').last);
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        if (find.widgetWithText(ClayButton, 'تم').evaluate().isNotEmpty) break;
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'تم'));
+      await tester.pumpAndSettle();
+
+      final teacher = (await runDb(
+        tester,
+        () => o.runtime.db.select(o.runtime.db.teachers).getSingle(),
+      ));
+      final path = teacher.photoLocalPath!;
+      expect(path.startsWith(o.runtime.photosDirectory.path), isTrue);
+      expect(File(path).existsSync(), isTrue);
+      expect(File(path).lengthSync(), lessThan(200 * 1024));
+      final queue = await runDb(
+        tester,
+        () => o.runtime.db.select(o.runtime.db.uploadQueue).getSingle(),
+      );
+      expect(queue.targetTable, 'teachers');
+      expect(queue.targetColumn, 'photo_url');
+      // الأستاذ يظهر بصورته في القائمة.
+      expect(find.byType(Image), findsWidgets);
+    });
+
+    appTest('إلغاء الصورة الملتقطة يرجع إلى بلا صورة', (tester) async {
+      final source = FakePhotoSource(samplePngBytes(width: 100, height: 100));
+      await openTeachers(tester, photoSource: source);
+      await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'التقاط صورة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('إلغاء الصورة الملتقطة'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ClayButton, 'التقاط صورة'), findsOneWidget);
+    });
+
+    appTest('إلغاء الالتقاط لا يغيّر شيئاً', (tester) async {
+      final source = FakePhotoSource(null);
+      await openTeachers(tester, photoSource: source);
+      await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'التقاط صورة'));
+      await tester.pumpAndSettle();
+      expect(source.captures, 1);
+      expect(find.widgetWithText(ClayButton, 'التقاط صورة'), findsOneWidget);
+    });
   });
 }

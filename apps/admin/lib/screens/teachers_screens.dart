@@ -129,7 +129,10 @@ class TeachersScreen extends ConsumerWidget {
       onAdd: canAdd ? () => _add(context, ref) : null,
       itemExtent: 76,
       itemBuilder: (context, item) => ClayListTile(
-        leading: ClayAvatar(name: item.name),
+        leading: ClayAvatar(
+          name: item.name,
+          image: localPhoto(item.teacher.photoLocalPath),
+        ),
         title: item.name,
         subtitle: item.subjectNames.isEmpty
             ? item.teacher.phone
@@ -160,6 +163,7 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
     text: '${widget.initial?.ratePerStudent ?? 0}',
   );
   late final Set<String> _subjects = {...?widget.initialSubjectIds};
+  Uint8List? _photo;
   Map<String, String> _errors = const {};
   bool _saving = false;
 
@@ -192,6 +196,7 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
           subjectIds: _subjects,
           ratePerStudent: rate,
         );
+        await _attachPhoto(created.teacher.id);
         if (mounted) Navigator.of(context).pop(created);
       } else {
         await service.update(
@@ -201,6 +206,7 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
           subjectIds: _subjects,
           ratePerStudent: rate,
         );
+        await _attachPhoto(initial.id);
         if (mounted) Navigator.of(context).pop();
       }
     } on ValidationException catch (e) {
@@ -209,6 +215,25 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
       if (mounted) setState(() => _errors = {'form': e.message});
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// يحفظ الصورة الملتقطة بعد حفظ الأستاذ. فشلها لا يُلغي الحفظ: تُعرض رسالة
+  /// ويُعاد التقاطها من «تعديل البيانات».
+  Future<void> _attachPhoto(String teacherId) async {
+    final bytes = _photo;
+    if (bytes == null) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await ref
+          .read(photoServiceProvider)
+          .attach(PhotoOwner.teacher, teacherId, bytes);
+    } on FormatException catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text('حُفظ الأستاذ لكن تعذّر حفظ الصورة: ${e.message}'),
+        ),
+      );
     }
   }
 
@@ -223,6 +248,17 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: ClayPhotoField(
+              name: _name.text,
+              current: localPhoto(widget.initial?.photoLocalPath),
+              pending: _photo,
+              enabled: !_saving,
+              onChanged: (bytes) => setState(() => _photo = bytes),
+            ),
+          ),
+          const SizedBox(height: ClaySpacing.md),
           ClayTextField(
             controller: _name,
             label: 'الاسم الكامل',
@@ -414,7 +450,11 @@ class TeacherProfileScreen extends ConsumerWidget {
                   ClayCard(
                     child: Column(
                       children: [
-                        ClayAvatar(name: t.name, size: 72),
+                        ClayAvatar(
+                          name: t.name,
+                          image: localPhoto(t.photoLocalPath),
+                          size: 72,
+                        ),
                         const SizedBox(height: ClaySpacing.md),
                         Text(t.name, style: text.headlineSmall),
                         const SizedBox(height: ClaySpacing.xs),

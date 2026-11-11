@@ -153,3 +153,15 @@ final studentPageProvider = StreamProvider.family<StudentPage, StudentPageKey>(
       .watch(studentQueriesProvider)
       .watchPage(query: key.query, limit: key.limit),
 );
+
+/// حفظ صور التلاميذ والأساتذة (ضغط، تخزين محلي، رفع لاحق).
+final Provider<PhotoService> photoServiceProvider = Provider<PhotoService>((
+  ref,
+) {
+  final runtime = ref.watch(runtimeProvider);
+  return PhotoService(
+    runtime.db,
+    runtime.writer,
+    directory: runtime.photosDirectory,
+  );
+});

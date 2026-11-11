@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
@@ -44,6 +46,7 @@ Future<AppRuntime> startTestRuntime({
   SyncFactory? syncFactory,
   bool localMode = false,
   AccountProvisioner? provisioner,
+  Directory? photosDirectory,
 }) async {
   final db = database ?? AppDatabase(NativeDatabase.memory());
   // الوضع المحلي: دون بوابة وهمية، فيبني التطبيق بوابته المحلية (للإدارة).
@@ -92,6 +95,9 @@ Future<AppRuntime> startTestRuntime({
     gateway: fake,
     syncFactory: syncFactory,
     provisioner: provisioner,
+    photosDirectory:
+        photosDirectory ??
+        Directory.systemTemp.createTempSync('school_photos_'),
     localPasswordIterations: 20,
   );
 }

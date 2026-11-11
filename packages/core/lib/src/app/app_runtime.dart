@@ -82,6 +82,7 @@ class AppRuntime {
     required this.writer,
     required this.localGateway,
     required this.provisioner,
+    required this.photosDirectory,
     required SyncLifecycle? syncLifecycle,
     required this._seeder,
   }) : _sync = syncLifecycle;
@@ -96,6 +97,9 @@ class AppRuntime {
 
   /// بوابة الوضع المحلي؛ `null` في وضع الخادم.
   final LocalAuthGateway? localGateway;
+
+  /// مجلد الصور المضغوطة على الجهاز.
+  final Directory photosDirectory;
 
   /// ينشئ حسابات الدخول (تطبيق الإدارة فقط)؛ `null` في غيره.
   final AccountProvisioner? provisioner;
@@ -119,6 +123,7 @@ class AppRuntime {
     AuthGateway? gateway,
     SyncFactory? syncFactory,
     AccountProvisioner? provisioner,
+    Directory? photosDirectory,
     int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
     final settings = config ?? AppConfig.fromEnvironment();
@@ -184,6 +189,7 @@ class AppRuntime {
       auth: auth,
       writer: writer,
       localGateway: local,
+      photosDirectory: photosDirectory ?? await _photosDirectory(app),
       provisioner:
           provisioner ??
           (app != AppIdentity.admin
@@ -211,6 +217,11 @@ class AppRuntime {
     await _sync?.dispose();
     await auth.dispose();
     await db.close();
+  }
+
+  static Future<Directory> _photosDirectory(AppIdentity app) async {
+    final dir = await getApplicationSupportDirectory();
+    return Directory(p.join(dir.path, 'photos_${app.name}'));
   }
 
   static Future<AppDatabase> _openDatabase(AppIdentity app) async {
