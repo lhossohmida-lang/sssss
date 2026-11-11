@@ -21,7 +21,20 @@ class TolerantGoldenComparator extends LocalFileComparator {
       imageBytes,
       await getGoldenBytes(golden),
     );
-    if (result.passed || result.diffPercent <= tolerance) return true;
+    final name = golden.pathSegments.last;
+    final percent = (result.diffPercent * 100).toStringAsFixed(3);
+    if (result.passed || result.diffPercent <= tolerance) {
+      // أوامر GitHub Actions: تظهر في ملخص التشغيل (تعليقات توضيحية).
+      if (!result.passed && Platform.environment['GITHUB_ACTIONS'] == 'true') {
+        stdout.writeln(
+          '::notice title=golden::$name اختلاف $percent٪ ضمن التسامح',
+        );
+      }
+      return true;
+    }
+    if (Platform.environment['GITHUB_ACTIONS'] == 'true') {
+      stdout.writeln('::error title=golden::$name اختلاف $percent٪');
+    }
     final error = await generateFailureOutput(result, golden, basedir);
     throw FlutterError(error);
   }
