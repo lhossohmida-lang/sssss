@@ -35,10 +35,12 @@ jobs:
           set +e
           dart run melos run test --no-select 2>&1 | tee test.log
           status=${PIPESTATUS[0]}
-          # آخر سطور السجل تظهر في ملخص التشغيل دون فتح السجل (للقراءة بلا صلاحيات).
+          # أسماء الاختبارات الفاشلة (وإلا آخر السجل) تظهر في ملخص التشغيل.
           if [ "$status" != "0" ]; then
-            msg=$(grep -vE "^\s*$" test.log | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", substr($0,1,300)}')
-            echo "::error title=test-tail::${msg}"
+            grep -E "❌|\[E\]|Some tests failed|failed" test.log | sort -u | head -n 40 > fail.log
+            [ -s fail.log ] || tail -n 40 test.log > fail.log
+            msg=$(sed 's/%/%25/g' fail.log | awk '{printf "%s%%0A", substr($0,1,300)}')
+            echo "::error title=test-failures::${msg}"
           fi
           exit $status
       - name: Upload golden images
