@@ -4,15 +4,17 @@ import 'package:school_core/school_core.dart';
 
 /// قاعدة في الذاكرة مع كاتب بوقت ومعرّفات محسومة، لتبسيط الاختبارات.
 class TestEnv {
-  TestEnv() : db = AppDatabase(NativeDatabase.memory()) {
+  /// [idPrefix] يميّز معرّفات كل جهاز عند محاكاة عدة أجهزة.
+  TestEnv({this.idPrefix = 'id'}) : db = AppDatabase(NativeDatabase.memory()) {
     writer = SyncWriter(
       db,
       actor: () => const Actor(userId: 'u1', userName: 'المدير'),
       clock: () => time,
-      idGenerator: () => 'id-${++_ids}',
+      idGenerator: () => '$idPrefix-${++_ids}',
     );
   }
 
+  final String idPrefix;
   final AppDatabase db;
   late final SyncWriter writer;
   int time = 1000;
