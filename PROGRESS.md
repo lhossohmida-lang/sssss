@@ -37,7 +37,7 @@
 | 1.18 المصادقة | منتهية ومختبَرة | `AuthService` و`AuthGateway` (Supabase) و`SessionStore` و`WorkerPermissions` و`AccessPolicy` و`LoginCredentials`؛ 289 اختباراً في core |
 | 1.19 الرموز | منتهية ومختبَرة | `ClayPalette` و`ClayTheme` و`ClayThemeData` و`ClayApp`، خط Cairo مضمَّن، لون رئيسي لكل تطبيق، فاتح وداكن، RTL؛ 45 اختباراً في ui (تباين WCAG 4.5 لكل الألوان) |
 | 1.20 `ClayContainer` بـ `CustomPainter` و`RepaintBoundary`، النسخ | منتهية ومختبَرة | `ClayContainer` (بارز/غائر) و`.flat` للقوائم و`ClayCard` و`ClayButton` بحركة الانضغاط؛ 67 اختباراً في ui |
-| 1.21 `ClayTextField`، `ClayDropdown`، `ClayChip`، `ClayToggle`، ` | لم تبدأ | |
+| 1.21 `ClayTextField`، `ClayDropdown`، `ClayChip`، `ClayToggle`، `ClayCheckbox` | منتهية ومختبَرة | حقول غائرة بخطأ ونص مساعد واتجاه LTR للأرقام، مساحة لمس 48؛ 94 اختباراً في ui |
 | 1.22 `ClayBottomNav`، `ClaySidebar`، `ClayAppBar`، وهيكل متكيّف ( | لم تبدأ | |
 | 1.23 `ClayDialog`، `ClayBottomSheet`، `ClayBadge`، `ClayAvatar`،  | لم تبدأ | |
 | 1.24 `ClayCalendar`، `ClayTable`، أغلفة الرسوم البيانية، الأيقونا | لم تبدأ | |
