@@ -12,4 +12,5 @@ export 'src/domain/money.dart';
 export 'src/domain/payout_service.dart';
 export 'src/domain/pricing.dart';
 export 'src/domain/qr_code.dart';
+export 'src/domain/schedule_service.dart';
 export 'src/domain/wage_service.dart';
