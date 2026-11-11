@@ -4,6 +4,7 @@ library;
 export 'src/app_identity.dart';
 export 'src/data/local/app_database.dart';
 export 'src/data/local/sync_writer.dart';
+export 'src/data/remote/postgrest_remote_store.dart';
 export 'src/data/remote/remote_store.dart';
 export 'src/data/remote/sync_engine.dart';
 export 'src/data/remote/sync_profile.dart';
