@@ -36,4 +36,12 @@ extension AppQueries on AppDatabase {
       (rows) => [for (final row in rows) notifications.map(row.data)],
     );
   }
+
+  /// خطوط النقل الحية مرتبة بالاسم.
+  Stream<List<TransportLineRow>> watchTransportLines() {
+    final query = select(transportLines)
+      ..where((t) => t.deletedAt.isNull())
+      ..orderBy([(t) => OrderingTerm.asc(t.name)]);
+    return query.watch();
+  }
 }

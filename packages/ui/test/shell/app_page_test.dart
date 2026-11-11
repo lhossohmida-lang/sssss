@@ -58,6 +58,28 @@ void main() {
     });
   });
 
+  group('AppPage بفعل محدد', () {
+    test('صلاحية العرض لا تكفي لصفحة تشترط الإضافة', () {
+      final page = AppPage(
+        path: '/students/new',
+        requires: PermissionModule.students,
+        action: PermissionAction.add,
+        builder: (_, _) => const SizedBox(),
+      );
+      AccessPolicy worker(PermissionAction action) => AccessPolicy(
+        role: UserRole.worker,
+        permissions: WorkerPermissions.none.withAction(
+          PermissionModule.students,
+          action,
+          allowed: true,
+        ),
+      );
+      expect(page.visibleTo(worker(PermissionAction.view)), isFalse);
+      expect(page.visibleTo(worker(PermissionAction.add)), isTrue);
+      expect(page.visibleTo(const AccessPolicy(role: UserRole.owner)), isTrue);
+    });
+  });
+
   group('AppTab.visibleTo', () {
     AppTab tab({PermissionModule? requires, Set<UserRole>? roles}) => AppTab(
       path: '/t',

@@ -20,9 +20,13 @@ void appTest(String description, Future<void> Function(WidgetTester) body) {
     tester.view.physicalSize = const Size(420, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await body(tester);
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 10));
+    try {
+      await body(tester);
+    } finally {
+      // يُفكّ التطبيق حتى عند فشل الاختبار، وإلا علّقت الاختبارات التالية.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 10));
+    }
   });
 }
 

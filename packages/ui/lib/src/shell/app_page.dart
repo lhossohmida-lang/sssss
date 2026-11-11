@@ -5,7 +5,12 @@ import 'package:school_core/school_core.dart';
 /// صفحة بملء الشاشة خارج التبويبات (الإعدادات، تفاصيل تلميذ...). يُمنع
 /// الوصول إليها، حتى برابط مباشر، إن لم يملك المستخدم صلاحية [requires].
 class AppPage {
-  const AppPage({required this.path, required this.builder, this.requires});
+  const AppPage({
+    required this.path,
+    required this.builder,
+    this.requires,
+    this.action,
+  });
 
   /// مسار الصفحة، ويقبل معاملات مثل `/students/:id`.
   final String path;
@@ -13,6 +18,10 @@ class AppPage {
 
   /// الوحدة التي يشترط فيها فعلاً واحداً على الأقل؛ دونها لأي مستخدم.
   final PermissionModule? requires;
+
+  /// الفعل المشترط على [requires] بالتحديد (مثل «إضافة» لصفحة التسجيل)؛
+  /// دونه يكفي أي فعل.
+  final PermissionAction? action;
 
   /// هل تنطبق هذه الصفحة على [location]؟ (للتحقق من الصلاحية)
   bool matches(String location) {
@@ -27,6 +36,10 @@ class AppPage {
 
   bool visibleTo(AccessPolicy policy) {
     final module = requires;
-    return module == null || policy.canAnyOf(module);
+    if (module == null) return true;
+    final needed = action;
+    return needed == null
+        ? policy.canAnyOf(module)
+        : policy.can(module, needed);
   }
 }

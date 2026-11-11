@@ -165,3 +165,52 @@ final Provider<PhotoService> photoServiceProvider = Provider<PhotoService>((
     directory: runtime.photosDirectory,
   );
 });
+
+/// خدمات المستحقات والانتساب والتسجيل (تطبيق الإدارة).
+final Provider<DuesService> duesServiceProvider = Provider<DuesService>((ref) {
+  final runtime = ref.watch(runtimeProvider);
+  return DuesService(runtime.db, runtime.writer);
+});
+
+final Provider<EnrolmentService> enrolmentServiceProvider =
+    Provider<EnrolmentService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return EnrolmentService(
+        runtime.db,
+        runtime.writer,
+        ref.watch(duesServiceProvider),
+        CycleService(runtime.db, runtime.writer),
+      );
+    });
+
+final Provider<RegistrationService> registrationServiceProvider =
+    Provider<RegistrationService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return RegistrationService(
+        runtime.db,
+        runtime.writer,
+        accounts: ref.watch(accountServiceProvider),
+        enrolments: ref.watch(enrolmentServiceProvider),
+        dues: ref.watch(duesServiceProvider),
+      );
+    });
+
+/// المجموعات النشطة لمادة (لاختيار المجموعة عند التسجيل).
+final groupOptionsProvider = FutureProvider.autoDispose
+    .family<List<GroupOption>, String>(
+      (ref, subjectId) =>
+          ref.watch(enrolmentServiceProvider).groupsForSubject(subjectId),
+    );
+
+/// أساتذة مادة (للأستاذ المفضّل في قائمة الانتظار).
+final subjectTeachersProvider = FutureProvider.autoDispose
+    .family<List<TeacherRow>, String>(
+      (ref, subjectId) =>
+          ref.watch(enrolmentServiceProvider).teachersOfSubject(subjectId),
+    );
+
+/// خطوط النقل الحية مرتبة بالاسم.
+final StreamProvider<List<TransportLineRow>> transportLinesProvider =
+    StreamProvider<List<TransportLineRow>>(
+      (ref) => ref.watch(runtimeProvider).db.watchTransportLines(),
+    );
