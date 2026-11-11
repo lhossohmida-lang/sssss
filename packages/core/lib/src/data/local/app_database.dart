@@ -49,6 +49,7 @@ part 'app_database.g.dart';
     AuditLog,
     Outbox,
     SyncState,
+    DeviceSession,
     UploadQueue,
   ],
 )

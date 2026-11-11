@@ -11,6 +11,9 @@ void main() {
   late AppDatabase db;
   final file = File('../../supabase/migrations/0001_schema.sql');
 
+  // على Windows قد يُنزَّل الملف بنهايات أسطر CRLF.
+  String readSchema() => file.readAsStringSync().replaceAll('\r\n', '\n');
+
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 
@@ -20,7 +23,7 @@ void main() {
       file.writeAsStringSync(generated);
     }
     expect(
-      file.readAsStringSync(),
+      readSchema(),
       generated,
       reason:
           'تغيّر المخطط المحلي. أعد التوليد: '
@@ -29,7 +32,7 @@ void main() {
   });
 
   test('كل الجداول المزامَنة موجودة في مخطط الخادم دون الجداول المحلية', () {
-    final sql = file.readAsStringSync();
+    final sql = readSchema();
     for (final table in db.allTables) {
       final name = table.actualTableName;
       final present = sql.contains('create table if not exists public."$name"');
@@ -38,7 +41,7 @@ void main() {
   });
 
   test('لكل جدول: عمود المزامنة وفهرسه ومشغّل «آخر تعديل يفوز»', () {
-    final sql = file.readAsStringSync();
+    final sql = readSchema();
     final tables = RegExp(r'create table if not exists public\."(\w+)"')
         .allMatches(sql)
         .map((m) => m.group(1)!)
@@ -61,7 +64,7 @@ void main() {
   });
 
   test('الفهارس الفريدة محفوظة على الخادم', () {
-    final sql = file.readAsStringSync();
+    final sql = readSchema();
     expect(
       sql,
       contains(

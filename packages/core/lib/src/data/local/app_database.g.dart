@@ -23011,6 +23011,571 @@ class SyncStateCompanion extends UpdateCompanion<SyncStateRow> {
   }
 }
 
+class $DeviceSessionTable extends DeviceSession
+    with TableInfo<$DeviceSessionTable, DeviceSessionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DeviceSessionTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _mustChangePasswordMeta =
+      const VerificationMeta('mustChangePassword');
+  @override
+  late final GeneratedColumn<bool> mustChangePassword = GeneratedColumn<bool>(
+    'must_change_password',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("must_change_password" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _permissionsMeta = const VerificationMeta(
+    'permissions',
+  );
+  @override
+  late final GeneratedColumn<String> permissions = GeneratedColumn<String>(
+    'permissions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _savedAtMeta = const VerificationMeta(
+    'savedAt',
+  );
+  @override
+  late final GeneratedColumn<int> savedAt = GeneratedColumn<int>(
+    'saved_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    accountId,
+    email,
+    role,
+    entityId,
+    displayName,
+    mustChangePassword,
+    permissions,
+    savedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'device_session';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DeviceSessionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_emailMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('must_change_password')) {
+      context.handle(
+        _mustChangePasswordMeta,
+        mustChangePassword.isAcceptableOrUnknown(
+          data['must_change_password']!,
+          _mustChangePasswordMeta,
+        ),
+      );
+    }
+    if (data.containsKey('permissions')) {
+      context.handle(
+        _permissionsMeta,
+        permissions.isAcceptableOrUnknown(
+          data['permissions']!,
+          _permissionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('saved_at')) {
+      context.handle(
+        _savedAtMeta,
+        savedAt.isAcceptableOrUnknown(data['saved_at']!, _savedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_savedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DeviceSessionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DeviceSessionRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      ),
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      mustChangePassword: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}must_change_password'],
+      )!,
+      permissions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}permissions'],
+      )!,
+      savedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}saved_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DeviceSessionTable createAlias(String alias) {
+    return $DeviceSessionTable(attachedDatabase, alias);
+  }
+}
+
+class DeviceSessionRow extends DataClass
+    implements Insertable<DeviceSessionRow> {
+  /// دائماً `1`: جهاز واحد وحساب واحد مسجَّل عليه.
+  final int id;
+
+  /// معرّف الحساب، وهو نفسه معرّف المستخدم على الخادم.
+  final String accountId;
+  final String email;
+
+  /// `owner` / `worker` / `teacher` / `parent`.
+  final String role;
+
+  /// معرّف السجل في جدول الدور؛ فارغ لصاحب المدرسة.
+  final String? entityId;
+  final String displayName;
+  final bool mustChangePassword;
+
+  /// صلاحيات العامل كما كانت عند آخر قراءة (JSON).
+  final String permissions;
+  final int savedAt;
+  const DeviceSessionRow({
+    required this.id,
+    required this.accountId,
+    required this.email,
+    required this.role,
+    this.entityId,
+    required this.displayName,
+    required this.mustChangePassword,
+    required this.permissions,
+    required this.savedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['account_id'] = Variable<String>(accountId);
+    map['email'] = Variable<String>(email);
+    map['role'] = Variable<String>(role);
+    if (!nullToAbsent || entityId != null) {
+      map['entity_id'] = Variable<String>(entityId);
+    }
+    map['display_name'] = Variable<String>(displayName);
+    map['must_change_password'] = Variable<bool>(mustChangePassword);
+    map['permissions'] = Variable<String>(permissions);
+    map['saved_at'] = Variable<int>(savedAt);
+    return map;
+  }
+
+  DeviceSessionCompanion toCompanion(bool nullToAbsent) {
+    return DeviceSessionCompanion(
+      id: Value(id),
+      accountId: Value(accountId),
+      email: Value(email),
+      role: Value(role),
+      entityId: entityId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(entityId),
+      displayName: Value(displayName),
+      mustChangePassword: Value(mustChangePassword),
+      permissions: Value(permissions),
+      savedAt: Value(savedAt),
+    );
+  }
+
+  factory DeviceSessionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DeviceSessionRow(
+      id: serializer.fromJson<int>(json['id']),
+      accountId: serializer.fromJson<String>(json['accountId']),
+      email: serializer.fromJson<String>(json['email']),
+      role: serializer.fromJson<String>(json['role']),
+      entityId: serializer.fromJson<String?>(json['entityId']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      mustChangePassword: serializer.fromJson<bool>(json['mustChangePassword']),
+      permissions: serializer.fromJson<String>(json['permissions']),
+      savedAt: serializer.fromJson<int>(json['savedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'accountId': serializer.toJson<String>(accountId),
+      'email': serializer.toJson<String>(email),
+      'role': serializer.toJson<String>(role),
+      'entityId': serializer.toJson<String?>(entityId),
+      'displayName': serializer.toJson<String>(displayName),
+      'mustChangePassword': serializer.toJson<bool>(mustChangePassword),
+      'permissions': serializer.toJson<String>(permissions),
+      'savedAt': serializer.toJson<int>(savedAt),
+    };
+  }
+
+  DeviceSessionRow copyWith({
+    int? id,
+    String? accountId,
+    String? email,
+    String? role,
+    Value<String?> entityId = const Value.absent(),
+    String? displayName,
+    bool? mustChangePassword,
+    String? permissions,
+    int? savedAt,
+  }) => DeviceSessionRow(
+    id: id ?? this.id,
+    accountId: accountId ?? this.accountId,
+    email: email ?? this.email,
+    role: role ?? this.role,
+    entityId: entityId.present ? entityId.value : this.entityId,
+    displayName: displayName ?? this.displayName,
+    mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+    permissions: permissions ?? this.permissions,
+    savedAt: savedAt ?? this.savedAt,
+  );
+  DeviceSessionRow copyWithCompanion(DeviceSessionCompanion data) {
+    return DeviceSessionRow(
+      id: data.id.present ? data.id.value : this.id,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      email: data.email.present ? data.email.value : this.email,
+      role: data.role.present ? data.role.value : this.role,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      mustChangePassword: data.mustChangePassword.present
+          ? data.mustChangePassword.value
+          : this.mustChangePassword,
+      permissions: data.permissions.present
+          ? data.permissions.value
+          : this.permissions,
+      savedAt: data.savedAt.present ? data.savedAt.value : this.savedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DeviceSessionRow(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('email: $email, ')
+          ..write('role: $role, ')
+          ..write('entityId: $entityId, ')
+          ..write('displayName: $displayName, ')
+          ..write('mustChangePassword: $mustChangePassword, ')
+          ..write('permissions: $permissions, ')
+          ..write('savedAt: $savedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    accountId,
+    email,
+    role,
+    entityId,
+    displayName,
+    mustChangePassword,
+    permissions,
+    savedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DeviceSessionRow &&
+          other.id == this.id &&
+          other.accountId == this.accountId &&
+          other.email == this.email &&
+          other.role == this.role &&
+          other.entityId == this.entityId &&
+          other.displayName == this.displayName &&
+          other.mustChangePassword == this.mustChangePassword &&
+          other.permissions == this.permissions &&
+          other.savedAt == this.savedAt);
+}
+
+class DeviceSessionCompanion extends UpdateCompanion<DeviceSessionRow> {
+  final Value<int> id;
+  final Value<String> accountId;
+  final Value<String> email;
+  final Value<String> role;
+  final Value<String?> entityId;
+  final Value<String> displayName;
+  final Value<bool> mustChangePassword;
+  final Value<String> permissions;
+  final Value<int> savedAt;
+  const DeviceSessionCompanion({
+    this.id = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.email = const Value.absent(),
+    this.role = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.mustChangePassword = const Value.absent(),
+    this.permissions = const Value.absent(),
+    this.savedAt = const Value.absent(),
+  });
+  DeviceSessionCompanion.insert({
+    this.id = const Value.absent(),
+    required String accountId,
+    required String email,
+    required String role,
+    this.entityId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.mustChangePassword = const Value.absent(),
+    this.permissions = const Value.absent(),
+    required int savedAt,
+  }) : accountId = Value(accountId),
+       email = Value(email),
+       role = Value(role),
+       savedAt = Value(savedAt);
+  static Insertable<DeviceSessionRow> custom({
+    Expression<int>? id,
+    Expression<String>? accountId,
+    Expression<String>? email,
+    Expression<String>? role,
+    Expression<String>? entityId,
+    Expression<String>? displayName,
+    Expression<bool>? mustChangePassword,
+    Expression<String>? permissions,
+    Expression<int>? savedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (accountId != null) 'account_id': accountId,
+      if (email != null) 'email': email,
+      if (role != null) 'role': role,
+      if (entityId != null) 'entity_id': entityId,
+      if (displayName != null) 'display_name': displayName,
+      if (mustChangePassword != null)
+        'must_change_password': mustChangePassword,
+      if (permissions != null) 'permissions': permissions,
+      if (savedAt != null) 'saved_at': savedAt,
+    });
+  }
+
+  DeviceSessionCompanion copyWith({
+    Value<int>? id,
+    Value<String>? accountId,
+    Value<String>? email,
+    Value<String>? role,
+    Value<String?>? entityId,
+    Value<String>? displayName,
+    Value<bool>? mustChangePassword,
+    Value<String>? permissions,
+    Value<int>? savedAt,
+  }) {
+    return DeviceSessionCompanion(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      entityId: entityId ?? this.entityId,
+      displayName: displayName ?? this.displayName,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+      permissions: permissions ?? this.permissions,
+      savedAt: savedAt ?? this.savedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (mustChangePassword.present) {
+      map['must_change_password'] = Variable<bool>(mustChangePassword.value);
+    }
+    if (permissions.present) {
+      map['permissions'] = Variable<String>(permissions.value);
+    }
+    if (savedAt.present) {
+      map['saved_at'] = Variable<int>(savedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DeviceSessionCompanion(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('email: $email, ')
+          ..write('role: $role, ')
+          ..write('entityId: $entityId, ')
+          ..write('displayName: $displayName, ')
+          ..write('mustChangePassword: $mustChangePassword, ')
+          ..write('permissions: $permissions, ')
+          ..write('savedAt: $savedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $UploadQueueTable extends UploadQueue
     with TableInfo<$UploadQueueTable, UploadQueueRow> {
   @override
@@ -23935,6 +24500,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AuditLogTable auditLog = $AuditLogTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
+  late final $DeviceSessionTable deviceSession = $DeviceSessionTable(this);
   late final $UploadQueueTable uploadQueue = $UploadQueueTable(this);
   late final Index idxSettingsUpdated = Index(
     'idx_settings_updated',
@@ -24435,6 +25001,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     auditLog,
     outbox,
     syncState,
+    deviceSession,
     uploadQueue,
     idxSettingsUpdated,
     idxLevelsSort,
@@ -44593,6 +45160,295 @@ typedef $$SyncStateTableProcessedTableManager =
       SyncStateRow,
       PrefetchHooks Function()
     >;
+typedef $$DeviceSessionTableCreateCompanionBuilder =
+    DeviceSessionCompanion Function({
+      Value<int> id,
+      required String accountId,
+      required String email,
+      required String role,
+      Value<String?> entityId,
+      Value<String> displayName,
+      Value<bool> mustChangePassword,
+      Value<String> permissions,
+      required int savedAt,
+    });
+typedef $$DeviceSessionTableUpdateCompanionBuilder =
+    DeviceSessionCompanion Function({
+      Value<int> id,
+      Value<String> accountId,
+      Value<String> email,
+      Value<String> role,
+      Value<String?> entityId,
+      Value<String> displayName,
+      Value<bool> mustChangePassword,
+      Value<String> permissions,
+      Value<int> savedAt,
+    });
+
+class $$DeviceSessionTableFilterComposer
+    extends Composer<_$AppDatabase, $DeviceSessionTable> {
+  $$DeviceSessionTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get mustChangePassword => $composableBuilder(
+    column: $table.mustChangePassword,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get permissions => $composableBuilder(
+    column: $table.permissions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DeviceSessionTableOrderingComposer
+    extends Composer<_$AppDatabase, $DeviceSessionTable> {
+  $$DeviceSessionTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get mustChangePassword => $composableBuilder(
+    column: $table.mustChangePassword,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get permissions => $composableBuilder(
+    column: $table.permissions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DeviceSessionTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DeviceSessionTable> {
+  $$DeviceSessionTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get email =>
+      $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get mustChangePassword => $composableBuilder(
+    column: $table.mustChangePassword,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get permissions => $composableBuilder(
+    column: $table.permissions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get savedAt =>
+      $composableBuilder(column: $table.savedAt, builder: (column) => column);
+}
+
+class $$DeviceSessionTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DeviceSessionTable,
+          DeviceSessionRow,
+          $$DeviceSessionTableFilterComposer,
+          $$DeviceSessionTableOrderingComposer,
+          $$DeviceSessionTableAnnotationComposer,
+          $$DeviceSessionTableCreateCompanionBuilder,
+          $$DeviceSessionTableUpdateCompanionBuilder,
+          (
+            DeviceSessionRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DeviceSessionTable,
+              DeviceSessionRow
+            >,
+          ),
+          DeviceSessionRow,
+          PrefetchHooks Function()
+        > {
+  $$DeviceSessionTableTableManager(_$AppDatabase db, $DeviceSessionTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DeviceSessionTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DeviceSessionTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DeviceSessionTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> accountId = const Value.absent(),
+                Value<String> email = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String?> entityId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<bool> mustChangePassword = const Value.absent(),
+                Value<String> permissions = const Value.absent(),
+                Value<int> savedAt = const Value.absent(),
+              }) => DeviceSessionCompanion(
+                id: id,
+                accountId: accountId,
+                email: email,
+                role: role,
+                entityId: entityId,
+                displayName: displayName,
+                mustChangePassword: mustChangePassword,
+                permissions: permissions,
+                savedAt: savedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String accountId,
+                required String email,
+                required String role,
+                Value<String?> entityId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<bool> mustChangePassword = const Value.absent(),
+                Value<String> permissions = const Value.absent(),
+                required int savedAt,
+              }) => DeviceSessionCompanion.insert(
+                id: id,
+                accountId: accountId,
+                email: email,
+                role: role,
+                entityId: entityId,
+                displayName: displayName,
+                mustChangePassword: mustChangePassword,
+                permissions: permissions,
+                savedAt: savedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$DeviceSessionTable, DeviceSessionRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DeviceSessionTable,
+                    DeviceSessionRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DeviceSessionTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DeviceSessionTable,
+      DeviceSessionRow,
+      $$DeviceSessionTableFilterComposer,
+      $$DeviceSessionTableOrderingComposer,
+      $$DeviceSessionTableAnnotationComposer,
+      $$DeviceSessionTableCreateCompanionBuilder,
+      $$DeviceSessionTableUpdateCompanionBuilder,
+      (
+        DeviceSessionRow,
+        BaseReferences<_$AppDatabase, $DeviceSessionTable, DeviceSessionRow>,
+      ),
+      DeviceSessionRow,
+      PrefetchHooks Function()
+    >;
 typedef $$UploadQueueTableCreateCompanionBuilder =
     UploadQueueCompanion Function({
       required String id,
@@ -45082,6 +45938,8 @@ class $AppDatabaseManager {
       $$OutboxTableTableManager(_db, _db.outbox);
   $$SyncStateTableTableManager get syncState =>
       $$SyncStateTableTableManager(_db, _db.syncState);
+  $$DeviceSessionTableTableManager get deviceSession =>
+      $$DeviceSessionTableTableManager(_db, _db.deviceSession);
   $$UploadQueueTableTableManager get uploadQueue =>
       $$UploadQueueTableTableManager(_db, _db.uploadQueue);
 }

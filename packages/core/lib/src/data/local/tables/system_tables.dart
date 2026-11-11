@@ -120,3 +120,37 @@ class UploadQueue extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// جلسة الدخول المحفوظة على الجهاز: صف واحد لا يُزامَن.
+///
+/// تُحفظ لتفتح الواجهة على دور صاحبها وصلاحياته دون إنترنت وقبل أول
+/// مزامنة، فلا تُطلب كلمة السر في كل تشغيل.
+@DataClassName('DeviceSessionRow')
+class DeviceSession extends Table {
+  /// دائماً `1`: جهاز واحد وحساب واحد مسجَّل عليه.
+  IntColumn get id => integer()();
+
+  /// معرّف الحساب، وهو نفسه معرّف المستخدم على الخادم.
+  TextColumn get accountId => text()();
+
+  TextColumn get email => text()();
+
+  /// `owner` / `worker` / `teacher` / `parent`.
+  TextColumn get role => text()();
+
+  /// معرّف السجل في جدول الدور؛ فارغ لصاحب المدرسة.
+  TextColumn get entityId => text().nullable()();
+
+  TextColumn get displayName => text().withDefault(const Constant(''))();
+
+  BoolColumn get mustChangePassword =>
+      boolean().withDefault(const Constant(true))();
+
+  /// صلاحيات العامل كما كانت عند آخر قراءة (JSON).
+  TextColumn get permissions => text().withDefault(const Constant('{}'))();
+
+  IntColumn get savedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
+import 'package:school_core/src/data/remote/synced_tables.dart';
 
 import '../support/fake_remote.dart';
 import '../support/fixtures.dart';
@@ -508,10 +509,9 @@ void main() {
     test('كل الجداول المزامَنة مذكورة مرة واحدة ودون الجداول المحلية', () {
       final names = SyncProfile.tableNames;
       expect(names.toSet(), hasLength(names.length));
-      final local = {'outbox', 'sync_state', 'upload_queue'};
       final synced = a.db.allTables
           .map((t) => t.actualTableName)
-          .where((n) => !local.contains(n))
+          .where((n) => !localOnlyTables.contains(n))
           .toSet();
       expect(names.toSet(), synced);
     });

@@ -34,7 +34,7 @@
 | 1.15 اختبار RLS على PostgreSQL محلي إن سمحت البيئة، وإلا اختبارات | منتهية ومختبَرة | `002_rls.sql`: نحو 120 تحققاً لكل الأدوار على PostgreSQL 16 محلياً وفي Actions |
 | 1.16 محرك المزامنة | منتهية ومختبَرة | `StableId` و`SyncEngine` و`SyncProfile` بخادم وهمي؛ 208 اختبارات في core |
 | 1.17 تنفيذ الواجهة على Supabase | منتهية ومختبَرة | عميل REST، منسّق المزامنة في الخلفية، البث اللحظي، رفع الملفات، وفتح القاعدة في isolate خلفي؛ 238 اختباراً في core. مغلّفات Supabase (البث والملفات) رقيقة وتُتحقق على المشروع الحقيقي في 8.2 |
-| 1.18 المصادقة | لم تبدأ | |
+| 1.18 المصادقة | منتهية ومختبَرة | `AuthService` و`AuthGateway` (Supabase) و`SessionStore` و`WorkerPermissions` و`AccessPolicy` و`LoginCredentials`؛ 289 اختباراً في core |
 | 1.19 الرموز | لم تبدأ | |
 | 1.20 `ClayContainer` بـ `CustomPainter` و`RepaintBoundary`، النسخ | لم تبدأ | |
 | 1.21 `ClayTextField`، `ClayDropdown`، `ClayChip`، `ClayToggle`، ` | لم تبدأ | |
