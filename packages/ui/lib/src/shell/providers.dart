@@ -78,3 +78,34 @@ final StreamProvider<List<LevelRow>> levelsProvider =
     StreamProvider<List<LevelRow>>(
       (ref) => ref.watch(levelServiceProvider).watchAll(),
     );
+
+/// خدمة المواد، وقائمتها الحية مع أسماء المستويات.
+final Provider<SubjectService> subjectServiceProvider =
+    Provider<SubjectService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return SubjectService(runtime.db, runtime.writer);
+    });
+
+final StreamProvider<List<SubjectItem>> subjectsProvider =
+    StreamProvider<List<SubjectItem>>(
+      (ref) => ref.watch(subjectServiceProvider).watchAll(),
+    );
+
+/// خدمة القاعات، وقائمتها الحية.
+final Provider<RoomService> roomServiceProvider = Provider<RoomService>((ref) {
+  final runtime = ref.watch(runtimeProvider);
+  return RoomService(runtime.db, runtime.writer);
+});
+
+final StreamProvider<List<RoomRow>> roomsProvider =
+    StreamProvider<List<RoomRow>>(
+      (ref) => ref.watch(roomServiceProvider).watchAll(),
+    );
+
+/// هل يملك المستخدم الحالي [action] على [module]؟ يعيد بناء الودجت عند تغيّر
+/// الصلاحية فقط (`select`)، لا مع كل تغيّر في الجلسة.
+extension AccessRef on WidgetRef {
+  bool can(PermissionModule module, PermissionAction action) => watch(
+    sessionProvider.select((s) => s.value?.can(module, action) ?? false),
+  );
+}

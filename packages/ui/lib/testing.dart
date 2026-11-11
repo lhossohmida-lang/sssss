@@ -70,3 +70,18 @@ Future<void> loginWith(
   await tester.tap(find.widgetWithText(ClayButton, 'دخول'));
   await tester.pumpAndSettle();
 }
+
+/// ينفّذ عملية على القاعدة (بذر بيانات أو قراءة) داخل اختبار واجهة.
+///
+/// تُنفَّذ في منطقة الاختبار الوهمية نفسها (لا `runAsync`)، لأن استعلامات
+/// drift المتدفقة في الشاشات تعيش فيها وتحجز المنفّذ حتى تُكمل بإطار؛ فلو
+/// انتظرت العملية في منطقة حقيقية لبقيت معلّقة إلى الأبد. ويُدفع إطار بعدها
+/// لتصل النتائج الجديدة إلى الشاشة. لا تصلح للعمليات التي تحتاج عزلاً
+/// حقيقياً (اشتقاق كلمات السر).
+Future<T> runDb<T>(WidgetTester tester, Future<T> Function() action) async {
+  final result = await action();
+  // إطاران: الأول يطلق إعادة جلب الاستعلامات، والثاني يوصل نتائجها.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+  return result;
+}

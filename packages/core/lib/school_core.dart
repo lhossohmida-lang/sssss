@@ -26,6 +26,7 @@ export 'src/data/remote/sync_coordinator.dart';
 export 'src/data/remote/sync_engine.dart';
 export 'src/data/remote/sync_profile.dart';
 export 'src/data/remote/upload_worker.dart';
+export 'src/domain/catalog_service.dart';
 export 'src/domain/cycle_service.dart';
 export 'src/domain/date_key.dart';
 export 'src/domain/dues_service.dart';
