@@ -36,7 +36,7 @@
 | 1.17 تنفيذ الواجهة على Supabase | منتهية ومختبَرة | عميل REST، منسّق المزامنة في الخلفية، البث اللحظي، رفع الملفات، وفتح القاعدة في isolate خلفي؛ 238 اختباراً في core. مغلّفات Supabase (البث والملفات) رقيقة وتُتحقق على المشروع الحقيقي في 8.2 |
 | 1.18 المصادقة | منتهية ومختبَرة | `AuthService` و`AuthGateway` (Supabase) و`SessionStore` و`WorkerPermissions` و`AccessPolicy` و`LoginCredentials`؛ 289 اختباراً في core |
 | 1.19 الرموز | منتهية ومختبَرة | `ClayPalette` و`ClayTheme` و`ClayThemeData` و`ClayApp`، خط Cairo مضمَّن، لون رئيسي لكل تطبيق، فاتح وداكن، RTL؛ 45 اختباراً في ui (تباين WCAG 4.5 لكل الألوان) |
-| 1.20 `ClayContainer` بـ `CustomPainter` و`RepaintBoundary`، النسخ | لم تبدأ | |
+| 1.20 `ClayContainer` بـ `CustomPainter` و`RepaintBoundary`، النسخ | منتهية ومختبَرة | `ClayContainer` (بارز/غائر) و`.flat` للقوائم و`ClayCard` و`ClayButton` بحركة الانضغاط؛ 67 اختباراً في ui |
 | 1.21 `ClayTextField`، `ClayDropdown`، `ClayChip`، `ClayToggle`، ` | لم تبدأ | |
 | 1.22 `ClayBottomNav`، `ClaySidebar`، `ClayAppBar`، وهيكل متكيّف ( | لم تبدأ | |
 | 1.23 `ClayDialog`، `ClayBottomSheet`، `ClayBadge`، `ClayAvatar`،  | لم تبدأ | |
