@@ -23576,6 +23576,372 @@ class DeviceSessionCompanion extends UpdateCompanion<DeviceSessionRow> {
   }
 }
 
+class $LocalCredentialsTable extends LocalCredentials
+    with TableInfo<$LocalCredentialsTable, LocalCredentialRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalCredentialsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _saltMeta = const VerificationMeta('salt');
+  @override
+  late final GeneratedColumn<String> salt = GeneratedColumn<String>(
+    'salt',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hashMeta = const VerificationMeta('hash');
+  @override
+  late final GeneratedColumn<String> hash = GeneratedColumn<String>(
+    'hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _iterationsMeta = const VerificationMeta(
+    'iterations',
+  );
+  @override
+  late final GeneratedColumn<int> iterations = GeneratedColumn<int>(
+    'iterations',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    salt,
+    hash,
+    iterations,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_credentials';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalCredentialRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('salt')) {
+      context.handle(
+        _saltMeta,
+        salt.isAcceptableOrUnknown(data['salt']!, _saltMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_saltMeta);
+    }
+    if (data.containsKey('hash')) {
+      context.handle(
+        _hashMeta,
+        hash.isAcceptableOrUnknown(data['hash']!, _hashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_hashMeta);
+    }
+    if (data.containsKey('iterations')) {
+      context.handle(
+        _iterationsMeta,
+        iterations.isAcceptableOrUnknown(data['iterations']!, _iterationsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_iterationsMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId};
+  @override
+  LocalCredentialRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalCredentialRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      salt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}salt'],
+      )!,
+      hash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hash'],
+      )!,
+      iterations: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}iterations'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalCredentialsTable createAlias(String alias) {
+    return $LocalCredentialsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalCredentialRow extends DataClass
+    implements Insertable<LocalCredentialRow> {
+  final String accountId;
+  final String salt;
+  final String hash;
+  final int iterations;
+  final int updatedAt;
+  const LocalCredentialRow({
+    required this.accountId,
+    required this.salt,
+    required this.hash,
+    required this.iterations,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    map['salt'] = Variable<String>(salt);
+    map['hash'] = Variable<String>(hash);
+    map['iterations'] = Variable<int>(iterations);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  LocalCredentialsCompanion toCompanion(bool nullToAbsent) {
+    return LocalCredentialsCompanion(
+      accountId: Value(accountId),
+      salt: Value(salt),
+      hash: Value(hash),
+      iterations: Value(iterations),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory LocalCredentialRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalCredentialRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      salt: serializer.fromJson<String>(json['salt']),
+      hash: serializer.fromJson<String>(json['hash']),
+      iterations: serializer.fromJson<int>(json['iterations']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'salt': serializer.toJson<String>(salt),
+      'hash': serializer.toJson<String>(hash),
+      'iterations': serializer.toJson<int>(iterations),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  LocalCredentialRow copyWith({
+    String? accountId,
+    String? salt,
+    String? hash,
+    int? iterations,
+    int? updatedAt,
+  }) => LocalCredentialRow(
+    accountId: accountId ?? this.accountId,
+    salt: salt ?? this.salt,
+    hash: hash ?? this.hash,
+    iterations: iterations ?? this.iterations,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  LocalCredentialRow copyWithCompanion(LocalCredentialsCompanion data) {
+    return LocalCredentialRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      salt: data.salt.present ? data.salt.value : this.salt,
+      hash: data.hash.present ? data.hash.value : this.hash,
+      iterations: data.iterations.present
+          ? data.iterations.value
+          : this.iterations,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCredentialRow(')
+          ..write('accountId: $accountId, ')
+          ..write('salt: $salt, ')
+          ..write('hash: $hash, ')
+          ..write('iterations: $iterations, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(accountId, salt, hash, iterations, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalCredentialRow &&
+          other.accountId == this.accountId &&
+          other.salt == this.salt &&
+          other.hash == this.hash &&
+          other.iterations == this.iterations &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalCredentialsCompanion extends UpdateCompanion<LocalCredentialRow> {
+  final Value<String> accountId;
+  final Value<String> salt;
+  final Value<String> hash;
+  final Value<int> iterations;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const LocalCredentialsCompanion({
+    this.accountId = const Value.absent(),
+    this.salt = const Value.absent(),
+    this.hash = const Value.absent(),
+    this.iterations = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalCredentialsCompanion.insert({
+    required String accountId,
+    required String salt,
+    required String hash,
+    required int iterations,
+    required int updatedAt,
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       salt = Value(salt),
+       hash = Value(hash),
+       iterations = Value(iterations),
+       updatedAt = Value(updatedAt);
+  static Insertable<LocalCredentialRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? salt,
+    Expression<String>? hash,
+    Expression<int>? iterations,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (salt != null) 'salt': salt,
+      if (hash != null) 'hash': hash,
+      if (iterations != null) 'iterations': iterations,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalCredentialsCompanion copyWith({
+    Value<String>? accountId,
+    Value<String>? salt,
+    Value<String>? hash,
+    Value<int>? iterations,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return LocalCredentialsCompanion(
+      accountId: accountId ?? this.accountId,
+      salt: salt ?? this.salt,
+      hash: hash ?? this.hash,
+      iterations: iterations ?? this.iterations,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (salt.present) {
+      map['salt'] = Variable<String>(salt.value);
+    }
+    if (hash.present) {
+      map['hash'] = Variable<String>(hash.value);
+    }
+    if (iterations.present) {
+      map['iterations'] = Variable<int>(iterations.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalCredentialsCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('salt: $salt, ')
+          ..write('hash: $hash, ')
+          ..write('iterations: $iterations, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $UploadQueueTable extends UploadQueue
     with TableInfo<$UploadQueueTable, UploadQueueRow> {
   @override
@@ -24501,6 +24867,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
   late final $DeviceSessionTable deviceSession = $DeviceSessionTable(this);
+  late final $LocalCredentialsTable localCredentials = $LocalCredentialsTable(
+    this,
+  );
   late final $UploadQueueTable uploadQueue = $UploadQueueTable(this);
   late final Index idxSettingsUpdated = Index(
     'idx_settings_updated',
@@ -25002,6 +25371,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     outbox,
     syncState,
     deviceSession,
+    localCredentials,
     uploadQueue,
     idxSettingsUpdated,
     idxLevelsSort,
@@ -45449,6 +45819,229 @@ typedef $$DeviceSessionTableProcessedTableManager =
       DeviceSessionRow,
       PrefetchHooks Function()
     >;
+typedef $$LocalCredentialsTableCreateCompanionBuilder =
+    LocalCredentialsCompanion Function({
+      required String accountId,
+      required String salt,
+      required String hash,
+      required int iterations,
+      required int updatedAt,
+      Value<int> rowid,
+    });
+typedef $$LocalCredentialsTableUpdateCompanionBuilder =
+    LocalCredentialsCompanion Function({
+      Value<String> accountId,
+      Value<String> salt,
+      Value<String> hash,
+      Value<int> iterations,
+      Value<int> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$LocalCredentialsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalCredentialsTable> {
+  $$LocalCredentialsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get salt => $composableBuilder(
+    column: $table.salt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hash => $composableBuilder(
+    column: $table.hash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get iterations => $composableBuilder(
+    column: $table.iterations,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalCredentialsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalCredentialsTable> {
+  $$LocalCredentialsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get salt => $composableBuilder(
+    column: $table.salt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hash => $composableBuilder(
+    column: $table.hash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get iterations => $composableBuilder(
+    column: $table.iterations,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalCredentialsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalCredentialsTable> {
+  $$LocalCredentialsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get salt =>
+      $composableBuilder(column: $table.salt, builder: (column) => column);
+
+  GeneratedColumn<String> get hash =>
+      $composableBuilder(column: $table.hash, builder: (column) => column);
+
+  GeneratedColumn<int> get iterations => $composableBuilder(
+    column: $table.iterations,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LocalCredentialsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalCredentialsTable,
+          LocalCredentialRow,
+          $$LocalCredentialsTableFilterComposer,
+          $$LocalCredentialsTableOrderingComposer,
+          $$LocalCredentialsTableAnnotationComposer,
+          $$LocalCredentialsTableCreateCompanionBuilder,
+          $$LocalCredentialsTableUpdateCompanionBuilder,
+          (
+            LocalCredentialRow,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalCredentialsTable,
+              LocalCredentialRow
+            >,
+          ),
+          LocalCredentialRow,
+          PrefetchHooks Function()
+        > {
+  $$LocalCredentialsTableTableManager(
+    _$AppDatabase db,
+    $LocalCredentialsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalCredentialsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalCredentialsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalCredentialsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<String> salt = const Value.absent(),
+                Value<String> hash = const Value.absent(),
+                Value<int> iterations = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCredentialsCompanion(
+                accountId: accountId,
+                salt: salt,
+                hash: hash,
+                iterations: iterations,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required String salt,
+                required String hash,
+                required int iterations,
+                required int updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalCredentialsCompanion.insert(
+                accountId: accountId,
+                salt: salt,
+                hash: hash,
+                iterations: iterations,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalCredentialsTable, LocalCredentialRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalCredentialsTable,
+                    LocalCredentialRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalCredentialsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalCredentialsTable,
+      LocalCredentialRow,
+      $$LocalCredentialsTableFilterComposer,
+      $$LocalCredentialsTableOrderingComposer,
+      $$LocalCredentialsTableAnnotationComposer,
+      $$LocalCredentialsTableCreateCompanionBuilder,
+      $$LocalCredentialsTableUpdateCompanionBuilder,
+      (
+        LocalCredentialRow,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalCredentialsTable,
+          LocalCredentialRow
+        >,
+      ),
+      LocalCredentialRow,
+      PrefetchHooks Function()
+    >;
 typedef $$UploadQueueTableCreateCompanionBuilder =
     UploadQueueCompanion Function({
       required String id,
@@ -45940,6 +46533,8 @@ class $AppDatabaseManager {
       $$SyncStateTableTableManager(_db, _db.syncState);
   $$DeviceSessionTableTableManager get deviceSession =>
       $$DeviceSessionTableTableManager(_db, _db.deviceSession);
+  $$LocalCredentialsTableTableManager get localCredentials =>
+      $$LocalCredentialsTableTableManager(_db, _db.localCredentials);
   $$UploadQueueTableTableManager get uploadQueue =>
       $$UploadQueueTableTableManager(_db, _db.uploadQueue);
 }

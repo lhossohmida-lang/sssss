@@ -154,3 +154,22 @@ class DeviceSession extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// كلمات سر الوضع المحلي (دون خادم): بصمة PBKDF2 لكل حساب، لا تُزامَن.
+///
+/// في وضع الخادم يتولى Supabase Auth كلمات السر ولا يُكتب هذا الجدول.
+@DataClassName('LocalCredentialRow')
+class LocalCredentials extends Table {
+  TextColumn get accountId => text()();
+
+  TextColumn get salt => text()();
+
+  TextColumn get hash => text()();
+
+  IntColumn get iterations => integer()();
+
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId};
+}

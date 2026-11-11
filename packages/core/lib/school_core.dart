@@ -1,12 +1,16 @@
 /// النماذج والقاعدة المحلية والمزامنة وقواعد الحساب المشتركة بين التطبيقات.
 library;
 
+export 'src/app/app_config.dart';
+export 'src/app/app_runtime.dart';
 export 'src/app_identity.dart';
 export 'src/auth/account_directory.dart';
 export 'src/auth/auth_gateway.dart';
 export 'src/auth/auth_service.dart';
 export 'src/auth/auth_session.dart';
 export 'src/auth/credentials.dart';
+export 'src/auth/local_auth_gateway.dart';
+export 'src/auth/password_hasher.dart';
 export 'src/auth/permissions.dart';
 export 'src/auth/session_store.dart';
 export 'src/auth/supabase_auth_gateway.dart';

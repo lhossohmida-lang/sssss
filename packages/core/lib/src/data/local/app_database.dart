@@ -50,6 +50,7 @@ part 'app_database.g.dart';
     Outbox,
     SyncState,
     DeviceSession,
+    LocalCredentials,
     UploadQueue,
   ],
 )
