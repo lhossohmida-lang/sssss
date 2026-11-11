@@ -273,8 +273,8 @@ void main() {
       );
       await tester.tap(find.text('افتح'));
       await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.arrow_forward_rounded), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
       await tester.pumpAndSettle();
       expect(find.text('تفاصيل'), findsNothing);
     });
@@ -285,7 +285,7 @@ void main() {
           const Scaffold(appBar: ClayAppBar(title: 'الرئيسية', showBack: true)),
         ),
       );
-      expect(find.byIcon(Icons.arrow_forward_rounded), findsNothing);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
     });
 
     testWidgets('العنوان الطويل لا يفيض ويُعلن كعنوان', (tester) async {

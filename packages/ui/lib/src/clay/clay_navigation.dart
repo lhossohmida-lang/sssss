@@ -350,11 +350,8 @@ class ClayAppBar extends StatelessWidget implements PreferredSizeWidget {
                     (canPop
                         ? IconButton(
                             tooltip: 'رجوع',
-                            // في RTL السهم يشير يميناً للرجوع.
-                            icon: Icon(
-                              Icons.arrow_forward_rounded,
-                              color: p.text,
-                            ),
+                            // Flutter يعكس السهم تلقائياً في RTL فيشير يميناً.
+                            icon: Icon(Icons.arrow_back_rounded, color: p.text),
                             onPressed: () => Navigator.of(context).maybePop(),
                           )
                         : null),

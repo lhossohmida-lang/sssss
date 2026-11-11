@@ -120,8 +120,8 @@ class ClayCalendar extends StatelessWidget {
             children: [
               IconButton(
                 tooltip: 'الشهر السابق',
-                // في RTL السهم الأيمن يرجع إلى الشهر السابق.
-                icon: const Icon(Icons.chevron_right_rounded),
+                // السهمان ينعكسان تلقائياً في RTL: السابق على اليمين يشير يميناً.
+                icon: const Icon(Icons.chevron_left_rounded),
                 onPressed: () => _shift(-1),
               ),
               Expanded(
@@ -136,7 +136,7 @@ class ClayCalendar extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'الشهر التالي',
-                icon: const Icon(Icons.chevron_left_rounded),
+                icon: const Icon(Icons.chevron_right_rounded),
                 onPressed: () => _shift(1),
               ),
             ],

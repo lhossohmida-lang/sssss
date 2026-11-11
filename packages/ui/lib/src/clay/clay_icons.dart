@@ -7,7 +7,7 @@ abstract final class ClayIcons {
   // التنقل
   static const IconData home = Icons.home_rounded;
   static const IconData more = Icons.grid_view_rounded;
-  static const IconData back = Icons.arrow_forward_rounded;
+  static const IconData back = Icons.arrow_back_rounded;
   static const IconData notifications = Icons.notifications_rounded;
   static const IconData settings = Icons.settings_rounded;
 
