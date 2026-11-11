@@ -59,4 +59,8 @@ abstract final class StableId {
   /// مستوى دراسي افتراضي (طور ورقم)، فيتطابق على كل الأجهزة عند الإعداد الأول.
   static String defaultLevel(String stage, int grade) =>
       _of('default_level', [stage, grade]);
+
+  /// قائمة انتظار مادة في مستوى ([levelId] فارغ = كل المستويات).
+  static String waitingList(String subjectId, String? levelId) =>
+      _of('waiting_list', [subjectId, levelId ?? '']);
 }

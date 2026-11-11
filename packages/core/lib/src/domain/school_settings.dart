@@ -170,6 +170,32 @@ class SchoolSettings {
     return null;
   }
 
+  /// السنة الدراسية التي يقع فيها [date] (`YYYY-MM-DD`)، مثل `2026-2027`.
+  /// السنة الدراسية في الجزائر تبدأ في سبتمبر.
+  static String schoolYearOf(String date) {
+    final d = DateKey.parse(date);
+    final start = d.month >= 9 ? d.year : d.year - 1;
+    return '$start-${start + 1}';
+  }
+
+  /// مفتاح فترة حقوق التسجيل لتاريخ: السنة الدراسية، أو السنة ورقم الفصل
+  /// (`2026-2027/1`) إن كانت الحقوق فصلية.
+  ///
+  /// خارج كل الفصول المعرَّفة يُحسب على آخر فصل بدأ قبل التاريخ (وإلا الأول)،
+  /// ودون أي فصل معرَّف تُحسب على السنة.
+  String feePeriodKey(String date) {
+    final year = schoolYearOf(date);
+    if (registrationFeePeriod == FeePeriod.year || semesters.isEmpty) {
+      return year;
+    }
+    final ordered = [...semesters]..sort((a, b) => a.start.compareTo(b.start));
+    var index = 0;
+    for (var i = 0; i < ordered.length; i++) {
+      if (ordered[i].start.compareTo(date) <= 0) index = i;
+    }
+    return '$year/${index + 1}';
+  }
+
   /// أخطاء التحقق بالعربية: مفتاح الإعداد ← الرسالة. فارغة إن كان كل شيء سليماً.
   ///
   /// أخطاء الفصول تحت المفتاح [SettingKeys.semesters] برقم الفصل في الرسالة.
