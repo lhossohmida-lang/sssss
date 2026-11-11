@@ -1,6 +1,9 @@
 import 'package:drift/drift.dart';
 
+import 'tables/finance_tables.dart';
+import 'tables/messaging_tables.dart';
 import 'tables/people_tables.dart';
+import 'tables/system_tables.dart';
 import 'tables/teaching_tables.dart';
 
 part 'app_database.g.dart';
@@ -28,6 +31,25 @@ part 'app_database.g.dart';
     TeacherAttendance,
     WorkerAttendance,
     SessionRequests,
+    Payments,
+    StudentCredits,
+    RegistrationFees,
+    TeacherPayouts,
+    ExpenseCategories,
+    Expenses,
+    SmsQueue,
+    SmsTemplates,
+    ChatRooms,
+    ChatMembers,
+    ChatMessages,
+    Grades,
+    GroupFiles,
+    Notifications,
+    UserAccounts,
+    AuditLog,
+    Outbox,
+    SyncState,
+    UploadQueue,
   ],
 )
 class AppDatabase extends _$AppDatabase {
