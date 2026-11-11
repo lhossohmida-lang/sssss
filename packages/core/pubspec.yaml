@@ -9,10 +9,17 @@ environment:
   flutter: ">=3.47.0"
 
 dependencies:
+  drift: ^2.35.4
   flutter:
     sdk: flutter
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  sqlite3: ^3.9.1
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  drift_dev: ^2.35.3
+  build_runner: ^2.17.1
