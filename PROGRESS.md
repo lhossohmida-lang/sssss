@@ -40,7 +40,7 @@
 | 1.21 `ClayTextField`، `ClayDropdown`، `ClayChip`، `ClayToggle`، `ClayCheckbox` | منتهية ومختبَرة | حقول غائرة بخطأ ونص مساعد واتجاه LTR للأرقام، مساحة لمس 48؛ 94 اختباراً في ui |
 | 1.22 `ClayBottomNav`، `ClaySidebar`، `ClayAppBar`، وهيكل متكيّف ( | منتهية ومختبَرة | `ClayAdaptiveScaffold` يبدّل عند عرض 840 (شريط سفلي ↔ قائمة جانبية)، شارات التنبيه؛ 112 اختباراً في ui |
 | 1.23 `ClayDialog`، `ClayBottomSheet`، `ClayBadge`، `ClayAvatar`، `ClayProgress`، `ClaySkeleton`، وحالات الشاشة (تحميل / فارغة / خطأ) | منتهية ومختبَرة | حوار التأكيد `showClayConfirm`، شارات بتباين 4.5، صور تُصغَّر بـ `ResizeImage`، هياكل بنبض واحد؛ 144 اختباراً في ui |
-| 1.24 `ClayCalendar`، `ClayTable`، أغلفة الرسوم البيانية، الأيقونا | لم تبدأ | |
+| 1.24 `ClayCalendar`، `ClayTable`، أغلفة الرسوم البيانية، الأيقونات المستديرة السميكة | منتهية ومختبَرة | تقويم أسبوعه يبدأ السبت بأسماء الأشهر الجزائرية، جدول عريض بـ `ListView.builder`، `ClayChartCard`، `ClayIcons`؛ 167 اختباراً في ui |
 | 1.25 اختبارات golden لكل المكونات (فاتح وداكن) ورفعها كـ artifact | لم تبدأ | |
 | 1.26 التطبيقات الثلاثة | لم تبدأ | |
 
