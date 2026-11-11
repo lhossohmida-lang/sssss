@@ -191,6 +191,31 @@ void main() {
     expect(await db.select(db.outbox).get(), hasLength(outboxBefore));
   });
 
+  test('الحفظ بقيمة فارغة صريحة يمسح الحقل', () async {
+    await writer.save(
+      db.rooms,
+      const RoomRow(
+        id: 'r1',
+        createdAt: 0,
+        updatedAt: 0,
+        name: 'ق',
+        capacity: 5,
+      ),
+      key: const {'id': 'r1'},
+    );
+    await writer.softDelete(db.rooms, key: const {'id': 'r1'});
+    final deleted = await db.select(db.rooms).getSingle();
+    expect(deleted.deletedAt, isNotNull);
+
+    await writer.save(
+      db.rooms,
+      deleted.copyWith(deletedAt: const Value(null)),
+      key: const {'id': 'r1'},
+      action: 'restore',
+    );
+    expect((await db.select(db.rooms).getSingle()).deletedAt, isNull);
+  });
+
   test('عمليات النظام تُنسب إلى «النظام»', () async {
     final system = SyncWriter(db, actor: () => Actor.system, clock: () => 1);
     await system.save(db.rooms, room('القاعة 1'), key: const {'id': 'r1'});

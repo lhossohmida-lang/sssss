@@ -72,7 +72,11 @@ class SyncWriter {
     return db.transaction(() async {
       final name = table.actualTableName;
       final before = await _read(name, key);
-      await db.into(table).insertOnConflictUpdate(row);
+      // `toColumns(false)` يُبقي القيم الفارغة الصريحة، فيُمسح الحقل عند
+      // التحديث بدل أن يُتجاهل.
+      await db
+          .into(table)
+          .insertOnConflictUpdate(RawValuesInsertable<D>(row.toColumns(false)));
       final stamp = now();
       await _stamp(table, key, stamp, createdAt: before?['created_at']);
       final after = await _read(name, key);
