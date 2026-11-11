@@ -11,6 +11,7 @@ export 'src/clay/clay_icons.dart';
 export 'src/clay/clay_inputs.dart';
 export 'src/clay/clay_navigation.dart';
 export 'src/clay/clay_overlays.dart';
+export 'src/clay/clay_qr.dart';
 export 'src/clay/clay_selection.dart';
 export 'src/clay/clay_table.dart';
 export 'src/shell/app_page.dart';

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app_identity.dart';
 import '../auth/account_directory.dart';
+import '../auth/account_provisioner.dart';
 import '../auth/auth_gateway.dart';
 import '../auth/auth_service.dart';
 import '../auth/auth_session.dart';
@@ -80,6 +81,7 @@ class AppRuntime {
     required this.auth,
     required this.writer,
     required this.localGateway,
+    required this.provisioner,
     required SyncLifecycle? syncLifecycle,
     required this._seeder,
   }) : _sync = syncLifecycle;
@@ -94,6 +96,9 @@ class AppRuntime {
 
   /// بوابة الوضع المحلي؛ `null` في وضع الخادم.
   final LocalAuthGateway? localGateway;
+
+  /// ينشئ حسابات الدخول (تطبيق الإدارة فقط)؛ `null` في غيره.
+  final AccountProvisioner? provisioner;
   final SyncLifecycle? _sync;
   final DefaultsSeeder? _seeder;
 
@@ -113,6 +118,7 @@ class AppRuntime {
     AppDatabase? database,
     AuthGateway? gateway,
     SyncFactory? syncFactory,
+    AccountProvisioner? provisioner,
     int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
     final settings = config ?? AppConfig.fromEnvironment();
@@ -178,6 +184,15 @@ class AppRuntime {
       auth: auth,
       writer: writer,
       localGateway: local,
+      provisioner:
+          provisioner ??
+          (app != AppIdentity.admin
+              ? null
+              : local != null
+              ? LocalAccountProvisioner(local)
+              : client != null
+              ? SupabaseAccountProvisioner(client)
+              : null),
       syncLifecycle: lifecycle,
       seeder: app == AppIdentity.admin
           ? DefaultsSeeder(

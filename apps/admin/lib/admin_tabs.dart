@@ -4,6 +4,7 @@ import 'package:school_ui/school_ui.dart';
 import 'screens/catalog_screens.dart';
 import 'screens/more_page.dart';
 import 'screens/settings_screen.dart';
+import 'screens/teachers_screens.dart';
 
 /// تبويبات تطبيق الإدارة. العامل لا يرى إلا ما فعّله له المدير؛ وبقية
 /// الأقسام (الأساتذة، القاعات، المصاريف...) تحت «المزيد» (المهمة 2.26).
@@ -49,6 +50,17 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/teachers',
+    requires: PermissionModule.teachers,
+    builder: (context, state) => const TeachersScreen(),
+  ),
+  AppPage(
+    path: '/teachers/:id',
+    requires: PermissionModule.teachers,
+    builder: (context, state) =>
+        TeacherProfileScreen(teacherId: state.pathParameters['id']!),
+  ),
   AppPage(
     path: '/subjects',
     requires: PermissionModule.subjects,

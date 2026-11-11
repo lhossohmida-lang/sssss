@@ -17,6 +17,7 @@ dependencies:
   flutter_test:
     sdk: flutter
   go_router: ^17.5.0
+  qr_flutter: ^4.1.0
   school_core:
     path: ../core
 

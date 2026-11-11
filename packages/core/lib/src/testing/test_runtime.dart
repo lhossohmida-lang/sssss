@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 
 import '../app/app_runtime.dart';
 import '../app_identity.dart';
+import '../auth/account_provisioner.dart';
 import '../data/local/app_database.dart';
 import '../domain/enums.dart';
 import 'fake_auth_gateway.dart';
@@ -42,6 +43,7 @@ Future<AppRuntime> startTestRuntime({
   AppDatabase? database,
   SyncFactory? syncFactory,
   bool localMode = false,
+  AccountProvisioner? provisioner,
 }) async {
   final db = database ?? AppDatabase(NativeDatabase.memory());
   // الوضع المحلي: دون بوابة وهمية، فيبني التطبيق بوابته المحلية (للإدارة).
@@ -89,6 +91,7 @@ Future<AppRuntime> startTestRuntime({
     database: db,
     gateway: fake,
     syncFactory: syncFactory,
+    provisioner: provisioner,
     localPasswordIterations: 20,
   );
 }

@@ -109,3 +109,31 @@ extension AccessRef on WidgetRef {
     sessionProvider.select((s) => s.value?.can(module, action) ?? false),
   );
 }
+
+/// منشئ حسابات الدخول (تطبيق الإدارة فقط). يرمي إن لم يكن متاحاً في هذا
+/// التطبيق أو دون خادم مهيّأ.
+final Provider<AccountService> accountServiceProvider =
+    Provider<AccountService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      final provisioner = runtime.provisioner;
+      if (provisioner == null) {
+        throw StateError('إنشاء الحسابات غير متاح في هذا التطبيق');
+      }
+      return AccountService(runtime.db, runtime.writer, provisioner);
+    });
+
+/// خدمة الأساتذة وقائمتهم الحية.
+final Provider<TeacherService> teacherServiceProvider =
+    Provider<TeacherService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return TeacherService(
+        runtime.db,
+        runtime.writer,
+        ref.watch(accountServiceProvider),
+      );
+    });
+
+final StreamProvider<List<TeacherItem>> teachersProvider =
+    StreamProvider<List<TeacherItem>>(
+      (ref) => ref.watch(teacherServiceProvider).watchAll(),
+    );

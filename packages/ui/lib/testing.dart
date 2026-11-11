@@ -32,9 +32,14 @@ Future<AppRuntime> bootApp(
   required AppIdentity app,
   required List<TestAccount> accounts,
   List<AppPage> pages = const [],
+  AccountProvisioner? provisioner,
 }) async {
   final runtime = (await tester.runAsync(
-    () => startTestRuntime(app: app, accounts: accounts),
+    () => startTestRuntime(
+      app: app,
+      accounts: accounts,
+      provisioner: provisioner,
+    ),
   ))!;
   addTearDown(() async {
     await tester.runAsync(() async {
