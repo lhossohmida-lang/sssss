@@ -31,6 +31,7 @@ Future<AppRuntime> bootApp(
   List<AppTab> tabs, {
   required AppIdentity app,
   required List<TestAccount> accounts,
+  List<AppPage> pages = const [],
 }) async {
   final runtime = (await tester.runAsync(
     () => startTestRuntime(app: app, accounts: accounts),
@@ -44,7 +45,7 @@ Future<AppRuntime> bootApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [runtimeProvider.overrideWithValue(runtime)],
-      child: SchoolApp(tabs: tabs),
+      child: SchoolApp(tabs: tabs, pages: pages),
     ),
   );
   await tester.pump(const Duration(seconds: 1));

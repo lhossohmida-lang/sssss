@@ -1,6 +1,9 @@
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'screens/more_page.dart';
+import 'screens/settings_screen.dart';
+
 /// تبويبات تطبيق الإدارة. العامل لا يرى إلا ما فعّله له المدير؛ وبقية
 /// الأقسام (الأساتذة، القاعات، المصاريف...) تحت «المزيد» (المهمة 2.26).
 final List<AppTab> adminTabs = [
@@ -39,6 +42,15 @@ final List<AppTab> adminTabs = [
   AppTab(
     path: '/more',
     destination: const ClayDestination(label: 'المزيد', icon: ClayIcons.more),
-    builder: (_) => const TabPlaceholder(title: 'المزيد'),
+    builder: (_) => const MorePage(),
+  ),
+];
+
+/// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
+final List<AppPage> adminPages = [
+  AppPage(
+    path: '/settings',
+    requires: PermissionModule.settings,
+    builder: (context, state) => const SettingsScreen(),
   ),
 ];

@@ -51,3 +51,30 @@ final FutureProvider<bool> needsOwnerSetupProvider =
       if (local == null) return false;
       return local.hasNoAccounts();
     });
+
+/// خدمة إعدادات المدرسة.
+final Provider<SettingsService> settingsServiceProvider =
+    Provider<SettingsService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return SettingsService(runtime.db, runtime.writer);
+    });
+
+/// خدمة المستويات الدراسية.
+final Provider<LevelService> levelServiceProvider = Provider<LevelService>((
+  ref,
+) {
+  final runtime = ref.watch(runtimeProvider);
+  return LevelService(runtime.db, runtime.writer);
+});
+
+/// إعدادات المدرسة، وتتحدث مع كل تغيير (حتى القادم من جهاز آخر).
+final StreamProvider<SchoolSettings> schoolSettingsProvider =
+    StreamProvider<SchoolSettings>(
+      (ref) => ref.watch(settingsServiceProvider).watch(),
+    );
+
+/// المستويات الدراسية الحية مرتبة.
+final StreamProvider<List<LevelRow>> levelsProvider =
+    StreamProvider<List<LevelRow>>(
+      (ref) => ref.watch(levelServiceProvider).watchAll(),
+    );

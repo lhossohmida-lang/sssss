@@ -11,7 +11,7 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       overrides: [runtimeProvider.overrideWithValue(runtime)],
-      child: SchoolApp(tabs: adminTabs),
+      child: SchoolApp(tabs: adminTabs, pages: adminPages),
     ),
   );
 }

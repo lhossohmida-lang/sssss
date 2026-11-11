@@ -22,7 +22,9 @@ import '../data/remote/sync_coordinator.dart';
 import '../data/remote/sync_engine.dart';
 import '../data/remote/sync_profile.dart';
 import '../data/remote/upload_worker.dart';
+import '../domain/settings_service.dart';
 import 'app_config.dart';
+import 'defaults_seeder.dart';
 
 /// يبني منسّق المزامنة لجلسة مسجَّلة. يُمرَّر في الاختبارات بنسخة وهمية.
 typedef SyncFactory = SyncCoordinator Function(AuthSession session);
@@ -79,6 +81,7 @@ class AppRuntime {
     required this.writer,
     required this.localGateway,
     required SyncLifecycle? syncLifecycle,
+    required this._seeder,
   }) : _sync = syncLifecycle;
 
   final AppIdentity app;
@@ -92,6 +95,7 @@ class AppRuntime {
   /// بوابة الوضع المحلي؛ `null` في وضع الخادم.
   final LocalAuthGateway? localGateway;
   final SyncLifecycle? _sync;
+  final DefaultsSeeder? _seeder;
 
   /// هل يعمل التطبيق بلا خادم (معاينة)؟
   bool get isLocalMode => localGateway != null;
@@ -166,6 +170,7 @@ class AppRuntime {
         (client == null
             ? null
             : (session) => _supabaseSync(db, writer, client!, session));
+    final lifecycle = factory == null ? null : SyncLifecycle(auth, factory);
     return AppRuntime._(
       app: app,
       config: settings,
@@ -173,12 +178,21 @@ class AppRuntime {
       auth: auth,
       writer: writer,
       localGateway: local,
-      syncLifecycle: factory == null ? null : SyncLifecycle(auth, factory),
+      syncLifecycle: lifecycle,
+      seeder: app == AppIdentity.admin
+          ? DefaultsSeeder(
+              auth: auth,
+              levels: LevelService(db, writer),
+              isLocalMode: local != null,
+              coordinator: () => lifecycle?.coordinator,
+            )
+          : null,
     );
   }
 
   /// يوقف المزامنة ويغلق القاعدة.
   Future<void> dispose() async {
+    await _seeder?.dispose();
     await _sync?.dispose();
     await auth.dispose();
     await db.close();

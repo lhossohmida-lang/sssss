@@ -55,4 +55,8 @@ abstract final class StableId {
   /// عضو في غرفة محادثة.
   static String chatMember(String roomId, String userId) =>
       _of('chat_member', [roomId, userId]);
+
+  /// مستوى دراسي افتراضي (طور ورقم)، فيتطابق على كل الأجهزة عند الإعداد الأول.
+  static String defaultLevel(String stage, int grade) =>
+      _of('default_level', [stage, grade]);
 }

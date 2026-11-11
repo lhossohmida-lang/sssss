@@ -38,6 +38,8 @@ export 'src/domain/qr_code.dart';
 export 'src/domain/request_service.dart';
 export 'src/domain/scan_service.dart';
 export 'src/domain/schedule_service.dart';
+export 'src/domain/school_settings.dart';
 export 'src/domain/setting_keys.dart';
+export 'src/domain/settings_service.dart';
 export 'src/domain/stable_id.dart';
 export 'src/domain/wage_service.dart';

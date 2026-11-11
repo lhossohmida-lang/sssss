@@ -298,3 +298,29 @@ enum FeePeriod {
     throw ArgumentError.value(code, 'code', 'قيمة FeePeriod غير معروفة');
   }
 }
+
+/// الطور الدراسي.
+enum EducationStage {
+  primary('primary', 'ابتدائي', 5),
+  middle('middle', 'متوسط', 4),
+  secondary('secondary', 'ثانوي', 3);
+
+  const EducationStage(this.code, this.label, this.defaultGrades);
+
+  /// القيمة المخزَّنة في القاعدة المحلية وفي الخادم.
+  final String code;
+
+  /// النص العربي الظاهر للمستخدم.
+  final String label;
+
+  /// عدد سنوات الطور في المنهاج الجزائري (الاقتراح المعتمد 32).
+  final int defaultGrades;
+
+  /// يحوّل القيمة المخزَّنة إلى النوع، ويرمي [ArgumentError] إن كانت مجهولة.
+  static EducationStage fromCode(String code) {
+    for (final value in values) {
+      if (value.code == code) return value;
+    }
+    throw ArgumentError.value(code, 'code', 'قيمة EducationStage غير معروفة');
+  }
+}

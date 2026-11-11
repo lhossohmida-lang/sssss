@@ -11,6 +11,7 @@ import '../clay/clay_icons.dart';
 import '../clay/clay_navigation.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import 'app_page.dart';
 import 'app_tab.dart';
 import 'auth_screens.dart';
 import 'notifications_screen.dart';
@@ -47,6 +48,7 @@ GoRouter buildAppRouter({
   required AppRuntime runtime,
   required List<AppTab> tabs,
   required Listenable refresh,
+  List<AppPage> pages = const [],
 }) {
   final auth = runtime.auth;
   assert(tabs.isNotEmpty, 'تطبيق بلا تبويبات');
@@ -90,6 +92,11 @@ GoRouter buildAppRouter({
     if (tab != null && !tab.visibleTo(session.policy)) {
       return firstTabFor(session);
     }
+    for (final page in pages) {
+      if (page.matches(location) && !page.visibleTo(session.policy)) {
+        return firstTabFor(session);
+      }
+    }
     return null;
   }
 
@@ -116,6 +123,7 @@ GoRouter buildAppRouter({
         path: AppRoutes.notifications,
         builder: (context, state) => const NotificationsScreen(),
       ),
+      for (final page in pages) GoRoute(path: page.path, builder: page.builder),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => ShellPage(tabs: tabs, shell: shell),
         branches: [
@@ -235,9 +243,12 @@ class TabPlaceholder extends StatelessWidget {
 /// يُركَّب داخل `ProviderScope` يمرِّر [runtimeProvider]. وللمستخدم الخروج
 /// من أي شاشة: خروجه يعيده إلى الدخول عبر إعادة توجيه الموجِّه.
 class SchoolApp extends ConsumerStatefulWidget {
-  const SchoolApp({required this.tabs, super.key});
+  const SchoolApp({required this.tabs, this.pages = const [], super.key});
 
   final List<AppTab> tabs;
+
+  /// صفحات بملء الشاشة خارج التبويبات.
+  final List<AppPage> pages;
 
   @override
   ConsumerState<SchoolApp> createState() => _SchoolAppState();
@@ -250,6 +261,7 @@ class _SchoolAppState extends ConsumerState<SchoolApp> {
     runtime: _runtime,
     tabs: widget.tabs,
     refresh: _refresh,
+    pages: widget.pages,
   );
 
   @override

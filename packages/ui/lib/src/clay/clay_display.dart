@@ -57,7 +57,8 @@ class ClayBadge extends StatelessWidget {
               Icon(icon, size: 14, color: p.onAccent),
               const SizedBox(width: ClaySpacing.xs),
             ],
-            Text(label, style: style),
+            // يلتف النص الطويل بدل أن يفيض عرض الشارة عن مكانها.
+            Flexible(child: Text(label, style: style)),
           ],
         ),
       ),
