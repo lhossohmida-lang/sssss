@@ -7,6 +7,7 @@ import '../data/local/sync_writer.dart';
 import 'dues_service.dart';
 import 'money.dart';
 import 'pricing.dart';
+import 'stable_id.dart';
 
 /// نصيب الأستاذ من تلميذ واحد في دورة.
 class PayoutLine {
@@ -310,7 +311,9 @@ class PayoutService {
   ) async {
     final stamp = writer.now();
     final row = TeacherPayoutRow(
-      id: writer.newId(),
+      id: kind == kindCycle
+          ? StableId.cyclePayout(payout.groupId, payout.cycleNumber)
+          : writer.newId(),
       createdAt: stamp,
       updatedAt: stamp,
       teacherId: payout.teacherId,

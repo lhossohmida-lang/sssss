@@ -6,6 +6,7 @@ import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
 import 'date_key.dart';
 import 'enums.dart';
+import 'stable_id.dart';
 
 /// برنامج عمل العامل الأسبوعي: لكل يوم «يوم كامل» أو «نصف يوم» أو «لا يعمل».
 class WorkerSchedule {
@@ -212,7 +213,7 @@ class WageService {
         if (kind == null) return;
         final stamp = writer.now();
         final row = WorkerAttendanceRow(
-          id: writer.newId(),
+          id: StableId.workerAttendance(workerId, date),
           createdAt: stamp,
           updatedAt: stamp,
           workerId: workerId,

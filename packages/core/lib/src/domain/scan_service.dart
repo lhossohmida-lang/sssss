@@ -7,6 +7,7 @@ import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
 import 'qr_code.dart';
+import 'stable_id.dart';
 
 /// إعدادات الماسح القابلة للضبط من شاشة الإعدادات.
 class ScanConfig {
@@ -236,7 +237,7 @@ class ScanService {
     if (!alreadyPresent) {
       final row = existing == null
           ? AttendanceRow(
-              id: writer.newId(),
+              id: StableId.attendance(session.id, owner.id),
               createdAt: stamp,
               updatedAt: stamp,
               sessionId: session.id,
@@ -361,7 +362,7 @@ class ScanService {
     final session = found.session;
     final late = _lateMinutes(DateKey.minutesOf(now), session.startMinutes);
     final row = TeacherAttendanceRow(
-      id: writer.newId(),
+      id: StableId.teacherAttendance(owner.id, session.id),
       createdAt: stamp,
       updatedAt: stamp,
       teacherId: owner.id,
@@ -408,7 +409,7 @@ class ScanService {
       );
       final row = existing == null
           ? WorkerAttendanceRow(
-              id: writer.newId(),
+              id: StableId.workerAttendance(owner.id, today),
               createdAt: stamp,
               updatedAt: stamp,
               workerId: owner.id,

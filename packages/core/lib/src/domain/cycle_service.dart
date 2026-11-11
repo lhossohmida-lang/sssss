@@ -4,6 +4,7 @@ import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
 import 'date_key.dart';
 import 'enums.dart';
+import 'stable_id.dart';
 
 /// قواعد الدورة: «الشهر» دورة من `sessions_per_cycle` حصة.
 ///
@@ -105,7 +106,7 @@ class CycleService {
           if (await _slotTaken(groupId, day, slot.startMinutes)) continue;
           final stamp = writer.now();
           final session = SessionRow(
-            id: writer.newId(),
+            id: StableId.session(groupId, day, slot.startMinutes),
             createdAt: stamp,
             updatedAt: stamp,
             groupId: groupId,
@@ -145,7 +146,7 @@ class CycleService {
       final group = await _group(groupId);
       final stamp = writer.now();
       final session = SessionRow(
-        id: writer.newId(),
+        id: StableId.session(groupId, date, startMinutes),
         createdAt: stamp,
         updatedAt: stamp,
         groupId: groupId,

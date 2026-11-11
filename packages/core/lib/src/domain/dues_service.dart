@@ -4,6 +4,7 @@ import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
 import 'enums.dart';
 import 'pricing.dart';
+import 'stable_id.dart';
 
 /// مستحقات التلاميذ ومدفوعاتهم.
 ///
@@ -326,7 +327,7 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
       if (existing != null) return existing;
       final stamp = writer.now();
       final fee = RegistrationFeeRow(
-        id: writer.newId(),
+        id: StableId.registrationFee(studentId, periodKey),
         createdAt: stamp,
         updatedAt: stamp,
         studentId: studentId,
@@ -533,7 +534,18 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
   }) {
     final stamp = writer.now();
     final credit = StudentCreditRow(
-      id: writer.newId(),
+      id: switch (reason) {
+        reasonExcused when sessionId != null => StableId.excusedCredit(
+          sessionId,
+          studentId,
+        ),
+        reasonMidJoin => StableId.midJoinCredit(
+          groupId,
+          studentId,
+          sourceCycle,
+        ),
+        _ => writer.newId(),
+      },
       createdAt: stamp,
       updatedAt: stamp,
       studentId: studentId,
