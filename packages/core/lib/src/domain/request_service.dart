@@ -329,6 +329,7 @@ class RequestService {
         status: SmsStatus.pending.code,
         kind: smsKind,
         attempts: 0,
+        createdBy: writer.actor().userId,
       );
       await writer.save(db.smsQueue, sms, key: {'id': sms.id});
     }
@@ -448,6 +449,7 @@ class RequestService {
       createdAt: stamp,
       updatedAt: stamp,
       userId: userId,
+      senderId: writer.actor().userId,
       title: title,
       body: body,
       kind: kind,

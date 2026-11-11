@@ -309,6 +309,7 @@ create table if not exists public."notifications" (
   "updated_at" bigint not null,
   "deleted_at" bigint,
   "user_id" text not null,
+  "sender_id" text,
   "title" text not null,
   "body" text not null,
   "kind" text not null,
@@ -493,6 +494,7 @@ create table if not exists public."sms_queue" (
   "last_error" text,
   "not_before" bigint,
   "sent_at" bigint,
+  "created_by" text,
   "synced_at" bigint not null default 0,
   primary key ("id")
 );

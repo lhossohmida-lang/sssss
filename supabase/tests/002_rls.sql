@@ -142,9 +142,10 @@ values ('acc-owner', 1, 1, 'owner@school.local', 'owner', null, 'المدير', 
        ('acc-p1', 1, 1, 'p1@school.local', 'parent', 'p1', 'وليّ 1', true),
        ('acc-p2', 1, 1, 'p2@school.local', 'parent', 'p2', 'وليّ 2', true);
 
-insert into notifications (id, created_at, updated_at, user_id, title, body, kind)
-values ('n1', 1, 1, 'acc-p1', 'عنوان', 'نص', 'info'),
-       ('n2', 1, 1, 'acc-p2', 'عنوان', 'نص', 'info');
+insert into notifications (id, created_at, updated_at, user_id, sender_id,
+                           title, body, kind)
+values ('n1', 1, 1, 'acc-p1', 'acc-owner', 'عنوان', 'نص', 'info'),
+       ('n2', 1, 1, 'acc-p2', 'acc-owner', 'عنوان', 'نص', 'info');
 
 -- ---------------------------------------------------------------------------
 -- غير المسجَّل لا يرى شيئاً
@@ -268,9 +269,17 @@ select test.denied(
   'العامل 2 يسجّل حضوراً');
 select test.allowed(
   $$insert into sms_queue (id, created_at, updated_at, phone, message, status,
-      kind, attempts)
-    values ('m1', 1, 1, '+213550000001', 'نص', 'pending', 'custom', 0)$$,
+      kind, attempts, created_by)
+    values ('m1', 1, 1, '+213550000001', 'نص', 'pending', 'custom', 0,
+            'acc-w2')$$,
   'أي جهاز إدارة يضيف إلى طابور الرسائل');
+select test.sees('select 1 from sms_queue', 1, 'العامل يرى ما وضعه هو في الطابور');
+select test.denied(
+  $$insert into sms_queue (id, created_at, updated_at, phone, message, status,
+      kind, attempts, created_by)
+    values ('m2', 1, 1, '+213550000001', 'نص', 'pending', 'custom', 0,
+            'acc-owner')$$,
+  'العامل يضع رسالة باسم غيره');
 select test.denied(
   $$update sms_queue set status = 'sent', updated_at = 2 where id = 'm1'$$,
   'العامل 2 يعلّم الرسالة مُرسلة');
@@ -385,10 +394,19 @@ select test.denied(
     values ('au2', 'acc-owner', 'المدير', 'create', 'grades', 'gr1', 1, 1)$$,
   'الأستاذ يكتب في السجل باسم المدير');
 select test.allowed(
-  $$insert into notifications (id, created_at, updated_at, user_id, title,
-      body, kind)
-    values ('n3', 1, 1, 'acc-owner', 'طلب جديد', 'نص', 'request_pending')$$,
+  $$insert into notifications (id, created_at, updated_at, user_id, sender_id,
+      title, body, kind)
+    values ('n3', 1, 1, 'acc-owner', 'acc-t1', 'طلب جديد', 'نص',
+            'request_pending')$$,
   'الأستاذ يرسل إشعاراً للمدير');
+select test.denied(
+  $$insert into notifications (id, created_at, updated_at, user_id, sender_id,
+      title, body, kind)
+    values ('n4', 1, 1, 'acc-p1', 'acc-owner', 'انتحال', 'نص', 'info')$$,
+  'الأستاذ يرسل إشعاراً باسم المدير');
+select test.denied(
+  $$update notifications set title = 'معدَّل', updated_at = 5 where id = 'n3'$$,
+  'المرسل يعدّل إشعاراً بعد إرساله');
 select test.logout();
 
 -- المدير يراجع الطلب، وسجل العمليات لا يُعدَّل.
@@ -402,7 +420,7 @@ select test.sees('select 1 from audit_log', 1, 'المالك يقرأ سجل ا�
 select test.denied(
   $$update audit_log set action = 'x', updated_at = 9 where id = 'au1'$$,
   'سجل العمليات لا يُعدَّل حتى من المالك');
-select test.sees('select 1 from notifications', 1, 'المالك: إشعاراته فقط');
+select test.sees('select 1 from notifications', 3, 'المالك: ما استلمه وما أرسله');
 select test.logout();
 
 -- ---------------------------------------------------------------------------

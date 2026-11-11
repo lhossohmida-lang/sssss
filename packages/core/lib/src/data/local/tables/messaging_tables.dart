@@ -28,6 +28,9 @@ class SmsQueue extends Table with SyncColumns {
   IntColumn get notBefore => integer().nullable()();
 
   IntColumn get sentAt => integer().nullable()();
+
+  /// حساب من وضع الرسالة في الطابور (يحق له متابعتها).
+  TextColumn get createdBy => text().nullable()();
 }
 
 /// قوالب الرسائل القابلة للتعديل.
@@ -159,6 +162,9 @@ class GroupFiles extends Table with SyncColumns {
 class Notifications extends Table with SyncColumns {
   /// المستلم.
   TextColumn get userId => text()();
+
+  /// حساب من أرسل الإشعار.
+  TextColumn get senderId => text().nullable()();
 
   TextColumn get title => text()();
 

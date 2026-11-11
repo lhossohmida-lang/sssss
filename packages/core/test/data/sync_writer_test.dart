@@ -215,11 +215,4 @@ void main() {
     );
     expect((await db.select(db.rooms).getSingle()).deletedAt, isNull);
   });
-
-  test('عمليات النظام تُنسب إلى «النظام»', () async {
-    final system = SyncWriter(db, actor: () => Actor.system, clock: () => 1);
-    await system.save(db.rooms, room('القاعة 1'), key: const {'id': 'r1'});
-    final audit = await db.select(db.auditLog).getSingle();
-    expect(audit.userId, 'system');
-  });
 }

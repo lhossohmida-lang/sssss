@@ -110,15 +110,23 @@ $$;
 -- ---------------------------------------------------------------------------
 
 -- يضبط قواعد جدول: القراءة والإضافة والتحديث. `null` يعني ممنوع.
+--
+-- الأجهزة ترسل «إضافة أو تحديث» (upsert)، و PostgreSQL يفحص قاعدة الإضافة
+-- على الصف المقترح حتى لو انتهى الأمر بتحديث. لذلك قاعدة الإضافة تقبل من
+-- يحق له الإضافة **أو** التحديث، وحارس بعد الإضافة (لا يعمل إلا إذا أُنشئ
+-- صف جديد فعلاً) يفرض صلاحية الإضافة الحقيقية.
 create or replace function app.set_rules(
   tbl text, select_sql text, insert_sql text, update_sql text,
   update_check_sql text default null
 ) returns void language plpgsql as $$
+declare
+  upd_check text := coalesce(update_check_sql, update_sql);
 begin
   execute format('alter table public.%I enable row level security', tbl);
   execute format('drop policy if exists p_select on public.%I', tbl);
   execute format('drop policy if exists p_insert on public.%I', tbl);
   execute format('drop policy if exists p_update on public.%I', tbl);
+  execute format('drop trigger if exists trg_ins_guard on public.%I', tbl);
   if select_sql is not null then
     execute format(
       'create policy p_select on public.%I for select to authenticated using (%s)',
@@ -126,13 +134,33 @@ begin
   end if;
   if insert_sql is not null then
     execute format(
-      'create policy p_insert on public.%I for insert to authenticated with check (%s)',
-      tbl, insert_sql);
+      'create policy p_insert on public.%I for insert to authenticated with check ((%s) or (%s))',
+      tbl, insert_sql, coalesce(upd_check, 'false'));
+    execute format($f$
+      create or replace function app.%I() returns trigger
+      language plpgsql as $g$
+      declare ok boolean;
+      begin
+        if current_user <> 'authenticated' then
+          return null;
+        end if;
+        select (%s) into ok from (select new.*) as %I;
+        if not coalesce(ok, false) then
+          raise exception 'لا صلاحية لإضافة سجل جديد في %s'
+            using errcode = '42501';
+        end if;
+        return null;
+      end
+      $g$
+    $f$, 'ins_guard_' || tbl, insert_sql, tbl, tbl);
+    execute format(
+      'create trigger trg_ins_guard after insert on public.%I '
+      'for each row execute function app.%I()', tbl, 'ins_guard_' || tbl);
   end if;
   if update_sql is not null then
     execute format(
       'create policy p_update on public.%I for update to authenticated using (%s) with check (%s)',
-      tbl, update_sql, coalesce(update_check_sql, update_sql));
+      tbl, update_sql, upd_check);
   end if;
 end
 $$;
@@ -312,8 +340,8 @@ select app.staff_rules('expenses', 'expenses');
 -- الرسائل القصيرة: أي جهاز إدارة يضيف إلى الطابور؛ الإرسال وتحديث الحالة
 -- لمن له صلاحية الإرسال (هاتف المدير).
 select app.set_rules('sms_queue',
-  $$app.can('sms', 'view')$$,
-  'app.is_staff()',
+  $$app.can('sms', 'view') or created_by = app.uid()$$,
+  'app.is_staff() and created_by = app.uid()',
   $$app.can('sms', 'use') or app.can('sms', 'edit')$$);
 select app.staff_rules('sms_templates', 'sms', 'app.is_staff()');
 
@@ -349,16 +377,18 @@ select app.set_rules('group_files',
   $$app.teaches_group(group_id) or app.is_owner()$$,
   $$app.teaches_group(group_id) or app.is_owner()$$);
 
--- الإشعارات: كلٌّ يقرأ إشعاراته ويعلّمها مقروءة؛ أي مستخدم يرسل إشعاراً.
+-- الإشعارات: كلٌّ يقرأ إشعاراته ويعلّمها مقروءة؛ أي مستخدم يرسل إشعاراً
+-- باسمه، ويرى ما أرسله (الخادم يشترط قراءة الصف المرسَل عند المزامنة).
 select app.set_rules('notifications',
-  'user_id = app.uid()',
-  'app.role() is not null',
+  'user_id = app.uid() or sender_id = app.uid()',
+  'app.role() is not null and sender_id = app.uid()',
   'user_id = app.uid()');
 
--- سجل العمليات: يُضاف فقط ولا يُعدَّل، ويقرؤه من له الصلاحية.
+-- سجل العمليات: يُضاف فقط ولا يُعدَّل. يقرؤه من له الصلاحية، وكلٌّ يرى
+-- ما كتبه هو. كل عملية تُنسب إلى الحساب الذي قام بها فعلاً.
 select app.set_rules('audit_log',
-  $$app.can('audit', 'view')$$,
-  $$app.role() is not null and (user_id = app.uid() or user_id = 'system')$$,
+  $$app.can('audit', 'view') or user_id = app.uid()$$,
+  $$app.role() is not null and user_id = app.uid()$$,
   null);
 
 -- ---------------------------------------------------------------------------

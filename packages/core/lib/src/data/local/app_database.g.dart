@@ -16241,6 +16241,17 @@ class $SmsQueueTable extends SmsQueue
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -16255,6 +16266,7 @@ class $SmsQueueTable extends SmsQueue
     lastError,
     notBefore,
     sentAt,
+    createdBy,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -16347,6 +16359,12 @@ class $SmsQueueTable extends SmsQueue
         sentAt.isAcceptableOrUnknown(data['sent_at']!, _sentAtMeta),
       );
     }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    }
     return context;
   }
 
@@ -16404,6 +16422,10 @@ class $SmsQueueTable extends SmsQueue
         DriftSqlType.int,
         data['${effectivePrefix}sent_at'],
       ),
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      ),
     );
   }
 
@@ -16435,6 +16457,9 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
   /// لا تُرسل قبل هذا الوقت (ساعات الهدوء أو التأجيل).
   final int? notBefore;
   final int? sentAt;
+
+  /// حساب من وضع الرسالة في الطابور (يحق له متابعتها).
+  final String? createdBy;
   const SmsQueueRow({
     required this.id,
     required this.createdAt,
@@ -16448,6 +16473,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     this.lastError,
     this.notBefore,
     this.sentAt,
+    this.createdBy,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -16471,6 +16497,9 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     }
     if (!nullToAbsent || sentAt != null) {
       map['sent_at'] = Variable<int>(sentAt);
+    }
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
     }
     return map;
   }
@@ -16497,6 +16526,9 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       sentAt: sentAt == null && nullToAbsent
           ? const Value.absent()
           : Value(sentAt),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
     );
   }
 
@@ -16518,6 +16550,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       lastError: serializer.fromJson<String?>(json['lastError']),
       notBefore: serializer.fromJson<int?>(json['notBefore']),
       sentAt: serializer.fromJson<int?>(json['sentAt']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
     );
   }
   @override
@@ -16536,6 +16569,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       'lastError': serializer.toJson<String?>(lastError),
       'notBefore': serializer.toJson<int?>(notBefore),
       'sentAt': serializer.toJson<int?>(sentAt),
+      'createdBy': serializer.toJson<String?>(createdBy),
     };
   }
 
@@ -16552,6 +16586,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     Value<String?> lastError = const Value.absent(),
     Value<int?> notBefore = const Value.absent(),
     Value<int?> sentAt = const Value.absent(),
+    Value<String?> createdBy = const Value.absent(),
   }) => SmsQueueRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -16565,6 +16600,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     lastError: lastError.present ? lastError.value : this.lastError,
     notBefore: notBefore.present ? notBefore.value : this.notBefore,
     sentAt: sentAt.present ? sentAt.value : this.sentAt,
+    createdBy: createdBy.present ? createdBy.value : this.createdBy,
   );
   SmsQueueRow copyWithCompanion(SmsQueueCompanion data) {
     return SmsQueueRow(
@@ -16580,6 +16616,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
       notBefore: data.notBefore.present ? data.notBefore.value : this.notBefore,
       sentAt: data.sentAt.present ? data.sentAt.value : this.sentAt,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
     );
   }
 
@@ -16597,7 +16634,8 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('notBefore: $notBefore, ')
-          ..write('sentAt: $sentAt')
+          ..write('sentAt: $sentAt, ')
+          ..write('createdBy: $createdBy')
           ..write(')'))
         .toString();
   }
@@ -16616,6 +16654,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     lastError,
     notBefore,
     sentAt,
+    createdBy,
   );
   @override
   bool operator ==(Object other) =>
@@ -16632,7 +16671,8 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
           other.attempts == this.attempts &&
           other.lastError == this.lastError &&
           other.notBefore == this.notBefore &&
-          other.sentAt == this.sentAt);
+          other.sentAt == this.sentAt &&
+          other.createdBy == this.createdBy);
 }
 
 class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
@@ -16648,6 +16688,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
   final Value<String?> lastError;
   final Value<int?> notBefore;
   final Value<int?> sentAt;
+  final Value<String?> createdBy;
   final Value<int> rowid;
   const SmsQueueCompanion({
     this.id = const Value.absent(),
@@ -16662,6 +16703,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     this.lastError = const Value.absent(),
     this.notBefore = const Value.absent(),
     this.sentAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SmsQueueCompanion.insert({
@@ -16677,6 +16719,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     this.lastError = const Value.absent(),
     this.notBefore = const Value.absent(),
     this.sentAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -16696,6 +16739,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     Expression<String>? lastError,
     Expression<int>? notBefore,
     Expression<int>? sentAt,
+    Expression<String>? createdBy,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -16711,6 +16755,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
       if (lastError != null) 'last_error': lastError,
       if (notBefore != null) 'not_before': notBefore,
       if (sentAt != null) 'sent_at': sentAt,
+      if (createdBy != null) 'created_by': createdBy,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -16728,6 +16773,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     Value<String?>? lastError,
     Value<int?>? notBefore,
     Value<int?>? sentAt,
+    Value<String?>? createdBy,
     Value<int>? rowid,
   }) {
     return SmsQueueCompanion(
@@ -16743,6 +16789,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
       lastError: lastError ?? this.lastError,
       notBefore: notBefore ?? this.notBefore,
       sentAt: sentAt ?? this.sentAt,
+      createdBy: createdBy ?? this.createdBy,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -16786,6 +16833,9 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     if (sentAt.present) {
       map['sent_at'] = Variable<int>(sentAt.value);
     }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -16807,6 +16857,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
           ..write('lastError: $lastError, ')
           ..write('notBefore: $notBefore, ')
           ..write('sentAt: $sentAt, ')
+          ..write('createdBy: $createdBy, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -20386,6 +20437,17 @@ class $NotificationsTable extends Notifications
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _senderIdMeta = const VerificationMeta(
+    'senderId',
+  );
+  @override
+  late final GeneratedColumn<String> senderId = GeneratedColumn<String>(
+    'sender_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -20449,6 +20511,7 @@ class $NotificationsTable extends Notifications
     updatedAt,
     deletedAt,
     userId,
+    senderId,
     title,
     body,
     kind,
@@ -20502,6 +20565,12 @@ class $NotificationsTable extends Notifications
       );
     } else if (isInserting) {
       context.missing(_userIdMeta);
+    }
+    if (data.containsKey('sender_id')) {
+      context.handle(
+        _senderIdMeta,
+        senderId.isAcceptableOrUnknown(data['sender_id']!, _senderIdMeta),
+      );
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -20574,6 +20643,10 @@ class $NotificationsTable extends Notifications
         DriftSqlType.string,
         data['${effectivePrefix}user_id'],
       )!,
+      senderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_id'],
+      ),
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -20618,6 +20691,9 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
 
   /// المستلم.
   final String userId;
+
+  /// حساب من أرسل الإشعار.
+  final String? senderId;
   final String title;
   final String body;
 
@@ -20634,6 +20710,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
     required this.updatedAt,
     this.deletedAt,
     required this.userId,
+    this.senderId,
     required this.title,
     required this.body,
     required this.kind,
@@ -20651,6 +20728,9 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
       map['deleted_at'] = Variable<int>(deletedAt);
     }
     map['user_id'] = Variable<String>(userId);
+    if (!nullToAbsent || senderId != null) {
+      map['sender_id'] = Variable<String>(senderId);
+    }
     map['title'] = Variable<String>(title);
     map['body'] = Variable<String>(body);
     map['kind'] = Variable<String>(kind);
@@ -20675,6 +20755,9 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
           ? const Value.absent()
           : Value(deletedAt),
       userId: Value(userId),
+      senderId: senderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(senderId),
       title: Value(title),
       body: Value(body),
       kind: Value(kind),
@@ -20701,6 +20784,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
       userId: serializer.fromJson<String>(json['userId']),
+      senderId: serializer.fromJson<String?>(json['senderId']),
       title: serializer.fromJson<String>(json['title']),
       body: serializer.fromJson<String>(json['body']),
       kind: serializer.fromJson<String>(json['kind']),
@@ -20718,6 +20802,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
       'updatedAt': serializer.toJson<int>(updatedAt),
       'deletedAt': serializer.toJson<int?>(deletedAt),
       'userId': serializer.toJson<String>(userId),
+      'senderId': serializer.toJson<String?>(senderId),
       'title': serializer.toJson<String>(title),
       'body': serializer.toJson<String>(body),
       'kind': serializer.toJson<String>(kind),
@@ -20733,6 +20818,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
     int? updatedAt,
     Value<int?> deletedAt = const Value.absent(),
     String? userId,
+    Value<String?> senderId = const Value.absent(),
     String? title,
     String? body,
     String? kind,
@@ -20745,6 +20831,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     userId: userId ?? this.userId,
+    senderId: senderId.present ? senderId.value : this.senderId,
     title: title ?? this.title,
     body: body ?? this.body,
     kind: kind ?? this.kind,
@@ -20759,6 +20846,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       userId: data.userId.present ? data.userId.value : this.userId,
+      senderId: data.senderId.present ? data.senderId.value : this.senderId,
       title: data.title.present ? data.title.value : this.title,
       body: data.body.present ? data.body.value : this.body,
       kind: data.kind.present ? data.kind.value : this.kind,
@@ -20776,6 +20864,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('userId: $userId, ')
+          ..write('senderId: $senderId, ')
           ..write('title: $title, ')
           ..write('body: $body, ')
           ..write('kind: $kind, ')
@@ -20793,6 +20882,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
     updatedAt,
     deletedAt,
     userId,
+    senderId,
     title,
     body,
     kind,
@@ -20809,6 +20899,7 @@ class NotificationRow extends DataClass implements Insertable<NotificationRow> {
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
           other.userId == this.userId &&
+          other.senderId == this.senderId &&
           other.title == this.title &&
           other.body == this.body &&
           other.kind == this.kind &&
@@ -20823,6 +20914,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
   final Value<int> updatedAt;
   final Value<int?> deletedAt;
   final Value<String> userId;
+  final Value<String?> senderId;
   final Value<String> title;
   final Value<String> body;
   final Value<String> kind;
@@ -20836,6 +20928,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.userId = const Value.absent(),
+    this.senderId = const Value.absent(),
     this.title = const Value.absent(),
     this.body = const Value.absent(),
     this.kind = const Value.absent(),
@@ -20850,6 +20943,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
     required int updatedAt,
     this.deletedAt = const Value.absent(),
     required String userId,
+    this.senderId = const Value.absent(),
     required String title,
     required String body,
     required String kind,
@@ -20870,6 +20964,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
     Expression<int>? updatedAt,
     Expression<int>? deletedAt,
     Expression<String>? userId,
+    Expression<String>? senderId,
     Expression<String>? title,
     Expression<String>? body,
     Expression<String>? kind,
@@ -20884,6 +20979,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (userId != null) 'user_id': userId,
+      if (senderId != null) 'sender_id': senderId,
       if (title != null) 'title': title,
       if (body != null) 'body': body,
       if (kind != null) 'kind': kind,
@@ -20900,6 +20996,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
     Value<int>? updatedAt,
     Value<int?>? deletedAt,
     Value<String>? userId,
+    Value<String?>? senderId,
     Value<String>? title,
     Value<String>? body,
     Value<String>? kind,
@@ -20914,6 +21011,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       userId: userId ?? this.userId,
+      senderId: senderId ?? this.senderId,
       title: title ?? this.title,
       body: body ?? this.body,
       kind: kind ?? this.kind,
@@ -20941,6 +21039,9 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
     }
     if (userId.present) {
       map['user_id'] = Variable<String>(userId.value);
+    }
+    if (senderId.present) {
+      map['sender_id'] = Variable<String>(senderId.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -20974,6 +21075,7 @@ class NotificationsCompanion extends UpdateCompanion<NotificationRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('userId: $userId, ')
+          ..write('senderId: $senderId, ')
           ..write('title: $title, ')
           ..write('body: $body, ')
           ..write('kind: $kind, ')
@@ -39979,6 +40081,7 @@ typedef $$SmsQueueTableCreateCompanionBuilder = SmsQueueCompanion Function({
   Value<String?> lastError,
   Value<int?> notBefore,
   Value<int?> sentAt,
+  Value<String?> createdBy,
   Value<int> rowid,
 });
 typedef $$SmsQueueTableUpdateCompanionBuilder = SmsQueueCompanion Function({
@@ -39994,6 +40097,7 @@ typedef $$SmsQueueTableUpdateCompanionBuilder = SmsQueueCompanion Function({
   Value<String?> lastError,
   Value<int?> notBefore,
   Value<int?> sentAt,
+  Value<String?> createdBy,
   Value<int> rowid,
 });
 
@@ -40063,6 +40167,11 @@ class $$SmsQueueTableFilterComposer
 
   ColumnFilters<int> get sentAt => $composableBuilder(
     column: $table.sentAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -40135,6 +40244,11 @@ class $$SmsQueueTableOrderingComposer
     column: $table.sentAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SmsQueueTableAnnotationComposer
@@ -40181,6 +40295,9 @@ class $$SmsQueueTableAnnotationComposer
 
   GeneratedColumn<int> get sentAt =>
       $composableBuilder(column: $table.sentAt, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
 }
 
 class $$SmsQueueTableTableManager
@@ -40226,6 +40343,7 @@ class $$SmsQueueTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 Value<int?> notBefore = const Value.absent(),
                 Value<int?> sentAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SmsQueueCompanion(
                 id: id,
@@ -40240,6 +40358,7 @@ class $$SmsQueueTableTableManager
                 lastError: lastError,
                 notBefore: notBefore,
                 sentAt: sentAt,
+                createdBy: createdBy,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -40256,6 +40375,7 @@ class $$SmsQueueTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 Value<int?> notBefore = const Value.absent(),
                 Value<int?> sentAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SmsQueueCompanion.insert(
                 id: id,
@@ -40270,6 +40390,7 @@ class $$SmsQueueTableTableManager
                 lastError: lastError,
                 notBefore: notBefore,
                 sentAt: sentAt,
+                createdBy: createdBy,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -42876,6 +42997,7 @@ typedef $$NotificationsTableCreateCompanionBuilder =
       required int updatedAt,
       Value<int?> deletedAt,
       required String userId,
+      Value<String?> senderId,
       required String title,
       required String body,
       required String kind,
@@ -42891,6 +43013,7 @@ typedef $$NotificationsTableUpdateCompanionBuilder =
       Value<int> updatedAt,
       Value<int?> deletedAt,
       Value<String> userId,
+      Value<String?> senderId,
       Value<String> title,
       Value<String> body,
       Value<String> kind,
@@ -42931,6 +43054,11 @@ class $$NotificationsTableFilterComposer
 
   ColumnFilters<String> get userId => $composableBuilder(
     column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderId => $composableBuilder(
+    column: $table.senderId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -42999,6 +43127,11 @@ class $$NotificationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get senderId => $composableBuilder(
+    column: $table.senderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -43053,6 +43186,9 @@ class $$NotificationsTableAnnotationComposer
 
   GeneratedColumn<String> get userId =>
       $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get senderId =>
+      $composableBuilder(column: $table.senderId, builder: (column) => column);
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
@@ -43109,6 +43245,7 @@ class $$NotificationsTableTableManager
                 Value<int> updatedAt = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
                 Value<String> userId = const Value.absent(),
+                Value<String?> senderId = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> body = const Value.absent(),
                 Value<String> kind = const Value.absent(),
@@ -43122,6 +43259,7 @@ class $$NotificationsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 userId: userId,
+                senderId: senderId,
                 title: title,
                 body: body,
                 kind: kind,
@@ -43137,6 +43275,7 @@ class $$NotificationsTableTableManager
                 required int updatedAt,
                 Value<int?> deletedAt = const Value.absent(),
                 required String userId,
+                Value<String?> senderId = const Value.absent(),
                 required String title,
                 required String body,
                 required String kind,
@@ -43150,6 +43289,7 @@ class $$NotificationsTableTableManager
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
                 userId: userId,
+                senderId: senderId,
                 title: title,
                 body: body,
                 kind: kind,

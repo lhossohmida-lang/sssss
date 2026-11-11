@@ -15,7 +15,9 @@ create schema if not exists auth;
 
 create or replace function auth.uid() returns text
 language sql stable as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
 $$;
 
 grant usage on schema auth to authenticated, anon;

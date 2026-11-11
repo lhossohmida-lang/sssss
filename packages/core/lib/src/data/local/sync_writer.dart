@@ -9,9 +9,6 @@ import 'app_database.dart';
 class Actor {
   const Actor({required this.userId, required this.userName});
 
-  /// عمليات النظام التلقائية (التغييب عند نهاية الحصة، اكتمال الدورة...).
-  static const Actor system = Actor(userId: 'system', userName: 'النظام');
-
   final String userId;
   final String userName;
 }
