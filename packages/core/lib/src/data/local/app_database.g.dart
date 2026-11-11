@@ -23068,6 +23068,61 @@ class $UploadQueueTable extends UploadQueue
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _bucketMeta = const VerificationMeta('bucket');
+  @override
+  late final GeneratedColumn<String> bucket = GeneratedColumn<String>(
+    'bucket',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('files'),
+  );
+  static const VerificationMeta _targetTableMeta = const VerificationMeta(
+    'targetTable',
+  );
+  @override
+  late final GeneratedColumn<String> targetTable = GeneratedColumn<String>(
+    'target_table',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetRowIdMeta = const VerificationMeta(
+    'targetRowId',
+  );
+  @override
+  late final GeneratedColumn<String> targetRowId = GeneratedColumn<String>(
+    'target_row_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetColumnMeta = const VerificationMeta(
+    'targetColumn',
+  );
+  @override
+  late final GeneratedColumn<String> targetColumn = GeneratedColumn<String>(
+    'target_column',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextAttemptAtMeta = const VerificationMeta(
+    'nextAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<int> nextAttemptAt = GeneratedColumn<int>(
+    'next_attempt_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -23128,6 +23183,11 @@ class $UploadQueueTable extends UploadQueue
     localPath,
     remotePath,
     dedupeKey,
+    bucket,
+    targetTable,
+    targetRowId,
+    targetColumn,
+    nextAttemptAt,
     status,
     attempts,
     lastError,
@@ -23182,6 +23242,48 @@ class $UploadQueueTable extends UploadQueue
       );
     } else if (isInserting) {
       context.missing(_dedupeKeyMeta);
+    }
+    if (data.containsKey('bucket')) {
+      context.handle(
+        _bucketMeta,
+        bucket.isAcceptableOrUnknown(data['bucket']!, _bucketMeta),
+      );
+    }
+    if (data.containsKey('target_table')) {
+      context.handle(
+        _targetTableMeta,
+        targetTable.isAcceptableOrUnknown(
+          data['target_table']!,
+          _targetTableMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_row_id')) {
+      context.handle(
+        _targetRowIdMeta,
+        targetRowId.isAcceptableOrUnknown(
+          data['target_row_id']!,
+          _targetRowIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_column')) {
+      context.handle(
+        _targetColumnMeta,
+        targetColumn.isAcceptableOrUnknown(
+          data['target_column']!,
+          _targetColumnMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_attempt_at')) {
+      context.handle(
+        _nextAttemptAtMeta,
+        nextAttemptAt.isAcceptableOrUnknown(
+          data['next_attempt_at']!,
+          _nextAttemptAtMeta,
+        ),
+      );
     }
     if (data.containsKey('status')) {
       context.handle(
@@ -23244,6 +23346,26 @@ class $UploadQueueTable extends UploadQueue
         DriftSqlType.string,
         data['${effectivePrefix}dedupe_key'],
       )!,
+      bucket: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bucket'],
+      )!,
+      targetTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_table'],
+      ),
+      targetRowId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_row_id'],
+      ),
+      targetColumn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_column'],
+      ),
+      nextAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}next_attempt_at'],
+      )!,
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -23286,6 +23408,17 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
   /// مفتاح يمنع رفع نفس الملف مرتين.
   final String dedupeKey;
 
+  /// المخزن الوجهة: `photos` / `files` على الخادم، أو `drive`.
+  final String bucket;
+
+  /// السجل الذي يُكتب فيه رابط الملف بعد اكتمال الرفع (اختياري).
+  final String? targetTable;
+  final String? targetRowId;
+  final String? targetColumn;
+
+  /// لا تُعاد المحاولة قبل هذا الوقت.
+  final int nextAttemptAt;
+
   /// `pending` / `uploading` / `done` / `failed`.
   final String status;
   final int attempts;
@@ -23298,6 +23431,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
     required this.localPath,
     required this.remotePath,
     required this.dedupeKey,
+    required this.bucket,
+    this.targetTable,
+    this.targetRowId,
+    this.targetColumn,
+    required this.nextAttemptAt,
     required this.status,
     required this.attempts,
     this.lastError,
@@ -23312,6 +23450,17 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
     map['local_path'] = Variable<String>(localPath);
     map['remote_path'] = Variable<String>(remotePath);
     map['dedupe_key'] = Variable<String>(dedupeKey);
+    map['bucket'] = Variable<String>(bucket);
+    if (!nullToAbsent || targetTable != null) {
+      map['target_table'] = Variable<String>(targetTable);
+    }
+    if (!nullToAbsent || targetRowId != null) {
+      map['target_row_id'] = Variable<String>(targetRowId);
+    }
+    if (!nullToAbsent || targetColumn != null) {
+      map['target_column'] = Variable<String>(targetColumn);
+    }
+    map['next_attempt_at'] = Variable<int>(nextAttemptAt);
     map['status'] = Variable<String>(status);
     map['attempts'] = Variable<int>(attempts);
     if (!nullToAbsent || lastError != null) {
@@ -23331,6 +23480,17 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
       localPath: Value(localPath),
       remotePath: Value(remotePath),
       dedupeKey: Value(dedupeKey),
+      bucket: Value(bucket),
+      targetTable: targetTable == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetTable),
+      targetRowId: targetRowId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetRowId),
+      targetColumn: targetColumn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetColumn),
+      nextAttemptAt: Value(nextAttemptAt),
       status: Value(status),
       attempts: Value(attempts),
       lastError: lastError == null && nullToAbsent
@@ -23354,6 +23514,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
       localPath: serializer.fromJson<String>(json['localPath']),
       remotePath: serializer.fromJson<String>(json['remotePath']),
       dedupeKey: serializer.fromJson<String>(json['dedupeKey']),
+      bucket: serializer.fromJson<String>(json['bucket']),
+      targetTable: serializer.fromJson<String?>(json['targetTable']),
+      targetRowId: serializer.fromJson<String?>(json['targetRowId']),
+      targetColumn: serializer.fromJson<String?>(json['targetColumn']),
+      nextAttemptAt: serializer.fromJson<int>(json['nextAttemptAt']),
       status: serializer.fromJson<String>(json['status']),
       attempts: serializer.fromJson<int>(json['attempts']),
       lastError: serializer.fromJson<String?>(json['lastError']),
@@ -23370,6 +23535,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
       'localPath': serializer.toJson<String>(localPath),
       'remotePath': serializer.toJson<String>(remotePath),
       'dedupeKey': serializer.toJson<String>(dedupeKey),
+      'bucket': serializer.toJson<String>(bucket),
+      'targetTable': serializer.toJson<String?>(targetTable),
+      'targetRowId': serializer.toJson<String?>(targetRowId),
+      'targetColumn': serializer.toJson<String?>(targetColumn),
+      'nextAttemptAt': serializer.toJson<int>(nextAttemptAt),
       'status': serializer.toJson<String>(status),
       'attempts': serializer.toJson<int>(attempts),
       'lastError': serializer.toJson<String?>(lastError),
@@ -23384,6 +23554,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
     String? localPath,
     String? remotePath,
     String? dedupeKey,
+    String? bucket,
+    Value<String?> targetTable = const Value.absent(),
+    Value<String?> targetRowId = const Value.absent(),
+    Value<String?> targetColumn = const Value.absent(),
+    int? nextAttemptAt,
     String? status,
     int? attempts,
     Value<String?> lastError = const Value.absent(),
@@ -23395,6 +23570,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
     localPath: localPath ?? this.localPath,
     remotePath: remotePath ?? this.remotePath,
     dedupeKey: dedupeKey ?? this.dedupeKey,
+    bucket: bucket ?? this.bucket,
+    targetTable: targetTable.present ? targetTable.value : this.targetTable,
+    targetRowId: targetRowId.present ? targetRowId.value : this.targetRowId,
+    targetColumn: targetColumn.present ? targetColumn.value : this.targetColumn,
+    nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
     status: status ?? this.status,
     attempts: attempts ?? this.attempts,
     lastError: lastError.present ? lastError.value : this.lastError,
@@ -23410,6 +23590,19 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
           ? data.remotePath.value
           : this.remotePath,
       dedupeKey: data.dedupeKey.present ? data.dedupeKey.value : this.dedupeKey,
+      bucket: data.bucket.present ? data.bucket.value : this.bucket,
+      targetTable: data.targetTable.present
+          ? data.targetTable.value
+          : this.targetTable,
+      targetRowId: data.targetRowId.present
+          ? data.targetRowId.value
+          : this.targetRowId,
+      targetColumn: data.targetColumn.present
+          ? data.targetColumn.value
+          : this.targetColumn,
+      nextAttemptAt: data.nextAttemptAt.present
+          ? data.nextAttemptAt.value
+          : this.nextAttemptAt,
       status: data.status.present ? data.status.value : this.status,
       attempts: data.attempts.present ? data.attempts.value : this.attempts,
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
@@ -23426,6 +23619,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
           ..write('localPath: $localPath, ')
           ..write('remotePath: $remotePath, ')
           ..write('dedupeKey: $dedupeKey, ')
+          ..write('bucket: $bucket, ')
+          ..write('targetTable: $targetTable, ')
+          ..write('targetRowId: $targetRowId, ')
+          ..write('targetColumn: $targetColumn, ')
+          ..write('nextAttemptAt: $nextAttemptAt, ')
           ..write('status: $status, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
@@ -23442,6 +23640,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
     localPath,
     remotePath,
     dedupeKey,
+    bucket,
+    targetTable,
+    targetRowId,
+    targetColumn,
+    nextAttemptAt,
     status,
     attempts,
     lastError,
@@ -23457,6 +23660,11 @@ class UploadQueueRow extends DataClass implements Insertable<UploadQueueRow> {
           other.localPath == this.localPath &&
           other.remotePath == this.remotePath &&
           other.dedupeKey == this.dedupeKey &&
+          other.bucket == this.bucket &&
+          other.targetTable == this.targetTable &&
+          other.targetRowId == this.targetRowId &&
+          other.targetColumn == this.targetColumn &&
+          other.nextAttemptAt == this.nextAttemptAt &&
           other.status == this.status &&
           other.attempts == this.attempts &&
           other.lastError == this.lastError &&
@@ -23470,6 +23678,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
   final Value<String> localPath;
   final Value<String> remotePath;
   final Value<String> dedupeKey;
+  final Value<String> bucket;
+  final Value<String?> targetTable;
+  final Value<String?> targetRowId;
+  final Value<String?> targetColumn;
+  final Value<int> nextAttemptAt;
   final Value<String> status;
   final Value<int> attempts;
   final Value<String?> lastError;
@@ -23482,6 +23695,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
     this.localPath = const Value.absent(),
     this.remotePath = const Value.absent(),
     this.dedupeKey = const Value.absent(),
+    this.bucket = const Value.absent(),
+    this.targetTable = const Value.absent(),
+    this.targetRowId = const Value.absent(),
+    this.targetColumn = const Value.absent(),
+    this.nextAttemptAt = const Value.absent(),
     this.status = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
@@ -23495,6 +23713,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
     required String localPath,
     required String remotePath,
     required String dedupeKey,
+    this.bucket = const Value.absent(),
+    this.targetTable = const Value.absent(),
+    this.targetRowId = const Value.absent(),
+    this.targetColumn = const Value.absent(),
+    this.nextAttemptAt = const Value.absent(),
     this.status = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
@@ -23513,6 +23736,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
     Expression<String>? localPath,
     Expression<String>? remotePath,
     Expression<String>? dedupeKey,
+    Expression<String>? bucket,
+    Expression<String>? targetTable,
+    Expression<String>? targetRowId,
+    Expression<String>? targetColumn,
+    Expression<int>? nextAttemptAt,
     Expression<String>? status,
     Expression<int>? attempts,
     Expression<String>? lastError,
@@ -23526,6 +23754,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
       if (localPath != null) 'local_path': localPath,
       if (remotePath != null) 'remote_path': remotePath,
       if (dedupeKey != null) 'dedupe_key': dedupeKey,
+      if (bucket != null) 'bucket': bucket,
+      if (targetTable != null) 'target_table': targetTable,
+      if (targetRowId != null) 'target_row_id': targetRowId,
+      if (targetColumn != null) 'target_column': targetColumn,
+      if (nextAttemptAt != null) 'next_attempt_at': nextAttemptAt,
       if (status != null) 'status': status,
       if (attempts != null) 'attempts': attempts,
       if (lastError != null) 'last_error': lastError,
@@ -23541,6 +23774,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
     Value<String>? localPath,
     Value<String>? remotePath,
     Value<String>? dedupeKey,
+    Value<String>? bucket,
+    Value<String?>? targetTable,
+    Value<String?>? targetRowId,
+    Value<String?>? targetColumn,
+    Value<int>? nextAttemptAt,
     Value<String>? status,
     Value<int>? attempts,
     Value<String?>? lastError,
@@ -23554,6 +23792,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
       localPath: localPath ?? this.localPath,
       remotePath: remotePath ?? this.remotePath,
       dedupeKey: dedupeKey ?? this.dedupeKey,
+      bucket: bucket ?? this.bucket,
+      targetTable: targetTable ?? this.targetTable,
+      targetRowId: targetRowId ?? this.targetRowId,
+      targetColumn: targetColumn ?? this.targetColumn,
+      nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
       status: status ?? this.status,
       attempts: attempts ?? this.attempts,
       lastError: lastError ?? this.lastError,
@@ -23580,6 +23823,21 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
     }
     if (dedupeKey.present) {
       map['dedupe_key'] = Variable<String>(dedupeKey.value);
+    }
+    if (bucket.present) {
+      map['bucket'] = Variable<String>(bucket.value);
+    }
+    if (targetTable.present) {
+      map['target_table'] = Variable<String>(targetTable.value);
+    }
+    if (targetRowId.present) {
+      map['target_row_id'] = Variable<String>(targetRowId.value);
+    }
+    if (targetColumn.present) {
+      map['target_column'] = Variable<String>(targetColumn.value);
+    }
+    if (nextAttemptAt.present) {
+      map['next_attempt_at'] = Variable<int>(nextAttemptAt.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -23610,6 +23868,11 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
           ..write('localPath: $localPath, ')
           ..write('remotePath: $remotePath, ')
           ..write('dedupeKey: $dedupeKey, ')
+          ..write('bucket: $bucket, ')
+          ..write('targetTable: $targetTable, ')
+          ..write('targetRowId: $targetRowId, ')
+          ..write('targetColumn: $targetColumn, ')
+          ..write('nextAttemptAt: $nextAttemptAt, ')
           ..write('status: $status, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
@@ -44337,6 +44600,11 @@ typedef $$UploadQueueTableCreateCompanionBuilder =
       required String localPath,
       required String remotePath,
       required String dedupeKey,
+      Value<String> bucket,
+      Value<String?> targetTable,
+      Value<String?> targetRowId,
+      Value<String?> targetColumn,
+      Value<int> nextAttemptAt,
       Value<String> status,
       Value<int> attempts,
       Value<String?> lastError,
@@ -44351,6 +44619,11 @@ typedef $$UploadQueueTableUpdateCompanionBuilder =
       Value<String> localPath,
       Value<String> remotePath,
       Value<String> dedupeKey,
+      Value<String> bucket,
+      Value<String?> targetTable,
+      Value<String?> targetRowId,
+      Value<String?> targetColumn,
+      Value<int> nextAttemptAt,
       Value<String> status,
       Value<int> attempts,
       Value<String?> lastError,
@@ -44390,6 +44663,31 @@ class $$UploadQueueTableFilterComposer
 
   ColumnFilters<String> get dedupeKey => $composableBuilder(
     column: $table.dedupeKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bucket => $composableBuilder(
+    column: $table.bucket,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetTable => $composableBuilder(
+    column: $table.targetTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetRowId => $composableBuilder(
+    column: $table.targetRowId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetColumn => $composableBuilder(
+    column: $table.targetColumn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -44453,6 +44751,31 @@ class $$UploadQueueTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get bucket => $composableBuilder(
+    column: $table.bucket,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetTable => $composableBuilder(
+    column: $table.targetTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetRowId => $composableBuilder(
+    column: $table.targetRowId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetColumn => $composableBuilder(
+    column: $table.targetColumn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -44504,6 +44827,29 @@ class $$UploadQueueTableAnnotationComposer
 
   GeneratedColumn<String> get dedupeKey =>
       $composableBuilder(column: $table.dedupeKey, builder: (column) => column);
+
+  GeneratedColumn<String> get bucket =>
+      $composableBuilder(column: $table.bucket, builder: (column) => column);
+
+  GeneratedColumn<String> get targetTable => $composableBuilder(
+    column: $table.targetTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetRowId => $composableBuilder(
+    column: $table.targetRowId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetColumn => $composableBuilder(
+    column: $table.targetColumn,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -44557,6 +44903,11 @@ class $$UploadQueueTableTableManager
                 Value<String> localPath = const Value.absent(),
                 Value<String> remotePath = const Value.absent(),
                 Value<String> dedupeKey = const Value.absent(),
+                Value<String> bucket = const Value.absent(),
+                Value<String?> targetTable = const Value.absent(),
+                Value<String?> targetRowId = const Value.absent(),
+                Value<String?> targetColumn = const Value.absent(),
+                Value<int> nextAttemptAt = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
@@ -44569,6 +44920,11 @@ class $$UploadQueueTableTableManager
                 localPath: localPath,
                 remotePath: remotePath,
                 dedupeKey: dedupeKey,
+                bucket: bucket,
+                targetTable: targetTable,
+                targetRowId: targetRowId,
+                targetColumn: targetColumn,
+                nextAttemptAt: nextAttemptAt,
                 status: status,
                 attempts: attempts,
                 lastError: lastError,
@@ -44583,6 +44939,11 @@ class $$UploadQueueTableTableManager
                 required String localPath,
                 required String remotePath,
                 required String dedupeKey,
+                Value<String> bucket = const Value.absent(),
+                Value<String?> targetTable = const Value.absent(),
+                Value<String?> targetRowId = const Value.absent(),
+                Value<String?> targetColumn = const Value.absent(),
+                Value<int> nextAttemptAt = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
@@ -44595,6 +44956,11 @@ class $$UploadQueueTableTableManager
                 localPath: localPath,
                 remotePath: remotePath,
                 dedupeKey: dedupeKey,
+                bucket: bucket,
+                targetTable: targetTable,
+                targetRowId: targetRowId,
+                targetColumn: targetColumn,
+                nextAttemptAt: nextAttemptAt,
                 status: status,
                 attempts: attempts,
                 lastError: lastError,

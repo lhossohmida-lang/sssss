@@ -93,6 +93,19 @@ class UploadQueue extends Table {
   /// مفتاح يمنع رفع نفس الملف مرتين.
   TextColumn get dedupeKey => text()();
 
+  /// المخزن الوجهة: `photos` / `files` على الخادم، أو `drive`.
+  TextColumn get bucket => text().withDefault(const Constant('files'))();
+
+  /// السجل الذي يُكتب فيه رابط الملف بعد اكتمال الرفع (اختياري).
+  TextColumn get targetTable => text().nullable()();
+
+  TextColumn get targetRowId => text().nullable()();
+
+  TextColumn get targetColumn => text().nullable()();
+
+  /// لا تُعاد المحاولة قبل هذا الوقت.
+  IntColumn get nextAttemptAt => integer().withDefault(const Constant(0))();
+
   /// `pending` / `uploading` / `done` / `failed`.
   TextColumn get status => text().withDefault(const Constant('pending'))();
 

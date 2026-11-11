@@ -91,6 +91,48 @@ class SyncWriter {
     });
   }
 
+  /// يغيّر أعمدة محددة في سجل موجود (مثل رابط الصورة بعد اكتمال الرفع).
+  ///
+  /// يعيد `false` إن لم يوجد السجل. أسماء الأعمدة كما هي في القاعدة.
+  Future<bool> patch(
+    TableInfo<Table, Object?> table, {
+    required Map<String, Object> key,
+    required Map<String, Object?> values,
+    String action = 'update',
+  }) {
+    if (values.isEmpty) {
+      throw ArgumentError.value(values, 'values', 'لا أعمدة للتغيير');
+    }
+    for (final column in values.keys) {
+      if (!table.columnsByName.containsKey(column)) {
+        throw ArgumentError.value(column, 'values', 'عمود غير معروف');
+      }
+    }
+    return db.transaction(() async {
+      final name = table.actualTableName;
+      final before = await _read(name, key);
+      if (before == null) return false;
+      final stamp = now();
+      final where = _where(key);
+      final sets = values.keys.map((c) => '"$c" = ?').join(', ');
+      await db.customUpdate(
+        'UPDATE "$name" SET $sets WHERE ${where.sql}',
+        variables: [
+          for (final value in values.values)
+            value == null
+                ? const Variable<String>(null)
+                : Variable<Object>(value),
+          ...where.variables,
+        ],
+        updates: {table},
+      );
+      await _stamp(table, key, stamp, createdAt: before['created_at']);
+      final after = await _read(name, key);
+      await _record(name, key, action, before, after!, stamp);
+      return true;
+    });
+  }
+
   /// حذف ناعم: يضع `deleted_at` ويُبقي السجل للسجل المالي والحضور.
   ///
   /// يعيد `false` إن لم يوجد السجل أو كان محذوفاً من قبل.
