@@ -2,3 +2,6 @@
 library;
 
 export 'src/app_identity.dart';
+export 'src/domain/enums.dart';
+export 'src/domain/money.dart';
+export 'src/domain/qr_code.dart';
