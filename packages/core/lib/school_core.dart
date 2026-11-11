@@ -46,5 +46,6 @@ export 'src/domain/setting_keys.dart';
 export 'src/domain/settings_service.dart';
 export 'src/domain/sms_templates.dart';
 export 'src/domain/stable_id.dart';
+export 'src/domain/student_queries.dart';
 export 'src/domain/teacher_service.dart';
 export 'src/domain/wage_service.dart';

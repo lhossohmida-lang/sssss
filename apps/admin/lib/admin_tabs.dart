@@ -4,6 +4,7 @@ import 'package:school_ui/school_ui.dart';
 import 'screens/catalog_screens.dart';
 import 'screens/more_page.dart';
 import 'screens/settings_screen.dart';
+import 'screens/students_screen.dart';
 import 'screens/teachers_screens.dart';
 
 /// تبويبات تطبيق الإدارة. العامل لا يرى إلا ما فعّله له المدير؛ وبقية
@@ -21,7 +22,7 @@ final List<AppTab> adminTabs = [
       icon: ClayIcons.students,
     ),
     requires: PermissionModule.students,
-    builder: (_) => const TabPlaceholder(title: 'التلاميذ'),
+    builder: (_) => const StudentsScreen(),
   ),
   AppTab(
     path: '/groups',

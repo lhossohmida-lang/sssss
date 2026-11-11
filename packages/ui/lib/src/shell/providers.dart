@@ -137,3 +137,19 @@ final StreamProvider<List<TeacherItem>> teachersProvider =
     StreamProvider<List<TeacherItem>>(
       (ref) => ref.watch(teacherServiceProvider).watchAll(),
     );
+
+/// استعلامات قائمة التلاميذ.
+final Provider<StudentQueries> studentQueriesProvider =
+    Provider<StudentQueries>(
+      (ref) => StudentQueries(ref.watch(runtimeProvider).db),
+    );
+
+/// مفتاح صفحة التلاميذ: نص البحث وعدد ما يُحمَّل.
+typedef StudentPageKey = ({String query, int limit});
+
+/// صفحة من التلاميذ مطابقة للبحث، وتتحدث مع كل تغيير.
+final studentPageProvider = StreamProvider.family<StudentPage, StudentPageKey>(
+  (ref, key) => ref
+      .watch(studentQueriesProvider)
+      .watchPage(query: key.query, limit: key.limit),
+);
