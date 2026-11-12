@@ -74,10 +74,22 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.groups,
   ),
   MoreEntry(
+    label: 'حضور العمال',
+    icon: ClayIcons.attendance,
+    path: '/worker-attendance',
+    requires: PermissionModule.workers,
+  ),
+  MoreEntry(
     label: 'العمال',
     icon: ClayIcons.workers,
     path: '/workers',
     requires: PermissionModule.workers,
+  ),
+  MoreEntry(
+    label: 'حضور الأساتذة',
+    icon: ClayIcons.attendance,
+    path: '/teacher-attendance',
+    requires: PermissionModule.teachers,
   ),
   MoreEntry(
     label: 'الأساتذة',

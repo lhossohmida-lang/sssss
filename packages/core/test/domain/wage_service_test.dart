@@ -199,4 +199,67 @@ void main() {
     expect(month.total, 0);
     expect(month.absencesUntil('2026-11-30'), 0);
   });
+
+  group('الكشف الجامع لكل العمال', () {
+    Future<void> secondWorker() => env.db
+        .into(env.db.workers)
+        .insert(
+          WorkersCompanion.insert(
+            id: 'w0',
+            createdAt: 1,
+            updatedAt: 1,
+            name: 'أمين',
+            phone: '0660000001',
+            email: '0660000001@school.local',
+            qrCode: 'W-BBBBBBBBBB',
+            fullDayWage: const Value(1000),
+            weeklySchedule: const Value('{"2": "full"}'),
+          ),
+        );
+
+    test('كل العمال مرتبون بالاسم بكشف الشهر لكل منهم', () async {
+      await secondWorker();
+      await scan('2026-11-02');
+      final sheet = await wages.sheet('2026-11');
+      expect(sheet.map((s) => s.name), ['أمين', 'سمير']);
+      expect(sheet.first.month.total, 0);
+      expect(sheet.last.month.total, 2000);
+      expect(sheet.last.workerId, 'w1');
+    });
+
+    test('المحذوف لا يظهر', () async {
+      await secondWorker();
+      await env.db.customStatement(
+        "UPDATE workers SET deleted_at = 9 WHERE id = 'w0'",
+      );
+      expect((await wages.sheet('2026-11')).map((s) => s.workerId), ['w1']);
+    });
+
+    test('watchSheet يتحدث بعد التعديل اليدوي', () async {
+      final totals = <int>[];
+      final sub = wages
+          .watchSheet('2026-11')
+          .listen((s) => totals.add(s.single.month.total));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await wages.setOverride(
+        workerId: 'w1',
+        date: '2026-11-03',
+        kind: WorkDayKind.full,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await sub.cancel();
+      expect(totals.first, 0);
+      expect(totals.last, 2000);
+    });
+  });
+
+  test('أسماء الأشهر والتنقل بينها', () {
+    expect(DateKey.monthName(1), 'جانفي');
+    expect(DateKey.monthName(12), 'ديسمبر');
+    expect(DateKey.monthLabel('2026-11'), 'نوفمبر 2026');
+    expect(DateKey.shiftMonth('2026-11', 1), '2026-12');
+    expect(DateKey.shiftMonth('2026-12', 1), '2027-01');
+    expect(DateKey.shiftMonth('2026-01', -1), '2025-12');
+    expect(DateKey.shiftMonth('2026-03', 0), '2026-03');
+  });
 }

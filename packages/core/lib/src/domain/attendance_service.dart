@@ -100,6 +100,9 @@ class AttendanceService {
 
   late final PayoutService _payouts = PayoutService(db, writer, dues);
 
+  /// نوع إشعار «لم يحضر الأستاذ حصته».
+  static const String notifyTeacherAbsent = 'teacher_absent';
+
   // ---------------------------------------------------------------------------
   // القراءة
   // ---------------------------------------------------------------------------
@@ -356,6 +359,7 @@ class AttendanceService {
           await _write(session, studentId, AttendanceStatus.absent);
         }
         await cycles.closeSession(id);
+        await _alertIfTeacherAbsent(session);
         final finished = await cycles.completeCycleIfDone(
           session.groupId,
           fromDate: DateKey.next(session.date),
@@ -374,6 +378,57 @@ class AttendanceService {
   // ---------------------------------------------------------------------------
   // داخلي
   // ---------------------------------------------------------------------------
+
+  /// ينبّه صاحب المدرسة إن أُغلقت الحصة ولم يمسح أستاذها دخوله لها.
+  Future<void> _alertIfTeacherAbsent(SessionRow session) async {
+    final present = await db
+        .customSelect(
+          'SELECT 1 FROM teacher_attendance WHERE session_id = ? '
+          'AND check_in IS NOT NULL AND deleted_at IS NULL LIMIT 1',
+          variables: [Variable<String>(session.id)],
+          readsFrom: {db.teacherAttendance},
+        )
+        .getSingleOrNull();
+    if (present != null) return;
+    final info = await db
+        .customSelect(
+          'SELECT t.name AS teacher, g.number, sub.name AS subject '
+          'FROM groups g JOIN teachers t ON t.id = g.teacher_id '
+          'JOIN subjects sub ON sub.id = g.subject_id WHERE g.id = ?',
+          variables: [Variable<String>(session.groupId)],
+          readsFrom: {db.groups, db.teachers, db.subjects},
+        )
+        .getSingleOrNull();
+    if (info == null) return;
+    final owners =
+        await (db.select(db.userAccounts)..where(
+              (a) => a.role.equals(UserRole.owner.code) & a.deletedAt.isNull(),
+            ))
+            .get();
+    for (final owner in owners) {
+      final stamp = writer.now();
+      final id = writer.newId();
+      await writer.save(
+        db.notifications,
+        NotificationRow(
+          id: id,
+          createdAt: stamp,
+          updatedAt: stamp,
+          userId: owner.id,
+          senderId: writer.actor().userId,
+          title: 'لم يحضر الأستاذ حصته',
+          body:
+              '${info.read<String>('teacher')} — المجموعة '
+              '${info.read<int>('number')} (${info.read<String>('subject')}) '
+              'يوم ${session.date}',
+          kind: notifyTeacherAbsent,
+          entity: 'sessions',
+          entityId: session.id,
+        ),
+        key: {'id': id},
+      );
+    }
+  }
 
   Future<SessionRow> _openSession(String sessionId) async {
     final session =

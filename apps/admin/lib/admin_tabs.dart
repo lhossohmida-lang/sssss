@@ -17,8 +17,10 @@ import 'screens/schedule_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/student_profile_screen.dart';
 import 'screens/students_screen.dart';
+import 'screens/teacher_attendance_screens.dart';
 import 'screens/teachers_screens.dart';
 import 'screens/waiting_screens.dart';
+import 'screens/worker_attendance_screens.dart';
 import 'screens/workers_screens.dart';
 
 /// تبويبات تطبيق الإدارة. العامل لا يرى إلا ما فعّله له المدير؛ وبقية
@@ -65,6 +67,32 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/teacher-attendance',
+    requires: PermissionModule.teachers,
+    builder: (context, state) => const TeacherSheetScreen(),
+  ),
+  AppPage(
+    path: '/teacher-attendance/:id',
+    requires: PermissionModule.teachers,
+    builder: (context, state) => TeacherMonthScreen(
+      teacherId: state.pathParameters['id']!,
+      month: state.uri.queryParameters['month'],
+    ),
+  ),
+  AppPage(
+    path: '/worker-attendance',
+    requires: PermissionModule.workers,
+    builder: (context, state) => const WorkerSheetScreen(),
+  ),
+  AppPage(
+    path: '/worker-attendance/:id',
+    requires: PermissionModule.workers,
+    builder: (context, state) => WorkerMonthScreen(
+      workerId: state.pathParameters['id']!,
+      month: state.uri.queryParameters['month'],
+    ),
+  ),
   AppPage(
     path: '/workers',
     requires: PermissionModule.workers,

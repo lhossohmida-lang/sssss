@@ -63,6 +63,7 @@ export 'src/domain/stable_id.dart';
 export 'src/domain/student_card.dart';
 export 'src/domain/student_queries.dart';
 export 'src/domain/student_service.dart';
+export 'src/domain/teacher_attendance.dart';
 export 'src/domain/teacher_service.dart';
 export 'src/domain/wage_service.dart';
 export 'src/domain/waiting_service.dart';

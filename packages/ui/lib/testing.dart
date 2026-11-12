@@ -200,6 +200,9 @@ Future<void> openMoreEntry(WidgetTester tester, String label) async {
       scrollable: find.byType(Scrollable).last,
     );
   }
+  // يظهر القسم كاملاً (لا نصفه خلف الشريط السفلي) قبل الضغط عليه.
+  await tester.ensureVisible(entry);
+  await tester.pumpAndSettle();
   await tester.tap(entry);
   await tester.pumpAndSettle();
 }

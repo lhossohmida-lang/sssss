@@ -30,6 +30,38 @@ abstract final class DateKey {
   /// رقم يوم الأسبوع: 1 = الاثنين … 7 = الأحد.
   static int weekday(String key) => parse(key).weekday;
 
+  static const List<String> _monthNames = [
+    'جانفي',
+    'فيفري',
+    'مارس',
+    'أفريل',
+    'ماي',
+    'جوان',
+    'جويلية',
+    'أوت',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
+  ];
+
+  /// اسم الشهر ([month] من 1 إلى 12) بالتسمية الجزائرية.
+  static String monthName(int month) => _monthNames[month - 1];
+
+  /// «نوفمبر 2026» من مفتاح الشهر `YYYY-MM`.
+  static String monthLabel(String key) {
+    final parts = key.split('-');
+    return '${monthName(int.parse(parts[1]))} ${parts[0]}';
+  }
+
+  /// مفتاح الشهر `YYYY-MM` بعد [delta] شهراً من [key].
+  static String shiftMonth(String key, int delta) {
+    final parts = key.split('-');
+    final date = DateTime(int.parse(parts[0]), int.parse(parts[1]) + delta);
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}';
+  }
+
   /// دقائق اليوم منذ منتصف الليل للوقت [time].
   static int minutesOf(DateTime time) => time.hour * 60 + time.minute;
 

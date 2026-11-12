@@ -549,3 +549,35 @@ final StreamProvider<List<WorkerItem>> workersProvider =
     StreamProvider<List<WorkerItem>>(
       (ref) => ref.watch(workerServiceProvider).watchAll(),
     );
+
+/// أجور العمال وكشف حضورهم الشهري.
+final Provider<WageService> wageServiceProvider = Provider<WageService>((ref) {
+  final runtime = ref.watch(runtimeProvider);
+  return WageService(runtime.db, runtime.writer);
+});
+
+/// كشف شهر (`YYYY-MM`) لكل العمال.
+final workerSheetProvider = StreamProvider.autoDispose
+    .family<List<WorkerMonthSummary>, String>(
+      (ref, month) => ref.watch(wageServiceProvider).watchSheet(month),
+    );
+
+/// كشف حضور الأساتذة والحصص التي لم يحضرها أستاذها.
+final Provider<TeacherAttendanceQueries> teacherAttendanceProvider =
+    Provider<TeacherAttendanceQueries>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return TeacherAttendanceQueries(runtime.db, runtime.writer);
+    });
+
+/// كشف شهر (`YYYY-MM`) لكل الأساتذة.
+final teacherSheetProvider = StreamProvider.autoDispose
+    .family<List<TeacherMonth>, String>(
+      (ref, month) => ref.watch(teacherAttendanceProvider).watchSheet(month),
+    );
+
+/// حصص لم يحضرها أستاذها منذ [since] (مفتاح تاريخ).
+final missedSessionsProvider = StreamProvider.autoDispose
+    .family<List<MissedSession>, String>(
+      (ref, since) =>
+          ref.watch(teacherAttendanceProvider).watchMissed(since: since),
+    );

@@ -132,6 +132,19 @@ abstract final class WageRules {
   };
 }
 
+/// ملخص شهر عامل في الكشف الجامع.
+class WorkerMonthSummary {
+  const WorkerMonthSummary({
+    required this.workerId,
+    required this.name,
+    required this.month,
+  });
+
+  final String workerId;
+  final String name;
+  final WorkerMonth month;
+}
+
 /// أجور العمال من جدول حضورهم.
 class WageService {
   WageService(this.db, this.writer);
@@ -194,6 +207,30 @@ class WageService {
       date = DateKey.next(date);
     }
     return WorkerMonth(workerId: workerId, days: days);
+  }
+
+  /// كشف شهر [month] (`YYYY-MM`) لكل العمال الأحياء مرتبين بالاسم، ولحظياً.
+  Stream<List<WorkerMonthSummary>> watchSheet(String month) {
+    return db
+        .customSelect('SELECT 1', readsFrom: {db.workers, db.workerAttendance})
+        .watch()
+        .asyncMap((_) => sheet(month));
+  }
+
+  Future<List<WorkerMonthSummary>> sheet(String month) async {
+    final workers =
+        await (db.select(db.workers)
+              ..where((w) => w.deletedAt.isNull())
+              ..orderBy([(w) => OrderingTerm.asc(w.name)]))
+            .get();
+    return [
+      for (final w in workers)
+        WorkerMonthSummary(
+          workerId: w.id,
+          name: w.name,
+          month: await this.month(w.id, month),
+        ),
+    ];
   }
 
   /// تعديل المدير اليدوي ليوم: كامل / نصف / غائب، أو `null` لإلغاء التعديل
