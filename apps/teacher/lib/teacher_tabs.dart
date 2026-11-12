@@ -1,6 +1,7 @@
 import 'package:school_ui/school_ui.dart';
 
 import 'screens/home_screens.dart';
+import 'screens/requests_screens.dart';
 
 /// تبويبات تطبيق الأستاذ.
 final List<AppTab> teacherTabs = [
@@ -23,7 +24,7 @@ final List<AppTab> teacherTabs = [
       label: 'طلباتي',
       icon: ClayIcons.schedule,
     ),
-    builder: (_) => const TabPlaceholder(title: 'طلباتي'),
+    builder: (_) => const TeacherRequestsScreen(),
   ),
   AppTab(
     path: '/payout',
@@ -45,6 +46,10 @@ final List<AppTab> teacherTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> teacherPages = [
+  AppPage(
+    path: '/requests/new',
+    builder: (context, state) => const NewRequestScreen(),
+  ),
   AppPage(path: '/my-qr', builder: (context, state) => const MyQrScreen()),
   AppPage(
     path: '/my-attendance',

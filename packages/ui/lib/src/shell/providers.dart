@@ -627,3 +627,31 @@ final StreamProvider<TeacherRow?> myTeacherProvider =
       if (me == null) return Stream.value(null);
       return ref.watch(runtimeProvider).db.watchTeacher(me);
     });
+
+/// طلبات الأستاذ لتغيير الحصص.
+final Provider<RequestService> requestServiceProvider =
+    Provider<RequestService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return RequestService(
+        runtime.db,
+        runtime.writer,
+        ScheduleService(runtime.db),
+        CycleService(runtime.db, runtime.writer),
+      );
+    });
+
+/// طلبات الأستاذ صاحب الجلسة، الأحدث أولاً.
+final StreamProvider<List<RequestItem>> myRequestsProvider =
+    StreamProvider.autoDispose<List<RequestItem>>((ref) {
+      final me = ref.watch(myTeacherIdProvider);
+      if (me == null) return Stream.value(const <RequestItem>[]);
+      return ref.watch(requestServiceProvider).watchMine(me);
+    });
+
+/// حصص مجموعة التي يمكن طلب تغييرها، من اليوم.
+final openSessionsProvider = FutureProvider.autoDispose
+    .family<List<SessionRow>, String>(
+      (ref, groupId) => ref
+          .watch(requestServiceProvider)
+          .openSessions(groupId, fromDate: DateKey.of(DateTime.now())),
+    );

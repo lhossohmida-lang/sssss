@@ -471,4 +471,137 @@ void main() {
             .get();
     expect(mine.map((r) => r.status), ['rejected', 'approved', 'pending']);
   });
+
+  group('معاينة الطلب وقوائمه', () {
+    Future<RequestPreview> preview({
+      SessionRequestType type = SessionRequestType.reschedule,
+      String? date = '2026-11-16',
+      int? start = 900,
+      int? end = 990,
+      String? room,
+      bool withSession = true,
+      String teacher = 't1',
+    }) async => requests.preview(
+      teacherId: teacher,
+      groupId: 'g1',
+      type: type,
+      sessionId: withSession ? (await firstSession()).id : null,
+      newDate: date,
+      newStartMinutes: start,
+      newEndMinutes: end,
+      newRoomId: room,
+    );
+
+    test('موعد خال: صالح وتُقترح قاعة المجموعة ولا يُكتب شيء', () async {
+      final result = await preview();
+      expect(result.ok, isTrue);
+      expect(result.suggestedRoom?.id, 'r1');
+      expect(await env.db.select(env.db.sessionRequests).get(), isEmpty);
+    });
+
+    test('قاعة محددة محجوزة: تعارض بنوعه ورسالته', () async {
+      final first = await firstSession();
+      final clash = await preview(
+        date: first.date,
+        start: first.startMinutes,
+        end: first.endMinutes,
+        room: 'r1',
+        withSession: false,
+        type: SessionRequestType.addSession,
+      );
+      expect(clash.ok, isFalse);
+      expect(clash.conflicts, isNotEmpty);
+      expect(clash.conflicts.first.message, contains('المجموعة 1'));
+    });
+
+    test('أستاذ مشغول يمنع الطلب حتى بلا قاعة', () async {
+      final first = await firstSession();
+      final clash = await preview(
+        date: first.date,
+        start: first.startMinutes,
+        end: first.endMinutes,
+        withSession: false,
+        type: SessionRequestType.addSession,
+      );
+      expect(clash.ok, isFalse);
+      expect(
+        clash.conflicts.any((c) => c.kind == ConflictKind.teacher),
+        isTrue,
+      );
+    });
+
+    test('أخطاء: بيانات ناقصة ونهاية قبل البداية وتسبيق لموعد متأخر', () async {
+      expect((await preview(date: null)).error, contains('حدّد'));
+      expect(
+        (await preview(start: 990, end: 900)).error,
+        contains('بعد بدايتها'),
+      );
+      final later = await preview(
+        type: SessionRequestType.advance,
+        date: '2026-12-30',
+      );
+      expect(later.error, contains('قبل موعدها'));
+      expect(later.ok, isFalse);
+    });
+
+    test('مجموعة ليست للأستاذ، وحصة غير مختارة', () async {
+      expect((await preview(teacher: 't2')).error, contains('ليست من'));
+      expect((await preview(withSession: false)).error, contains('اختر الحصة'));
+    });
+
+    test('الإلغاء لا يحتاج موعداً وهو صالح', () async {
+      final result = await preview(
+        type: SessionRequestType.cancel,
+        date: null,
+        start: null,
+        end: null,
+      );
+      expect(result.ok, isTrue);
+    });
+
+    test('الحصص المفتوحة من تاريخ: غير المنعقدة والملغاة فقط', () async {
+      final sessions = await cycles.cycleSessions('g1', 1);
+      await cycles.closeSession(sessions[0].id);
+      await cycles.cancelSession(sessions[1].id);
+      final open = await requests.openSessions('g1', fromDate: '2026-11-01');
+      expect(open.map((s) => s.id), isNot(contains(sessions[0].id)));
+      expect(open.map((s) => s.id), isNot(contains(sessions[1].id)));
+      expect(open, isNotEmpty);
+      final dates = open.map((s) => s.date).toList();
+      expect([...dates]..sort(), dates, reason: 'الأقرب أولاً');
+      expect(
+        await requests.openSessions('g1', fromDate: '2099-01-01'),
+        isEmpty,
+      );
+    });
+
+    test('طلباتي: الأحدث أولاً بوصف مجموعتها وحصتها، ولأستاذها فقط', () async {
+      final a = await reschedule();
+      env.time += 10;
+      final b = await requests.submit(
+        teacherId: 't1',
+        groupId: 'g1',
+        type: SessionRequestType.cancel,
+        sessionId: (await cycles.cycleSessions('g1', 1))[1].id,
+      );
+      final mine = await requests.mine('t1');
+      expect(mine.map((r) => r.id), [b.id, a.id]);
+      expect(mine.last.groupLabel, 'المجموعة 1 · رياضيات');
+      expect(mine.last.type, SessionRequestType.reschedule);
+      expect(mine.last.status, SessionRequestStatus.pending);
+      expect(mine.last.sessionDate, isNotNull);
+      expect(await requests.mine('t2'), isEmpty);
+    });
+
+    test('watchMine يتحدث بعد إرسال طلب', () async {
+      final seen = <int>[];
+      final sub = requests.watchMine('t1').listen((l) => seen.add(l.length));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      await reschedule();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await sub.cancel();
+      expect(seen.first, 0);
+      expect(seen.last, 1);
+    });
+  });
 }

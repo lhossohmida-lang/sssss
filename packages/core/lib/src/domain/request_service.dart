@@ -38,6 +38,51 @@ class ApprovalResult {
   final int smsQueued;
 }
 
+/// نتيجة فحص طلب قبل إرساله: تعارضه، والقاعة المقترحة، وما يمنع إرساله.
+class RequestPreview {
+  const RequestPreview({
+    this.conflicts = const [],
+    this.suggestedRoom,
+    this.error,
+  });
+
+  /// تعارضات الموعد مع الأستاذ أو القاعة.
+  final List<ScheduleConflict> conflicts;
+
+  /// القاعة التي ستُحجز تلقائياً حين لا يحدد الأستاذ قاعة (قد تكون `null` إن
+  /// لم توجد قاعة متاحة).
+  final RoomRow? suggestedRoom;
+
+  /// سبب آخر يمنع الإرسال (بيانات ناقصة أو حصة منعقدة...).
+  final String? error;
+
+  /// هل يمكن إرسال الطلب؟
+  bool get ok => error == null && conflicts.isEmpty;
+}
+
+/// طلب في قائمة الأستاذ مع وصف مجموعته وحصته.
+class RequestItem {
+  const RequestItem({
+    required this.request,
+    required this.groupNumber,
+    required this.subjectName,
+    this.sessionDate,
+    this.sessionStart,
+  });
+
+  final SessionRequestRow request;
+  final int groupNumber;
+  final String subjectName;
+  final String? sessionDate;
+  final int? sessionStart;
+
+  String get id => request.id;
+  SessionRequestType get type => SessionRequestType.fromCode(request.type);
+  SessionRequestStatus get status =>
+      SessionRequestStatus.fromCode(request.status);
+  String get groupLabel => 'المجموعة $groupNumber · $subjectName';
+}
+
 /// دورة حياة طلبات الأستاذ: إنشاء ← (موافقة مع تعديل | رفض).
 ///
 /// لا يتغير أي موعد دون موافقة المدير.
@@ -130,6 +175,130 @@ class RequestService {
       }
       return request;
     });
+  }
+
+  /// يفحص طلباً دون إرساله: تعارض الموعد مع الأستاذ أو القاعة، والقاعة
+  /// المقترحة إن لم تُحدَّد قاعة، وأي سبب آخر يمنع الإرسال. لا يكتب شيئاً.
+  Future<RequestPreview> preview({
+    required String teacherId,
+    required String groupId,
+    required SessionRequestType type,
+    String? sessionId,
+    String? newDate,
+    int? newStartMinutes,
+    int? newEndMinutes,
+    String? newRoomId,
+  }) async {
+    try {
+      final group = await _group(groupId);
+      if (group.teacherId != teacherId) {
+        return const RequestPreview(error: 'هذه المجموعة ليست من مجموعاتك');
+      }
+      final session = await _targetSession(type, sessionId, groupId);
+      if (!type.needsNewSlot) return const RequestPreview();
+      if (newDate == null || newStartMinutes == null || newEndMinutes == null) {
+        return const RequestPreview(error: 'حدّد التاريخ والوقت الجديدين');
+      }
+      if (newEndMinutes <= newStartMinutes) {
+        return const RequestPreview(error: 'نهاية الحصة بعد بدايتها');
+      }
+      if (type == SessionRequestType.advance &&
+          !_isEarlier(newDate, newStartMinutes, session!)) {
+        return const RequestPreview(
+          error: 'تسبيق الحصة يكون إلى موعد قبل موعدها الحالي',
+        );
+      }
+      final conflicts = await schedule.dateConflicts(
+        date: newDate,
+        startMinutes: newStartMinutes,
+        endMinutes: newEndMinutes,
+        teacherId: teacherId,
+        roomId: newRoomId,
+        excludeSessionId: session?.id,
+      );
+      if (conflicts.isNotEmpty) return RequestPreview(conflicts: conflicts);
+      if (newRoomId != null) return const RequestPreview();
+      return RequestPreview(
+        suggestedRoom: await schedule.suggestRoom(
+          date: newDate,
+          startMinutes: newStartMinutes,
+          endMinutes: newEndMinutes,
+          preferredRoomId: group.roomId,
+          excludeSessionId: session?.id,
+        ),
+      );
+    } on InvalidRequestException catch (e) {
+      return RequestPreview(error: e.message);
+    }
+  }
+
+  /// حصص المجموعة التي يمكن طلب تغييرها: غير المنعقدة ولا الملغاة من اليوم
+  /// فصاعداً، الأقرب أولاً.
+  Future<List<SessionRow>> openSessions(
+    String groupId, {
+    required String fromDate,
+    int limit = 30,
+  }) =>
+      (db.select(db.sessions)
+            ..where(
+              (s) =>
+                  s.groupId.equals(groupId) &
+                  s.deletedAt.isNull() &
+                  s.closedAt.isNull() &
+                  s.status.equals(SessionStatus.cancelled.code).not() &
+                  s.date.isBiggerOrEqualValue(fromDate),
+            )
+            ..orderBy([
+              (s) => OrderingTerm(expression: s.date),
+              (s) => OrderingTerm(expression: s.startMinutes),
+            ])
+            ..limit(limit))
+          .get();
+
+  /// طلبات الأستاذ، الأحدث أولاً، ولحظياً.
+  Stream<List<RequestItem>> watchMine(String teacherId) {
+    return db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {db.sessionRequests, db.groups, db.subjects, db.sessions},
+        )
+        .watch()
+        .asyncMap((_) => mine(teacherId));
+  }
+
+  Future<List<RequestItem>> mine(String teacherId) async {
+    final rows = await db
+        .customSelect(
+          'SELECT r.id, g.number, sub.name AS subject, se.date, '
+          'se.start_minutes FROM session_requests r '
+          'JOIN groups g ON g.id = r.group_id '
+          'JOIN subjects sub ON sub.id = g.subject_id '
+          'LEFT JOIN sessions se ON se.id = r.session_id '
+          'WHERE r.teacher_id = ? AND r.deleted_at IS NULL '
+          'ORDER BY r.created_at DESC, r.id DESC',
+          variables: [Variable<String>(teacherId)],
+          readsFrom: {db.sessionRequests, db.groups, db.subjects, db.sessions},
+        )
+        .get();
+    if (rows.isEmpty) return const [];
+    final byId = {
+      for (final r
+          in await (db.select(db.sessionRequests)..where(
+                (r) => r.id.isIn([for (final x in rows) x.read<String>('id')]),
+              ))
+              .get())
+        r.id: r,
+    };
+    return [
+      for (final row in rows)
+        RequestItem(
+          request: byId[row.read<String>('id')]!,
+          groupNumber: row.read<int>('number'),
+          subjectName: row.read<String>('subject'),
+          sessionDate: row.read<String?>('date'),
+          sessionStart: row.read<int?>('start_minutes'),
+        ),
+    ];
   }
 
   /// عدد الطلبات المعلّقة (للشارة عند صاحب المدرسة).
