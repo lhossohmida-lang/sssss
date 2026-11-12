@@ -12,6 +12,7 @@ import 'screens/settings_screen.dart';
 import 'screens/student_profile_screen.dart';
 import 'screens/students_screen.dart';
 import 'screens/teachers_screens.dart';
+import 'screens/waiting_screens.dart';
 
 /// تبويبات تطبيق الإدارة. العامل لا يرى إلا ما فعّله له المدير؛ وبقية
 /// الأقسام (الأساتذة، القاعات، المصاريف...) تحت «المزيد» (المهمة 2.26).
@@ -58,6 +59,17 @@ final List<AppTab> adminTabs = [
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
   AppPage(
+    path: '/waiting',
+    requires: PermissionModule.waiting,
+    builder: (context, state) => const WaitingListsScreen(),
+  ),
+  AppPage(
+    path: '/waiting/:id',
+    requires: PermissionModule.waiting,
+    builder: (context, state) =>
+        WaitingDetailsScreen(listId: state.pathParameters['id']!),
+  ),
+  AppPage(
     path: '/schedule',
     requires: PermissionModule.groups,
     builder: (context, state) => const ScheduleScreen(),
@@ -77,7 +89,10 @@ final List<AppPage> adminPages = [
     path: '/groups/new',
     requires: PermissionModule.groups,
     action: PermissionAction.add,
-    builder: (context, state) => const GroupFormScreen(),
+    builder: (context, state) => GroupFormScreen(
+      initialSubjectId: state.uri.queryParameters['subject'],
+      initialTeacherId: state.uri.queryParameters['teacher'],
+    ),
   ),
   AppPage(
     path: '/groups/:id/edit',

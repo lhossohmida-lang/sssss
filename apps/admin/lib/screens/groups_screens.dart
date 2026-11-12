@@ -116,10 +116,19 @@ class _SlotDraft {
 /// إنشاء مجموعة أو تعديلها: مادة، أستاذ، قاعة، حصص الدورة، مبلغ الأستاذ،
 /// وجدول أسبوعي يُفحص تعارضه مع المجموعات الأخرى لحظياً مع اقتراح قاعة.
 class GroupFormScreen extends ConsumerStatefulWidget {
-  const GroupFormScreen({this.groupId, super.key});
+  const GroupFormScreen({
+    this.groupId,
+    this.initialSubjectId,
+    this.initialTeacherId,
+    super.key,
+  });
 
   /// معرّف المجموعة عند التعديل؛ `null` للإنشاء.
   final String? groupId;
+
+  /// مادة وأستاذ مقترحان عند الإنشاء من قائمة انتظار.
+  final String? initialSubjectId;
+  final String? initialTeacherId;
 
   @override
   ConsumerState<GroupFormScreen> createState() => _GroupFormScreenState();
@@ -149,7 +158,29 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       unawaited(_loadExisting());
     } else {
       _loaded = true;
+      if (widget.initialSubjectId != null) unawaited(_prefill());
     }
+  }
+
+  /// يملأ المادة والأستاذ المقترحين (إن كان الأستاذ يدرّس المادة) ونصيبه
+  /// الافتراضي من ملفه.
+  Future<void> _prefill() async {
+    final subjectId = widget.initialSubjectId!;
+    final teachers = await ref.read(subjectTeachersProvider(subjectId).future);
+    if (!mounted) return;
+    final teacher = teachers
+        .where((t) => t.id == widget.initialTeacherId)
+        .firstOrNull;
+    setState(() {
+      _subjectId = subjectId;
+      if (teacher != null) {
+        _teacherId = teacher.id;
+        if (teacher.ratePerStudent > 0) {
+          _rate.text = '${teacher.ratePerStudent}';
+        }
+      }
+    });
+    _scheduleCheck();
   }
 
   @override

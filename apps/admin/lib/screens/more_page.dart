@@ -32,6 +32,12 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.attendance,
   ),
   MoreEntry(
+    label: 'قوائم الانتظار',
+    icon: ClayIcons.waiting,
+    path: '/waiting',
+    requires: PermissionModule.waiting,
+  ),
+  MoreEntry(
     label: 'الجدول الأسبوعي',
     icon: ClayIcons.schedule,
     path: '/schedule',

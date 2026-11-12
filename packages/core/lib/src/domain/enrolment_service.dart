@@ -7,6 +7,7 @@ import 'cycle_service.dart';
 import 'dues_service.dart';
 import 'enums.dart';
 import 'stable_id.dart';
+import 'waiting_service.dart';
 
 /// مجموعة تُعرض للاختيار عند التسجيل: أستاذها وعدد تلاميذها.
 class GroupOption {
@@ -34,6 +35,8 @@ class EnrolmentService {
   final SyncWriter writer;
   final DuesService dues;
   final CycleService cycles;
+
+  late final WaitingService _waiting = WaitingService(db, writer);
 
   static const String fieldPrice = 'price';
   static const String fieldDiscount = 'discount';
@@ -247,6 +250,7 @@ class EnrolmentService {
           key: {'id': entryId},
         );
       }
+      await _waiting.checkThreshold(listId);
       return listId;
     });
   }
@@ -255,7 +259,7 @@ class EnrolmentService {
   Future<void> _leaveWaiting(String studentId, String subjectId) async {
     final rows = await db
         .customSelect(
-          'SELECT e.id FROM waiting_entries e '
+          'SELECT e.id, e.waiting_list_id FROM waiting_entries e '
           'JOIN waiting_lists l ON l.id = e.waiting_list_id '
           'WHERE e.student_id = ? AND l.subject_id = ? '
           'AND e.deleted_at IS NULL',
@@ -268,6 +272,7 @@ class EnrolmentService {
         db.waitingEntries,
         key: {'id': row.read<String>('id')},
       );
+      await _waiting.checkThreshold(row.read<String>('waiting_list_id'));
     }
   }
 }

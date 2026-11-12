@@ -349,3 +349,27 @@ final StreamProvider<WeeklySchedule> weeklyScheduleProvider =
     StreamProvider.autoDispose<WeeklySchedule>(
       (ref) => WeeklyScheduleQueries(ref.watch(runtimeProvider).db).watch(),
     );
+
+/// قوائم الانتظار (تطبيق الإدارة).
+final Provider<WaitingService> waitingServiceProvider =
+    Provider<WaitingService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return WaitingService(runtime.db, runtime.writer);
+    });
+
+final StreamProvider<List<WaitingListItem>> waitingListsProvider =
+    StreamProvider.autoDispose<List<WaitingListItem>>(
+      (ref) => ref.watch(waitingServiceProvider).watchLists(),
+    );
+
+/// قائمة انتظار واحدة (`null` إن لم يبقَ فيها منتظر).
+final waitingListProvider = StreamProvider.autoDispose
+    .family<WaitingListItem?, String>(
+      (ref, listId) => ref.watch(waitingServiceProvider).watchList(listId),
+    );
+
+/// منتظرو قائمة، الأقدم أولاً.
+final waitingStudentsProvider = StreamProvider.autoDispose
+    .family<List<WaitingStudent>, String>(
+      (ref, listId) => ref.watch(waitingServiceProvider).watchStudents(listId),
+    );

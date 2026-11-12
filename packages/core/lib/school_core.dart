@@ -59,4 +59,5 @@ export 'src/domain/student_queries.dart';
 export 'src/domain/student_service.dart';
 export 'src/domain/teacher_service.dart';
 export 'src/domain/wage_service.dart';
+export 'src/domain/waiting_service.dart';
 export 'src/domain/weekly_schedule.dart';

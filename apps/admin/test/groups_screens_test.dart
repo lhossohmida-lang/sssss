@@ -95,8 +95,11 @@ Future<AppRuntime> openGroups(
       ]);
     });
   });
-  await tester.tap(find.text('المجموعات').last);
-  await tester.pumpAndSettle();
+  // من لا يملك صلاحية المجموعات لا يرى تبويبها.
+  if (find.text('المجموعات').evaluate().isNotEmpty) {
+    await tester.tap(find.text('المجموعات').last);
+    await tester.pumpAndSettle();
+  }
   return runtime;
 }
 
