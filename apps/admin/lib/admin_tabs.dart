@@ -3,7 +3,9 @@ import 'package:school_ui/school_ui.dart';
 
 import 'screens/attendance_screens.dart';
 import 'screens/catalog_screens.dart';
+import 'screens/dues_screen.dart';
 import 'screens/entrance_screen.dart';
+import 'screens/fees_screen.dart';
 import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/more_page.dart';
@@ -61,6 +63,16 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/fees',
+    requires: PermissionModule.payments,
+    builder: (context, state) => const FeesScreen(),
+  ),
+  AppPage(
+    path: '/dues',
+    requires: PermissionModule.payments,
+    builder: (context, state) => const DuesScreen(),
+  ),
   AppPage(
     path: '/payments/new',
     requires: PermissionModule.receiveMoney,

@@ -186,3 +186,20 @@ class FakePdfPresenter implements PdfPresenter {
     shown.add((bytes: bytes, fileName: fileName, title: title));
   }
 }
+
+/// يفتح قسماً من قائمة «المزيد»: ينتقل إلى تبويبها ثم يمرّر القائمة حتى
+/// يظهر القسم (القائمة أطول من الشاشة) ويضغط عليه.
+Future<void> openMoreEntry(WidgetTester tester, String label) async {
+  await tester.tap(find.text('المزيد').last);
+  await tester.pumpAndSettle();
+  final entry = find.text(label);
+  if (entry.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      entry,
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+  }
+  await tester.tap(entry);
+  await tester.pumpAndSettle();
+}

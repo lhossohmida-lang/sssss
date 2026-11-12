@@ -55,10 +55,7 @@ Future<AppRuntime> openSettings(
     );
     await tester.pump();
   }
-  await tester.tap(find.text('المزيد').last);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('الإعدادات'));
-  await tester.pumpAndSettle();
+  await openMoreEntry(tester, 'الإعدادات');
   tester.view.physicalSize = const Size(420, 3600);
   await tester.pumpAndSettle();
   return runtime;

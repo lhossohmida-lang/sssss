@@ -445,3 +445,43 @@ final paymentDetailProvider = FutureProvider.autoDispose
     .family<PaymentDetail?, String>(
       (ref, id) => ref.watch(paymentServiceProvider).detail(id),
     );
+
+/// تقرير المستحقات (تطبيق الإدارة).
+final Provider<DuesReports> duesReportsProvider = Provider<DuesReports>((ref) {
+  final runtime = ref.watch(runtimeProvider);
+  return DuesReports(runtime.db, ref.watch(duesServiceProvider));
+});
+
+typedef DuesReportKey = ({String? groupId, String query});
+
+/// من عليهم مستحقات، بمجموعة وبحث اختياريين.
+final duesReportProvider = StreamProvider.autoDispose
+    .family<DuesReport, DuesReportKey>(
+      (ref, key) => ref
+          .watch(duesReportsProvider)
+          .watch(groupId: key.groupId, query: key.query),
+    );
+
+/// حقوق التسجيل: فتراتها وتقريرها (تطبيق الإدارة).
+final Provider<RegistrationFeeReports> feeReportsProvider =
+    Provider<RegistrationFeeReports>(
+      (ref) => RegistrationFeeReports(ref.watch(runtimeProvider).db),
+    );
+
+final FutureProvider<List<String>> feePeriodsProvider =
+    FutureProvider.autoDispose<List<String>>(
+      (ref) => ref.watch(feeReportsProvider).periods(),
+    );
+
+typedef FeeReportKey = ({String period, bool unpaidOnly, String query});
+
+final feeReportProvider = StreamProvider.autoDispose
+    .family<FeeReport, FeeReportKey>(
+      (ref, key) => ref
+          .watch(feeReportsProvider)
+          .watch(
+            periodKey: key.period,
+            unpaidOnly: key.unpaidOnly,
+            query: key.query,
+          ),
+    );

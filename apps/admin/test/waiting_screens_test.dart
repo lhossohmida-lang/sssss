@@ -55,10 +55,7 @@ Future<AppRuntime> openWaiting(
       );
     }
   });
-  await tester.tap(find.text('المزيد').last);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('قوائم الانتظار'));
-  await tester.pumpAndSettle();
+  await openMoreEntry(tester, 'قوائم الانتظار');
   return runtime;
 }
 

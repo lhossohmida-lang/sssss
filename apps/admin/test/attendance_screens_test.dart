@@ -75,10 +75,7 @@ Future<AppRuntime> openAttendance(
       }
     }
   });
-  await tester.tap(find.text('المزيد').last);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('الحضور'));
-  await tester.pumpAndSettle();
+  await openMoreEntry(tester, 'الحضور');
   return runtime;
 }
 

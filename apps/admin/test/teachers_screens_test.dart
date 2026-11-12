@@ -50,10 +50,7 @@ Future<Opened> openTeachers(
     photoSource: photoSource,
   );
   await loginWith(tester, account.email, account.password);
-  await tester.tap(find.text('المزيد').last);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('الأساتذة'));
-  await tester.pumpAndSettle();
+  await openMoreEntry(tester, 'الأساتذة');
   return Opened(runtime, provisioner);
 }
 

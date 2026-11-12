@@ -45,10 +45,7 @@ openEntrance(
   );
   await loginWith(tester, _owner.email, _owner.password);
   await seedScannerData(tester, runtime);
-  await tester.tap(find.text('المزيد').last);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('شاشة المدخل'));
-  await tester.pumpAndSettle();
+  await openMoreEntry(tester, 'شاشة المدخل');
   return (runtime: runtime, usb: usb, fb: feedback);
 }
 

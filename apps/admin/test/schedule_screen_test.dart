@@ -47,10 +47,7 @@ Future<AppRuntime> openSchedule(
       );
     });
   }
-  await tester.tap(find.text('المزيد').last);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('الجدول الأسبوعي'));
-  await tester.pumpAndSettle();
+  await openMoreEntry(tester, 'الجدول الأسبوعي');
   return runtime;
 }
 
