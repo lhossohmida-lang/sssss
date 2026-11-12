@@ -532,3 +532,20 @@ final StreamProvider<List<TeacherRow>> teacherOptionsProvider =
     StreamProvider.autoDispose<List<TeacherRow>>(
       (ref) => ref.watch(runtimeProvider).db.watchTeachers(),
     );
+
+/// خدمة العمال وقائمتهم الحية.
+final Provider<WorkerService> workerServiceProvider = Provider<WorkerService>((
+  ref,
+) {
+  final runtime = ref.watch(runtimeProvider);
+  return WorkerService(
+    runtime.db,
+    runtime.writer,
+    ref.watch(accountServiceProvider),
+  );
+});
+
+final StreamProvider<List<WorkerItem>> workersProvider =
+    StreamProvider<List<WorkerItem>>(
+      (ref) => ref.watch(workerServiceProvider).watchAll(),
+    );
