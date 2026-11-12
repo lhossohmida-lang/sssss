@@ -1,6 +1,7 @@
 import 'package:school_ui/school_ui.dart';
 
 import 'screens/home_screens.dart';
+import 'screens/payout_screens.dart';
 import 'screens/requests_screens.dart';
 
 /// تبويبات تطبيق الأستاذ.
@@ -32,7 +33,7 @@ final List<AppTab> teacherTabs = [
       label: 'خلاصي',
       icon: ClayIcons.payments,
     ),
-    builder: (_) => const TabPlaceholder(title: 'خلاصي'),
+    builder: (_) => const TeacherPayoutScreen(),
   ),
   AppTab(
     path: '/account',
@@ -46,6 +47,11 @@ final List<AppTab> teacherTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> teacherPages = [
+  AppPage(
+    path: '/payouts/:id',
+    builder: (context, state) =>
+        TeacherPayoutDetailsScreen(payoutId: state.pathParameters['id']!),
+  ),
   AppPage(
     path: '/requests/new',
     builder: (context, state) => const NewRequestScreen(),
