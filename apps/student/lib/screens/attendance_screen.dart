@@ -23,13 +23,6 @@ const List<ChildSessionState> _priority = [
   ChildSessionState.cancelled,
 ];
 
-/// «14 نوفمبر · السبت».
-String _dayLabel(String date) {
-  final month = DateKey.monthName(int.parse(date.substring(5, 7)));
-  return '${int.parse(date.substring(8))} $month · '
-      '${GroupService.weekdayName(DateKey.weekday(date))}';
-}
-
 /// حضور الابن: يختار الوليّ المادة والشهر فيرى تقويماً بحاله في كل حصة
 /// (حضر، غاب، برخصة، أُلغيت، قادمة) وقائمة الحصص بأوقاتها.
 class ParentAttendanceScreen extends ConsumerStatefulWidget {
@@ -202,7 +195,7 @@ class _SubjectAttendance extends ConsumerWidget {
                   itemExtent: 80,
                   delegate: SliverChildBuilderDelegate(
                     (context, i) => ClayListTile(
-                      title: _dayLabel(list[i].date),
+                      title: teacherDayLabel(list[i].date),
                       subtitle:
                           '${DateKey.formatMinutes(list[i].startMinutes)} - '
                           '${DateKey.formatMinutes(list[i].endMinutes)}',

@@ -2,6 +2,7 @@ import 'package:school_ui/school_ui.dart';
 
 import 'screens/attendance_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/schedule_screen.dart';
 
 /// تبويبات تطبيق الوليّ والتلميذ.
 final List<AppTab> studentTabs = [
@@ -24,7 +25,7 @@ final List<AppTab> studentTabs = [
       label: 'الجدول',
       icon: ClayIcons.schedule,
     ),
-    builder: (_) => const TabPlaceholder(title: 'الجدول'),
+    builder: (_) => const ParentScheduleScreen(),
   ),
   AppTab(
     path: '/payments',

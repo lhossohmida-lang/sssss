@@ -780,3 +780,19 @@ final childMonthProvider = StreamProvider.autoDispose
           .watch(childAttendanceServiceProvider)
           .watchMonth(key.studentId, key.groupId, key.month),
     );
+
+/// الحصص القادمة لتلميذ (أول 10) بمواعيدها الفعلية، ولحظياً.
+final childUpcomingProvider = StreamProvider.autoDispose
+    .family<List<UpcomingSession>, String>(
+      (ref, studentId) =>
+          ChildScheduleQueries(ref.watch(runtimeProvider).db)
+              .watchUpcoming(studentId),
+    );
+
+/// الجدول الأسبوعي لمجموعات تلميذ، ولحظياً.
+final childWeeklyProvider = StreamProvider.autoDispose
+    .family<WeeklySchedule, String>(
+      (ref, studentId) =>
+          WeeklyScheduleQueries(ref.watch(runtimeProvider).db)
+              .watch(studentId: studentId),
+    );

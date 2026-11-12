@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart' show Variable;
+
 import '../data/local/app_database.dart';
 import 'date_key.dart';
 import 'group_service.dart';
@@ -135,7 +137,10 @@ class WeeklyScheduleQueries {
   final AppDatabase db;
 
   /// الجدول، ويتحدث مع كل تغيّر في المجموعات أو خاناتها أو القاعات.
-  Stream<WeeklySchedule> watch() {
+  ///
+  /// بـ [studentId] يقتصر على مجموعات ينتسب إليها هذا التلميذ حالياً (جدول
+  /// الوليّ لابنه).
+  Stream<WeeklySchedule> watch({String? studentId}) {
     return db
         .customSelect(
           'SELECT 1',
@@ -145,13 +150,14 @@ class WeeklyScheduleQueries {
             db.rooms,
             db.subjects,
             db.teachers,
+            db.groupStudents,
           },
         )
         .watch()
-        .asyncMap((_) => load());
+        .asyncMap((_) => load(studentId: studentId));
   }
 
-  Future<WeeklySchedule> load() async {
+  Future<WeeklySchedule> load({String? studentId}) async {
     final rows = await db
         .customSelect(
           'SELECT gs.weekday, gs.start_minutes, gs.end_minutes, '
@@ -165,13 +171,18 @@ class WeeklyScheduleQueries {
           'AND r.deleted_at IS NULL '
           'WHERE gs.deleted_at IS NULL AND g.deleted_at IS NULL '
           'AND g.archived_at IS NULL '
+          '${studentId == null ? '' : 'AND gs.group_id IN (SELECT en.group_id '
+                    'FROM group_students en WHERE en.student_id = ? '
+                    'AND en.deleted_at IS NULL AND en.left_at IS NULL) '}'
           'ORDER BY gs.weekday, gs.start_minutes, g.number',
+          variables: [if (studentId != null) Variable<String>(studentId)],
           readsFrom: {
             db.groupSlots,
             db.groups,
             db.rooms,
             db.subjects,
             db.teachers,
+            db.groupStudents,
           },
         )
         .get();

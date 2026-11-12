@@ -103,6 +103,26 @@ void main() {
     expect(entry.label, 'المجموعة 1 · رياضيات · السبت 10:05–11:35');
   });
 
+  test('جدول تلميذ: مجموعاته الحالية فقط', () async {
+    await env.student();
+    await env.group(roomId: 'r1');
+    await env.group(id: 'g2', number: 2, teacherId: 't2');
+    await env.group(id: 'g3', number: 3);
+    await env.slot(id: 'a', weekday: 6);
+    await env.slot(id: 'b', groupId: 'g2', weekday: 2);
+    await env.slot(id: 'c', groupId: 'g3', weekday: 3);
+    await env.enroll(id: 'e1', studentId: 's1');
+    await env.enroll(id: 'e2', groupId: 'g2', studentId: 's1');
+    await env.enroll(id: 'e3', groupId: 'g3', studentId: 's1');
+    await env.db.customStatement(
+      "UPDATE group_students SET left_at = 5 WHERE id = 'e3'",
+    );
+    final mine = await queries.load(studentId: 's1');
+    expect(mine.entries.map((e) => e.groupNumber).toSet(), {1, 2});
+    expect((await queries.load()).entries, hasLength(3));
+    expect((await queries.load(studentId: 'nobody')).isEmpty, isTrue);
+  });
+
   test('watch يتحدث عند إضافة خانة', () async {
     await env.group();
     final seen = <int>[];
