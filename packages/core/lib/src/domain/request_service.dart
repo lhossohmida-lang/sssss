@@ -68,11 +68,15 @@ class RequestItem {
     required this.subjectName,
     this.sessionDate,
     this.sessionStart,
+    this.teacherName = '',
   });
 
   final SessionRequestRow request;
   final int groupNumber;
   final String subjectName;
+
+  /// اسم الأستاذ مقدّم الطلب (في قائمة الإدارة).
+  final String teacherName;
   final String? sessionDate;
   final int? sessionStart;
 
@@ -266,18 +270,66 @@ class RequestService {
         .asyncMap((_) => mine(teacherId));
   }
 
-  Future<List<RequestItem>> mine(String teacherId) async {
+  Future<List<RequestItem>> mine(String teacherId) =>
+      _list(teacherId: teacherId);
+
+  /// كل الطلبات (للإدارة)، الأحدث أولاً، وبحصرها بحالة اختيارياً، ولحظياً.
+  Stream<List<RequestItem>> watchAll({SessionRequestStatus? status}) {
+    return db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {db.sessionRequests, db.groups, db.subjects, db.teachers},
+        )
+        .watch()
+        .asyncMap((_) => all(status: status));
+  }
+
+  Future<List<RequestItem>> all({SessionRequestStatus? status}) =>
+      _list(status: status);
+
+  /// عدد الطلبات المعلّقة، ولحظياً (شارة الإدارة).
+  Stream<int> watchPendingCount() {
+    return db
+        .customSelect('SELECT 1', readsFrom: {db.sessionRequests})
+        .watch()
+        .asyncMap((_) => pendingCount());
+  }
+
+  /// طلب واحد بوصفه، أو `null`.
+  Future<RequestItem?> find(String id) async =>
+      (await _list()).where((r) => r.id == id).firstOrNull;
+
+  Future<List<RequestItem>> _list({
+    String? teacherId,
+    SessionRequestStatus? status,
+  }) async {
+    final where = StringBuffer('r.deleted_at IS NULL');
+    final vars = <Variable<Object>>[];
+    if (teacherId != null) {
+      where.write(' AND r.teacher_id = ?');
+      vars.add(Variable<String>(teacherId));
+    }
+    if (status != null) {
+      where.write(' AND r.status = ?');
+      vars.add(Variable<String>(status.code));
+    }
     final rows = await db
         .customSelect(
           'SELECT r.id, g.number, sub.name AS subject, se.date, '
-          'se.start_minutes FROM session_requests r '
+          'se.start_minutes, t.name AS teacher FROM session_requests r '
           'JOIN groups g ON g.id = r.group_id '
           'JOIN subjects sub ON sub.id = g.subject_id '
+          'JOIN teachers t ON t.id = r.teacher_id '
           'LEFT JOIN sessions se ON se.id = r.session_id '
-          'WHERE r.teacher_id = ? AND r.deleted_at IS NULL '
-          'ORDER BY r.created_at DESC, r.id DESC',
-          variables: [Variable<String>(teacherId)],
-          readsFrom: {db.sessionRequests, db.groups, db.subjects, db.sessions},
+          'WHERE $where ORDER BY r.created_at DESC, r.id DESC',
+          variables: vars,
+          readsFrom: {
+            db.sessionRequests,
+            db.groups,
+            db.subjects,
+            db.sessions,
+            db.teachers,
+          },
         )
         .get();
     if (rows.isEmpty) return const [];
@@ -297,6 +349,7 @@ class RequestService {
           subjectName: row.read<String>('subject'),
           sessionDate: row.read<String?>('date'),
           sessionStart: row.read<int?>('start_minutes'),
+          teacherName: row.read<String>('teacher'),
         ),
     ];
   }

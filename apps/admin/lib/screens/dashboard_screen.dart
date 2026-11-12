@@ -157,6 +157,15 @@ class DashboardScreen extends ConsumerWidget {
             path: '/waiting',
             tone: s.waitingReady > 0 ? ClayTone.info : ClayTone.neutral,
           ),
+        if (can(PermissionModule.requests))
+          _Kpi(
+            icon: ClayIcons.schedule,
+            label: 'طلبات الأساتذة',
+            value: '${s.pendingRequests}',
+            sub: 'معلّقة تنتظر قرارك',
+            path: '/requests',
+            tone: s.pendingRequests > 0 ? ClayTone.warning : ClayTone.neutral,
+          ),
         if (can(PermissionModule.teachers))
           _Kpi(
             icon: ClayIcons.teachers,

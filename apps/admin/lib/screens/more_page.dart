@@ -98,6 +98,13 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.payouts,
   ),
   MoreEntry(
+    label: 'طلبات الأساتذة',
+    icon: ClayIcons.schedule,
+    path: '/requests',
+    section: MoreSection.team,
+    requires: PermissionModule.requests,
+  ),
+  MoreEntry(
     label: 'الأساتذة',
     icon: ClayIcons.teachers,
     path: '/teachers',
@@ -176,6 +183,7 @@ class MorePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider.select((s) => s.value));
+    final pendingRequests = ref.watch(pendingRequestsCountProvider).value ?? 0;
     final rows = <_Row>[];
     for (final section in MoreSection.values) {
       final visible = [
@@ -225,7 +233,14 @@ class MorePage extends ConsumerWidget {
           leading: Icon(entry.icon, color: context.palette.accent),
           title: entry.label,
           onTap: () => context.push(entry.path),
-          trailing: const [Icon(Icons.chevron_left_rounded)],
+          trailing: [
+            if (entry.path == '/requests' && pendingRequests > 0)
+              ClayBadge(
+                label: '$pendingRequests معلّق',
+                tone: ClayTone.warning,
+              ),
+            const Icon(Icons.chevron_left_rounded),
+          ],
         );
       },
     );

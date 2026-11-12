@@ -655,3 +655,22 @@ final openSessionsProvider = FutureProvider.autoDispose
           .watch(requestServiceProvider)
           .openSessions(groupId, fromDate: DateKey.of(DateTime.now())),
     );
+
+/// طلبات الأساتذة في الإدارة، بحصرها بحالة (`null` للكل).
+final allRequestsProvider = StreamProvider.autoDispose
+    .family<List<RequestItem>, SessionRequestStatus?>(
+      (ref, status) =>
+          ref.watch(requestServiceProvider).watchAll(status: status),
+    );
+
+/// عدد الطلبات المعلّقة (شارة الإدارة).
+final StreamProvider<int> pendingRequestsCountProvider =
+    StreamProvider.autoDispose<int>(
+      (ref) => ref.watch(requestServiceProvider).watchPendingCount(),
+    );
+
+/// طلب واحد بوصفه؛ يُعاد حسابه بعد البتّ فيه.
+final requestItemProvider = FutureProvider.autoDispose
+    .family<RequestItem?, String>(
+      (ref, id) => ref.watch(requestServiceProvider).find(id),
+    );

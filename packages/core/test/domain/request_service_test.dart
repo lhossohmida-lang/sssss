@@ -604,4 +604,33 @@ void main() {
       expect(seen.last, 1);
     });
   });
+
+  group('قائمة الإدارة', () {
+    test('كل الطلبات بأساتذتها، وبحصر الحالة، وطلب واحد، والعدّاد', () async {
+      final a = await reschedule();
+      env.time += 10;
+      final b = await requests.submit(
+        teacherId: 't1',
+        groupId: 'g1',
+        type: SessionRequestType.cancel,
+        sessionId: (await cycles.cycleSessions('g1', 1))[1].id,
+      );
+      await requests.reject(a.id, reviewerId: 'acc-owner', note: 'مرفوض');
+      final all = await requests.all();
+      expect(all.map((r) => r.id), [b.id, a.id]);
+      expect(all.first.teacherName, 'الأستاذ t1');
+      expect(
+        (await requests.all(status: SessionRequestStatus.pending))
+            .map((r) => r.id),
+        [b.id],
+      );
+      expect(
+        (await requests.all(status: SessionRequestStatus.rejected)).single.id,
+        a.id,
+      );
+      expect((await requests.find(a.id))!.request.adminNote, 'مرفوض');
+      expect(await requests.find('nope'), isNull);
+      expect(await requests.watchPendingCount().first, 1);
+    });
+  });
 }
