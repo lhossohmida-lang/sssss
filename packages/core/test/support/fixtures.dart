@@ -76,6 +76,7 @@ class TestEnv {
 
   Future<void> group({
     String id = 'g1',
+    int number = 1,
     String teacherId = 't1',
     String subjectId = 'sub',
     String? roomId,
@@ -88,7 +89,7 @@ class TestEnv {
           id: id,
           createdAt: 1,
           updatedAt: 1,
-          number: 1,
+          number: number,
           subjectId: subjectId,
           teacherId: teacherId,
           roomId: Value(roomId),

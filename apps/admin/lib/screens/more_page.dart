@@ -32,6 +32,12 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.attendance,
   ),
   MoreEntry(
+    label: 'الجدول الأسبوعي',
+    icon: ClayIcons.schedule,
+    path: '/schedule',
+    requires: PermissionModule.groups,
+  ),
+  MoreEntry(
     label: 'الأساتذة',
     icon: ClayIcons.teachers,
     path: '/teachers',

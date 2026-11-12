@@ -343,3 +343,9 @@ final Provider<void> sessionCloserProvider = Provider<void>((ref) {
   final closer = SessionCloser(ref.watch(attendanceServiceProvider))..start();
   ref.onDispose(closer.dispose);
 });
+
+/// الجدول الأسبوعي الثابت لكل المجموعات النشطة.
+final StreamProvider<WeeklySchedule> weeklyScheduleProvider =
+    StreamProvider.autoDispose<WeeklySchedule>(
+      (ref) => WeeklyScheduleQueries(ref.watch(runtimeProvider).db).watch(),
+    );
