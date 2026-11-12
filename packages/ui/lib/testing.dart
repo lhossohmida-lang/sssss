@@ -2,6 +2,7 @@
 /// الإنتاج.
 library;
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -41,6 +42,8 @@ Future<AppRuntime> bootApp(
   AccountProvisioner? provisioner,
   PhotoSource? photoSource,
   PdfPresenter? pdfPresenter,
+  QrCodeSource Function()? qrCamera,
+  ScanFeedback? scanFeedback,
   bool sessionCloser = false,
 }) async {
   final runtime = (await tester.runAsync(
@@ -65,6 +68,10 @@ Future<AppRuntime> bootApp(
           photoSourceProvider.overrideWithValue(photoSource),
         if (pdfPresenter != null)
           pdfPresenterProvider.overrideWithValue(pdfPresenter),
+        if (qrCamera != null)
+          qrCameraFactoryProvider.overrideWithValue(qrCamera),
+        if (scanFeedback != null)
+          scanFeedbackProvider.overrideWithValue(scanFeedback),
       ],
       child: SchoolApp(tabs: tabs, pages: pages),
     ),
@@ -119,6 +126,47 @@ class FakePhotoSource implements PhotoSource {
     captures++;
     return bytes;
   }
+}
+
+/// مصدر رموز وهمي: يُدفع إليه الرمز بـ [emit] كأنه مُسح بالكاميرا.
+class FakeQrSource implements QrCodeSource {
+  final StreamController<String> _controller =
+      StreamController<String>.broadcast();
+
+  bool started = false;
+  bool disposed = false;
+
+  void emit(String code) => _controller.add(code);
+
+  @override
+  Stream<String> get codes => _controller.stream;
+
+  @override
+  Widget buildPreview(BuildContext context) =>
+      const ColoredBox(color: Colors.black, child: SizedBox.expand());
+
+  @override
+  Future<void> start() async => started = true;
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await _controller.close();
+  }
+}
+
+/// تغذية راجعة وهمية تسجّل ما نُفّذ منها.
+class RecordingScanFeedback implements ScanFeedback {
+  final List<String> events = [];
+
+  @override
+  Future<void> success() async => events.add('success');
+
+  @override
+  Future<void> warning() async => events.add('warning');
+
+  @override
+  Future<void> failure() async => events.add('failure');
 }
 
 /// عارض PDF وهمي: يسجّل ما طُلب عرضه دون معاينة حقيقية.

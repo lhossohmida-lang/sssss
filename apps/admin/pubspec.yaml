@@ -19,6 +19,7 @@ dependencies:
     path: ../../packages/core
   school_ui:
     path: ../../packages/ui
+  mobile_scanner: ^7.5.0
 
 dev_dependencies:
   drift: ^2.35.4

@@ -373,3 +373,25 @@ final waitingStudentsProvider = StreamProvider.autoDispose
     .family<List<WaitingStudent>, String>(
       (ref, listId) => ref.watch(waitingServiceProvider).watchStudents(listId),
     );
+
+/// منطق ماسح المدخل بإعدادات المدرسة (الهامش والمهلة وحد المستحقات).
+///
+/// يُبنى من جديد عند تغيّر الإعدادات؛ وفهرس الرموز يحمّله من يفتح الماسح.
+final Provider<ScanService> scanServiceProvider =
+    Provider.autoDispose<ScanService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      final settings = ref.watch(schoolSettingsProvider).value;
+      return ScanService(
+        runtime.db,
+        runtime.writer,
+        CycleService(runtime.db, runtime.writer),
+        ref.watch(duesServiceProvider),
+        config: settings == null
+            ? const ScanConfig()
+            : ScanConfig(
+                marginMinutes: settings.scanMarginMinutes,
+                graceMinutes: settings.graceMinutes,
+                duesGraceSessions: settings.duesSessionThreshold,
+              ),
+      );
+    });

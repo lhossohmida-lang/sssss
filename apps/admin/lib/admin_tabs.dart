@@ -7,6 +7,7 @@ import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/more_page.dart';
 import 'screens/registration_screen.dart';
+import 'screens/scanner_screen.dart';
 import 'screens/schedule_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/student_profile_screen.dart';
@@ -58,6 +59,12 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/scanner',
+    requires: PermissionModule.scanner,
+    action: PermissionAction.use,
+    builder: (context, state) => const ScannerScreen(),
+  ),
   AppPage(
     path: '/waiting',
     requires: PermissionModule.waiting,
