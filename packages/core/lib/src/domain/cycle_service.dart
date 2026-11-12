@@ -243,7 +243,7 @@ class CycleService {
     final row = await db
         .customSelect(
           'SELECT 1 FROM sessions WHERE group_id = ? AND date = ? '
-          'AND start_minutes = ? LIMIT 1',
+          'AND start_minutes = ? AND deleted_at IS NULL LIMIT 1',
           variables: [
             Variable<String>(groupId),
             Variable<String>(date),
