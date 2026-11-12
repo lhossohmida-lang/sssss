@@ -214,3 +214,24 @@ final StreamProvider<List<TransportLineRow>> transportLinesProvider =
     StreamProvider<List<TransportLineRow>>(
       (ref) => ref.watch(runtimeProvider).db.watchTransportLines(),
     );
+
+/// خدمة ملف التلميذ.
+final Provider<StudentService> studentServiceProvider =
+    Provider<StudentService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return StudentService(
+        runtime.db,
+        runtime.writer,
+        ref.watch(duesServiceProvider),
+      );
+    });
+
+/// ملف تلميذ، ويتحدث مع كل تغيير؛ `null` إن حُذف أو لم يوجد.
+final studentProfileProvider = StreamProvider.autoDispose
+    .family<StudentProfile?, String>((ref, studentId) {
+      final now = DateTime.now();
+      final month =
+          '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}';
+      return ref.watch(studentServiceProvider).watch(studentId, month: month);
+    });

@@ -5,6 +5,7 @@ import 'screens/catalog_screens.dart';
 import 'screens/more_page.dart';
 import 'screens/registration_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/student_profile_screen.dart';
 import 'screens/students_screen.dart';
 import 'screens/teachers_screens.dart';
 
@@ -57,6 +58,13 @@ final List<AppPage> adminPages = [
     requires: PermissionModule.students,
     action: PermissionAction.add,
     builder: (context, state) => const RegistrationScreen(),
+  ),
+  // بعد `/students/new` حتى لا يُقرأ «new» معرّفاً لتلميذ.
+  AppPage(
+    path: '/students/:id',
+    requires: PermissionModule.students,
+    builder: (context, state) =>
+        StudentProfileScreen(studentId: state.pathParameters['id']!),
   ),
   AppPage(
     path: '/teachers',

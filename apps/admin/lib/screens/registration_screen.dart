@@ -7,9 +7,9 @@ import 'package:school_ui/school_ui.dart';
 
 import 'teachers_screens.dart' show showCredentialsDialog;
 
-/// مسودة مادة في الاستمارة قبل الحفظ.
-class _ChoiceDraft {
-  _ChoiceDraft();
+/// مسودة مادة قبل الحفظ (في استمارة التسجيل وفي «إضافة مادة» من الملف).
+class ChoiceDraft {
+  ChoiceDraft();
 
   String? subjectId;
 
@@ -42,7 +42,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final _parentName = TextEditingController();
   final _phone = TextEditingController();
   final _transportPrice = TextEditingController();
-  final List<_ChoiceDraft> _choices = [_ChoiceDraft()];
+  final List<ChoiceDraft> _choices = [ChoiceDraft()];
 
   String? _levelId;
   bool _transport = false;
@@ -141,7 +141,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     }
   }
 
-  void _addChoice() => setState(() => _choices.add(_ChoiceDraft()));
+  void _addChoice() => setState(() => _choices.add(ChoiceDraft()));
 
   void _removeChoice(int index) => setState(() {
     _choices.removeAt(index).dispose();
@@ -246,7 +246,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
               ]),
               section('المواد', [
                 for (var i = 0; i < _choices.length; i++)
-                  _ChoiceCard(
+                  SubjectChoiceCard(
                     key: ObjectKey(_choices[i]),
                     index: i,
                     draft: _choices[i],
@@ -347,9 +347,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   }
 }
 
-/// بطاقة مادة واحدة في الاستمارة.
-class _ChoiceCard extends ConsumerWidget {
-  const _ChoiceCard({
+/// بطاقة اختيار مادة: المادة، ثم مجموعة بسعر وتخفيض أو قائمة الانتظار.
+/// أخطاؤها تُقرأ من [errors] بمفاتيح `RegistrationService.choiceField`.
+class SubjectChoiceCard extends ConsumerWidget {
+  const SubjectChoiceCard({
     required this.index,
     required this.draft,
     required this.subjects,
@@ -360,7 +361,7 @@ class _ChoiceCard extends ConsumerWidget {
   });
 
   final int index;
-  final _ChoiceDraft draft;
+  final ChoiceDraft draft;
   final List<SubjectItem> subjects;
   final Map<String, String> errors;
   final VoidCallback onChanged;

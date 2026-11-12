@@ -158,6 +158,7 @@ class _StudentTile extends StatelessWidget {
       ),
       title: item.fullName,
       subtitle: item.levelName == null ? phone : '${item.levelName} · $phone',
+      onTap: () => context.push('/students/${item.id}'),
     );
   }
 }
