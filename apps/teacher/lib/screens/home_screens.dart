@@ -216,6 +216,14 @@ class TeacherGroupDetailsScreen extends ConsumerWidget {
                       item.scheduleText,
                       style: text.bodySmall!.copyWith(color: p.textMuted),
                     ),
+                    const SizedBox(height: ClaySpacing.md),
+                    ClayButton(
+                      label: 'النتائج',
+                      icon: ClayIcons.attendance,
+                      kind: ClayButtonKind.secondary,
+                      onPressed: () =>
+                          context.push('/groups/${item.id}/grades'),
+                    ),
                   ],
                 ),
               ),

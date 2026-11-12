@@ -674,3 +674,28 @@ final requestItemProvider = FutureProvider.autoDispose
     .family<RequestItem?, String>(
       (ref, id) => ref.watch(requestServiceProvider).find(id),
     );
+
+/// نتائج المجموعات (تطبيق الأستاذ).
+final Provider<GradeService> gradeServiceProvider = Provider<GradeService>((
+  ref,
+) {
+  final runtime = ref.watch(runtimeProvider);
+  return GradeService(runtime.db, runtime.writer);
+});
+
+/// اختبارات مجموعة بمتوسطاتها.
+final assessmentsProvider = StreamProvider.autoDispose
+    .family<List<AssessmentSummary>, String>(
+      (ref, groupId) =>
+          ref.watch(gradeServiceProvider).watchAssessments(groupId),
+    );
+
+typedef AssessmentKey = ({String groupId, String title, String date});
+
+/// تلاميذ اختبار بنتائجهم (فارغ العنوان لاختبار جديد).
+final gradeEntriesProvider = FutureProvider.autoDispose
+    .family<List<GradeEntry>, AssessmentKey>(
+      (ref, key) => ref
+          .watch(gradeServiceProvider)
+          .entries(key.groupId, title: key.title, date: key.date),
+    );
