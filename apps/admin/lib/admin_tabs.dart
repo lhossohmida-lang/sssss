@@ -2,6 +2,7 @@ import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
 import 'screens/catalog_screens.dart';
+import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/more_page.dart';
 import 'screens/registration_screen.dart';
@@ -66,6 +67,13 @@ final List<AppPage> adminPages = [
     action: PermissionAction.edit,
     builder: (context, state) =>
         GroupFormScreen(groupId: state.pathParameters['id']),
+  ),
+  // بعد `/groups/new` حتى لا يُقرأ «new» معرّفاً لمجموعة.
+  AppPage(
+    path: '/groups/:id',
+    requires: PermissionModule.groups,
+    builder: (context, state) =>
+        GroupDetailsScreen(groupId: state.pathParameters['id']!),
   ),
   AppPage(
     path: '/students/new',

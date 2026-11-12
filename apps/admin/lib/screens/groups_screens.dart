@@ -65,10 +65,15 @@ class GroupsScreen extends ConsumerWidget {
                     subtitle:
                         '${item.teacherName} · ${item.roomName ?? 'بلا قاعة'} '
                         '· ${item.studentCount} تلميذ\n${item.scheduleText}',
-                    onTap: canEdit
-                        ? () => context.push('/groups/${item.id}/edit')
-                        : null,
+                    onTap: () => context.push('/groups/${item.id}'),
                     trailing: [
+                      if (canEdit)
+                        IconButton(
+                          tooltip: 'تعديل المجموعة ${item.number}',
+                          icon: const Icon(ClayIcons.edit),
+                          onPressed: () =>
+                              context.push('/groups/${item.id}/edit'),
+                        ),
                       if (canEdit)
                         IconButton(
                           tooltip: 'أرشفة المجموعة ${item.number}',

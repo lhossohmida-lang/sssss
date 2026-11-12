@@ -300,7 +300,7 @@ void main() {
         startDate: '2026-11-07',
       );
     });
-    await tester.tap(find.text('المجموعة 1 · رياضيات'));
+    await tester.tap(find.byTooltip('تعديل المجموعة 1'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(420, 3200);
     await tester.pumpAndSettle();
@@ -365,5 +365,6 @@ void main() {
     });
     expect(find.text('المجموعة 1 · رياضيات'), findsOneWidget);
     expect(find.byTooltip('أرشفة المجموعة 1'), findsNothing);
+    expect(find.byTooltip('تعديل المجموعة 1'), findsNothing);
   });
 }

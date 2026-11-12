@@ -270,3 +270,22 @@ final StreamProvider<List<GroupItem>> groupsProvider =
     StreamProvider<List<GroupItem>>(
       (ref) => ref.watch(groupServiceProvider).watchAll(),
     );
+
+/// شبكة حضور دورة من دورات مجموعة (الدورة الحالية إن لم تُحدَّد).
+typedef GroupGridKey = ({String groupId, int? cycle});
+
+final groupGridProvider = StreamProvider.autoDispose
+    .family<GroupGrid?, GroupGridKey>(
+      (ref, key) =>
+          GroupGridQueries(ref.watch(runtimeProvider).db)
+              .watch(key.groupId, cycleNumber: key.cycle),
+    );
+
+/// معلومات مجموعة واحدة (للعنوان وأزرار الشاشة).
+final groupItemProvider = Provider.autoDispose.family<GroupItem?, String>((
+  ref,
+  groupId,
+) {
+  final groups = ref.watch(groupsProvider).value ?? const <GroupItem>[];
+  return groups.where((g) => g.id == groupId).firstOrNull;
+});
