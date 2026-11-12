@@ -42,6 +42,7 @@ Future<AppRuntime> bootApp(
   AccountProvisioner? provisioner,
   PhotoSource? photoSource,
   PdfPresenter? pdfPresenter,
+  FileSource? fileSource,
   QrCodeSource Function()? qrCamera,
   QrCodeSource Function()? usbReader,
   ScanFeedback? scanFeedback,
@@ -69,6 +70,8 @@ Future<AppRuntime> bootApp(
           photoSourceProvider.overrideWithValue(photoSource),
         if (pdfPresenter != null)
           pdfPresenterProvider.overrideWithValue(pdfPresenter),
+        if (fileSource != null)
+          fileSourceProvider.overrideWithValue(fileSource),
         if (qrCamera != null)
           qrCameraFactoryProvider.overrideWithValue(qrCamera),
         if (usbReader != null)
@@ -128,6 +131,23 @@ class FakePhotoSource implements PhotoSource {
   Future<Uint8List?> capture(BuildContext context) async {
     captures++;
     return bytes;
+  }
+}
+
+/// منتقي ملفات وهمي: يعيد [file] كأن المستخدم اختاره (أو `null` كأنه ألغى).
+class FakeFileSource implements FileSource {
+  FakeFileSource(this.file);
+
+  PickedFile? file;
+  final List<List<String>> requests = [];
+
+  @override
+  Future<PickedFile?> pick(
+    BuildContext context, {
+    required List<String> extensions,
+  }) async {
+    requests.add(extensions);
+    return file;
   }
 }
 

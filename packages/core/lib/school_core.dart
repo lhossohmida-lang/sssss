@@ -38,6 +38,7 @@ export 'src/domain/dues_service.dart';
 export 'src/domain/enrolment_service.dart';
 export 'src/domain/enums.dart';
 export 'src/domain/grade_service.dart';
+export 'src/domain/group_file_service.dart';
 export 'src/domain/group_grid.dart';
 export 'src/domain/group_service.dart';
 export 'src/domain/logo_service.dart';

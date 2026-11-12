@@ -217,12 +217,28 @@ class TeacherGroupDetailsScreen extends ConsumerWidget {
                       style: text.bodySmall!.copyWith(color: p.textMuted),
                     ),
                     const SizedBox(height: ClaySpacing.md),
-                    ClayButton(
-                      label: 'النتائج',
-                      icon: ClayIcons.attendance,
-                      kind: ClayButtonKind.secondary,
-                      onPressed: () =>
-                          context.push('/groups/${item.id}/grades'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClayButton(
+                            label: 'النتائج',
+                            icon: ClayIcons.attendance,
+                            kind: ClayButtonKind.secondary,
+                            onPressed: () =>
+                                context.push('/groups/${item.id}/grades'),
+                          ),
+                        ),
+                        const SizedBox(width: ClaySpacing.sm),
+                        Expanded(
+                          child: ClayButton(
+                            label: 'الملفات',
+                            icon: ClayIcons.files,
+                            kind: ClayButtonKind.secondary,
+                            onPressed: () =>
+                                context.push('/groups/${item.id}/files'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

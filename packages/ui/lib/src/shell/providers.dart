@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_core/school_core.dart';
 
@@ -167,6 +169,27 @@ final Provider<PhotoService> photoServiceProvider = Provider<PhotoService>((
     directory: runtime.photosDirectory,
   );
 });
+
+/// ملفات المجموعات (نسخة محلية، سجل مزامَن، رفع لاحق). تُحفظ في مجلد
+/// فرعي من مجلد صور التطبيق.
+final Provider<GroupFileService> groupFileServiceProvider =
+    Provider<GroupFileService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return GroupFileService(
+        runtime.db,
+        runtime.writer,
+        directory: Directory(
+          '${runtime.photosDirectory.path}${Platform.pathSeparator}'
+          'group_files',
+        ),
+      );
+    });
+
+/// ملفات مجموعة، الأحدث أولاً، ولحظياً.
+final groupFilesProvider = StreamProvider.autoDispose
+    .family<List<GroupFileItem>, String>(
+      (ref, groupId) => ref.watch(groupFileServiceProvider).watchFiles(groupId),
+    );
 
 /// خدمات المستحقات والانتساب والتسجيل (تطبيق الإدارة).
 final Provider<DuesService> duesServiceProvider = Provider<DuesService>((ref) {

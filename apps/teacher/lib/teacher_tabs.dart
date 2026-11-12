@@ -1,5 +1,6 @@
 import 'package:school_ui/school_ui.dart';
 
+import 'screens/files_screens.dart';
 import 'screens/grades_screens.dart';
 import 'screens/home_screens.dart';
 import 'screens/payout_screens.dart';
@@ -48,6 +49,16 @@ final List<AppTab> teacherTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> teacherPages = [
+  AppPage(
+    path: '/groups/:id/files',
+    builder: (context, state) =>
+        GroupFilesScreen(groupId: state.pathParameters['id']!),
+  ),
+  AppPage(
+    path: '/groups/:id/files/new',
+    builder: (context, state) =>
+        AddGroupFileScreen(groupId: state.pathParameters['id']!),
+  ),
   AppPage(
     path: '/groups/:id/grades',
     builder: (context, state) =>

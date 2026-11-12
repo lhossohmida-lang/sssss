@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_core/testing.dart';
+import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 import 'package:teacher/screens/home_screens.dart';
 import 'package:teacher/teacher_tabs.dart';
@@ -16,13 +17,20 @@ const teacher = TestAccount(
 );
 
 /// يبذر مجموعتين (الأولى للأستاذ t1 والثانية لـ t2) وحصصاً اليوم، ثم يدخل.
-Future<AppRuntime> openTeacher(WidgetTester tester, {bool seed = true}) async {
+Future<AppRuntime> openTeacher(
+  WidgetTester tester, {
+  bool seed = true,
+  FileSource? fileSource,
+  PdfPresenter? pdfPresenter,
+}) async {
   final runtime = await bootApp(
     tester,
     teacherTabs,
     app: AppIdentity.teacher,
     accounts: [teacher],
     pages: teacherPages,
+    fileSource: fileSource,
+    pdfPresenter: pdfPresenter,
   );
   await loginWith(tester, teacher.email, teacher.password);
   if (!seed) return runtime;
