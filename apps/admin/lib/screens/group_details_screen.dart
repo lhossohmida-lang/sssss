@@ -183,7 +183,19 @@ class AttendanceGridTable extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      // على الشاشات العريضة تتمدد خانات الحصص لتملأ العرض.
+      final sessionCount = grid.sessions.isEmpty ? 1 : grid.sessions.length;
+      final spare = box.maxWidth - nameWidth - totalsWidth;
+      final cell = spare / sessionCount > cellWidth
+          ? spare / sessionCount
+          : cellWidth;
+      return _table(context, cell);
+    },
+  );
+
+  Widget _table(BuildContext context, double cellWidth) {
     final p = context.palette;
     final text = Theme.of(context).textTheme;
     final sessions = grid.sessions;
@@ -264,8 +276,11 @@ class AttendanceGridTable extends StatelessWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: grid.students.length,
                   itemExtent: rowHeight,
-                  itemBuilder: (context, i) =>
-                      _GridRow(student: grid.students[i], sessions: sessions),
+                  itemBuilder: (context, i) => _GridRow(
+                    student: grid.students[i],
+                    sessions: sessions,
+                    cellWidth: cellWidth,
+                  ),
                 ),
               ),
             ],
@@ -277,10 +292,15 @@ class AttendanceGridTable extends StatelessWidget {
 }
 
 class _GridRow extends StatelessWidget {
-  const _GridRow({required this.student, required this.sessions});
+  const _GridRow({
+    required this.student,
+    required this.sessions,
+    required this.cellWidth,
+  });
 
   final GridStudent student;
   final List<SessionRow> sessions;
+  final double cellWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -313,6 +333,7 @@ class _GridRow extends StatelessWidget {
           ),
           for (final s in sessions)
             _Cell(
+              width: cellWidth,
               status: student.cells[s.id],
               cancelled: !SessionStatus.fromCode(s.status).countsInCycle,
             ),
@@ -337,8 +358,13 @@ class _GridRow extends StatelessWidget {
 /// خلية حضور: حاضر أخضر، غائب أحمر، برخصة بنفسجي، لا تسجيل شرطة باهتة،
 /// والحصة الملغاة خلية فارغة. الحالة تُقرأ أيضاً بقارئ الشاشة لا باللون فقط.
 class _Cell extends StatelessWidget {
-  const _Cell({required this.status, required this.cancelled});
+  const _Cell({
+    required this.width,
+    required this.status,
+    required this.cancelled,
+  });
 
+  final double width;
   final AttendanceStatus? status;
   final bool cancelled;
 
@@ -366,7 +392,7 @@ class _Cell extends StatelessWidget {
             null => (null, p.outline, 'لم يُسجَّل'),
           };
     return SizedBox(
-      width: AttendanceGridTable.cellWidth,
+      width: width,
       child: Center(
         child: Semantics(
           label: look.$3,

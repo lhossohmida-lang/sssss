@@ -109,8 +109,6 @@ class _ResourceGrid extends StatelessWidget {
     final startHour = firstMinute ~/ 60;
     final endHour = (lastMinute + 59) ~/ 60;
     final hours = endHour - startHour;
-    final gridWidth = hours * hourWidth;
-
     return ClayCard(
       padding: const EdgeInsets.all(ClaySpacing.md),
       child: Column(
@@ -151,42 +149,52 @@ class _ResourceGrid extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: gridWidth,
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: headerHeight,
-                            child: Row(
-                              children: [
-                                for (var h = startHour; h < endHour; h++)
-                                  SizedBox(
-                                    width: hourWidth,
-                                    child: Directionality(
-                                      textDirection: TextDirection.ltr,
-                                      child: Text(
-                                        DateKey.formatMinutes(h * 60),
-                                        style: text.labelSmall!.copyWith(
-                                          color: p.textMuted,
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      // على الشاشات العريضة تتمدد الساعات لتملأ العرض.
+                      final hw = box.maxWidth / hours > hourWidth
+                          ? box.maxWidth / hours
+                          : hourWidth;
+                      final gridWidth = hours * hw;
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: gridWidth,
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: headerHeight,
+                                child: Row(
+                                  children: [
+                                    for (var h = startHour; h < endHour; h++)
+                                      SizedBox(
+                                        width: hw,
+                                        child: Directionality(
+                                          textDirection: TextDirection.ltr,
+                                          child: Text(
+                                            DateKey.formatMinutes(h * 60),
+                                            style: text.labelSmall!.copyWith(
+                                              color: p.textMuted,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                                  ],
+                                ),
+                              ),
+                              for (final day in GroupService.displayWeekdays)
+                                _DayRow(
+                                  entries: resource.on(day),
+                                  axis: axis,
+                                  startMinute: startHour * 60,
+                                  width: gridWidth,
+                                  hourWidth: hw,
+                                ),
+                            ],
                           ),
-                          for (final day in GroupService.displayWeekdays)
-                            _DayRow(
-                              entries: resource.on(day),
-                              axis: axis,
-                              startMinute: startHour * 60,
-                              width: gridWidth,
-                            ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -205,12 +213,14 @@ class _DayRow extends StatelessWidget {
     required this.axis,
     required this.startMinute,
     required this.width,
+    required this.hourWidth,
   });
 
   final List<ScheduleEntry> entries;
   final ScheduleAxis axis;
   final int startMinute;
   final double width;
+  final double hourWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -228,16 +238,10 @@ class _DayRow extends StatelessWidget {
           children: [
             for (final e in entries)
               PositionedDirectional(
-                start:
-                    (e.startMinutes - startMinute) /
-                    60 *
-                    _ResourceGrid.hourWidth,
+                start: (e.startMinutes - startMinute) / 60 * hourWidth,
                 top: 3,
                 bottom: 3,
-                width:
-                    (e.endMinutes - e.startMinutes) /
-                    60 *
-                    _ResourceGrid.hourWidth,
+                width: (e.endMinutes - e.startMinutes) / 60 * hourWidth,
                 child: _Block(entry: e, axis: axis),
               ),
           ],
