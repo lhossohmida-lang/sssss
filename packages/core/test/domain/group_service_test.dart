@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
 
@@ -235,7 +234,7 @@ void main() {
       await create();
       // أستاذ آخر في القاعة نفسها والوقت نفسه.
       final e = await errorsFor(teacher: 't2', slots: const [slotSat]);
-      expect(e['slot:0'], contains('القاعة'));
+      expect(e['slot:0'], contains('القاعة محجوزة'));
       // قاعة أخرى: لا تعارض.
       expect(
         await errorsFor(teacher: 't2', room: 'r2', slots: const [slotSat]),

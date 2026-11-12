@@ -14,6 +14,7 @@ export 'src/clay/clay_overlays.dart';
 export 'src/clay/clay_qr.dart';
 export 'src/clay/clay_selection.dart';
 export 'src/clay/clay_table.dart';
+export 'src/clay/clay_time_picker.dart';
 export 'src/shell/app_page.dart';
 export 'src/shell/app_tab.dart';
 export 'src/shell/auth_screens.dart';

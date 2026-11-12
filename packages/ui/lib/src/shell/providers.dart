@@ -246,3 +246,27 @@ final Provider<LogoService> logoServiceProvider = Provider<LogoService>((ref) {
     files: runtime.fileStore,
   );
 });
+
+/// كشف تعارض الجدول وخدمة المجموعات وقائمتها الحية.
+final Provider<ScheduleService> scheduleServiceProvider =
+    Provider<ScheduleService>(
+      (ref) => ScheduleService(ref.watch(runtimeProvider).db),
+    );
+
+final Provider<GroupService> groupServiceProvider = Provider<GroupService>((
+  ref,
+) {
+  final runtime = ref.watch(runtimeProvider);
+  return GroupService(
+    runtime.db,
+    runtime.writer,
+    ref.watch(scheduleServiceProvider),
+    CycleService(runtime.db, runtime.writer),
+  );
+});
+
+/// المجموعات النشطة مع أساتذتها وموادها وجداولها.
+final StreamProvider<List<GroupItem>> groupsProvider =
+    StreamProvider<List<GroupItem>>(
+      (ref) => ref.watch(groupServiceProvider).watchAll(),
+    );

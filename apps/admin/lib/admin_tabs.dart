@@ -2,6 +2,7 @@ import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
 import 'screens/catalog_screens.dart';
+import 'screens/groups_screens.dart';
 import 'screens/more_page.dart';
 import 'screens/registration_screen.dart';
 import 'screens/settings_screen.dart';
@@ -33,7 +34,7 @@ final List<AppTab> adminTabs = [
       icon: ClayIcons.groups,
     ),
     requires: PermissionModule.groups,
-    builder: (_) => const TabPlaceholder(title: 'المجموعات'),
+    builder: (_) => const GroupsScreen(),
   ),
   AppTab(
     path: '/payments',
@@ -53,6 +54,19 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/groups/new',
+    requires: PermissionModule.groups,
+    action: PermissionAction.add,
+    builder: (context, state) => const GroupFormScreen(),
+  ),
+  AppPage(
+    path: '/groups/:id/edit',
+    requires: PermissionModule.groups,
+    action: PermissionAction.edit,
+    builder: (context, state) =>
+        GroupFormScreen(groupId: state.pathParameters['id']),
+  ),
   AppPage(
     path: '/students/new',
     requires: PermissionModule.students,
