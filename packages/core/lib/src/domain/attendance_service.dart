@@ -108,7 +108,8 @@ class AttendanceService {
   // ---------------------------------------------------------------------------
 
   /// حصص يوم [date] (غير المحذوفة، وفيها الملغاة) بعدّاداتها، وتتحدث لحظياً.
-  Stream<List<DaySession>> watchDay(String date) {
+  /// [teacherId] يحصرها في حصص مجموعات أستاذ (تطبيق الأستاذ).
+  Stream<List<DaySession>> watchDay(String date, {String? teacherId}) {
     return db
         .customSelect(
           'SELECT 1',
@@ -123,10 +124,10 @@ class AttendanceService {
           },
         )
         .watch()
-        .asyncMap((_) => day(date));
+        .asyncMap((_) => day(date, teacherId: teacherId));
   }
 
-  Future<List<DaySession>> day(String date) async {
+  Future<List<DaySession>> day(String date, {String? teacherId}) async {
     final rows = await db
         .customSelect(
           'SELECT se.id AS session_id, g.number, sub.name AS subject, '
@@ -145,8 +146,12 @@ class AttendanceService {
           'LEFT JOIN attendance a ON a.session_id = se.id '
           'AND a.deleted_at IS NULL '
           'WHERE se.date = ? AND se.deleted_at IS NULL AND g.deleted_at IS NULL '
+          '${teacherId == null ? '' : 'AND g.teacher_id = ? '}'
           'GROUP BY se.id ORDER BY se.start_minutes, g.number',
-          variables: [Variable<String>(date)],
+          variables: [
+            Variable<String>(date),
+            if (teacherId != null) Variable<String>(teacherId),
+          ],
           readsFrom: {
             db.sessions,
             db.attendance,

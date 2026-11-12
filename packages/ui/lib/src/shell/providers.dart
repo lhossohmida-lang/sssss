@@ -588,3 +588,34 @@ final StreamProvider<DashboardStats> dashboardProvider =
       final runtime = ref.watch(runtimeProvider);
       return DashboardQueries(runtime.db, runtime.writer).watch();
     });
+
+/// معرّف الأستاذ صاحب الجلسة (تطبيق الأستاذ)، أو `null`.
+final Provider<String?> myTeacherIdProvider = Provider<String?>(
+  (ref) => ref.watch(
+    sessionProvider.select(
+      (s) => s.value?.role == UserRole.teacher ? s.value?.entityId : null,
+    ),
+  ),
+);
+
+/// مجموعات الأستاذ غير المؤرشفة (تطبيق الأستاذ).
+final Provider<AsyncValue<List<GroupItem>>> myGroupsProvider =
+    Provider.autoDispose<AsyncValue<List<GroupItem>>>((ref) {
+      final me = ref.watch(myTeacherIdProvider);
+      return ref
+          .watch(groupsProvider)
+          .whenData(
+            (all) => [
+              for (final g in all)
+                if (g.group.teacherId == me) g,
+            ],
+          );
+    });
+
+/// حصص أستاذ في يوم (مفتاحه `YYYY-MM-DD`) بعدّادات حضورها.
+final myDaySessionsProvider = StreamProvider.autoDispose
+    .family<List<DaySession>, String>((ref, date) {
+      final me = ref.watch(myTeacherIdProvider);
+      if (me == null) return Stream.value(const <DaySession>[]);
+      return ref.watch(attendanceServiceProvider).watchDay(date, teacherId: me);
+    });

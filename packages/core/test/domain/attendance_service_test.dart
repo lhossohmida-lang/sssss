@@ -79,6 +79,25 @@ void main() {
       expect(await attendance.day('2026-12-01'), isEmpty);
     });
 
+    test('الحصر بأستاذ: حصص مجموعاته فقط', () async {
+      await env.teacher(id: 't2');
+      await env.group(id: 'g2', number: 2, teacherId: 't2');
+      await env.slot(
+        id: 'sl2',
+        groupId: 'g2',
+        weekday: 6,
+        start: 840,
+        end: 930,
+      );
+      await cycles.topUp('g2', fromDate: saturday);
+      expect(await attendance.day(saturday), hasLength(2));
+      final mine = await attendance.day(saturday, teacherId: 't1');
+      expect(mine.map((d) => d.groupNumber), [1]);
+      final other = await attendance.day(saturday, teacherId: 't2');
+      expect(other.map((d) => d.groupNumber), [2]);
+      expect(await attendance.day(saturday, teacherId: 'nobody'), isEmpty);
+    });
+
     test('حصة بلا تسجيل: كل التلاميذ غير مسجَّلين', () async {
       final day = await attendance.day(tuesday);
       expect(day.single.unmarked, 2);
