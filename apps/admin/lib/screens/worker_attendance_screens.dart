@@ -4,45 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
-/// مفتاح الشهر الجاري `YYYY-MM`.
-String currentMonthKey() => DateKey.of(DateTime.now()).substring(0, 7);
-
-/// شريط التنقل بين الأشهر: اسم الشهر والسنة وسهما السابق والتالي.
-class MonthBar extends StatelessWidget {
-  const MonthBar({required this.month, required this.onChanged, super.key});
-
-  final String month;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Row(
-      children: [
-        IconButton(
-          tooltip: 'الشهر السابق',
-          icon: const Icon(Icons.chevron_left_rounded),
-          onPressed: () => onChanged(DateKey.shiftMonth(month, -1)),
-        ),
-        Expanded(
-          child: Semantics(
-            liveRegion: true,
-            child: Text(
-              DateKey.monthLabel(month),
-              textAlign: TextAlign.center,
-              style: text.titleMedium,
-            ),
-          ),
-        ),
-        IconButton(
-          tooltip: 'الشهر التالي',
-          icon: const Icon(Icons.chevron_right_rounded),
-          onPressed: () => onChanged(DateKey.shiftMonth(month, 1)),
-        ),
-      ],
-    );
-  }
-}
+export 'package:school_ui/school_ui.dart' show MonthBar, currentMonthKey;
 
 /// كشف حضور العمال الشهري: لكل عامل أيام الكامل والنصف والغياب وأجر الشهر،
 /// وإجمالي الأجور. يُفتح كشف العامل اليومي بالنقر عليه.

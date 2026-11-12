@@ -52,4 +52,11 @@ extension AppQueries on AppDatabase {
       ..orderBy([(t) => OrderingTerm.asc(t.name)]);
     return query.watch();
   }
+
+  /// صف أستاذ حي بمعرّفه، ولحظياً (`null` إن لم يوجد أو حُذف).
+  Stream<TeacherRow?> watchTeacher(String id) {
+    final query = select(teachers)
+      ..where((t) => t.id.equals(id) & t.deletedAt.isNull());
+    return query.watchSingleOrNull();
+  }
 }

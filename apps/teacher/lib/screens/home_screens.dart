@@ -54,6 +54,24 @@ class TeacherHomeScreen extends ConsumerWidget {
           ].join(' · '),
           style: text.bodyMedium!.copyWith(color: p.textMuted),
         ),
+        const SizedBox(height: ClaySpacing.md),
+        Wrap(
+          spacing: ClaySpacing.sm,
+          children: [
+            ClayButton(
+              label: 'رمزي',
+              icon: ClayIcons.scan,
+              kind: ClayButtonKind.secondary,
+              onPressed: () => context.push('/my-qr'),
+            ),
+            ClayButton(
+              label: 'حضوري',
+              icon: ClayIcons.attendance,
+              kind: ClayButtonKind.secondary,
+              onPressed: () => context.push('/my-attendance'),
+            ),
+          ],
+        ),
         const SizedBox(height: ClaySpacing.lg),
         Text('حصص اليوم', style: text.titleMedium),
         const SizedBox(height: ClaySpacing.sm),
@@ -237,5 +255,78 @@ class TeacherSessionRoster extends ConsumerWidget {
       canWrite: true,
       canExcuse: false,
     );
+  }
+}
+
+/// رمزي: رمز QR الشخصي للأستاذ يعرضه للماسح عند الدخول والخروج.
+class MyQrScreen extends ConsumerWidget {
+  const MyQrScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final teacher = ref.watch(myTeacherProvider);
+    return Scaffold(
+      appBar: const ClayAppBar(title: 'رمزي', showBack: true),
+      body: teacher.when(
+        loading: () => const ClayLoadingView(),
+        error: (_, _) => ClayErrorView(
+          message: 'تعذّرت قراءة بياناتك',
+          onRetry: () => ref.invalidate(myTeacherProvider),
+        ),
+        data: (t) {
+          if (t == null) {
+            return const ClayEmptyView(title: 'لا بيانات لحسابك');
+          }
+          return ListView(
+            padding: const EdgeInsets.all(ClaySpacing.screenPadding),
+            children: [
+              ClayCard(
+                child: Column(
+                  children: [
+                    Text(t.name, style: text.titleLarge),
+                    const SizedBox(height: ClaySpacing.md),
+                    ClayQrCode(
+                      data: t.qrCode,
+                      size: 240,
+                      semanticLabel: 'رمز QR للأستاذ ${t.name}',
+                    ),
+                    const SizedBox(height: ClaySpacing.sm),
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: SelectableText(t.qrCode, style: text.bodySmall),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: ClaySpacing.md),
+              Text(
+                'اعرض هذا الرمز على الماسح عند دخولك قاعة الحصة، وعند خروجك '
+                'منها: المسح الأول دخول والثاني خروج.',
+                style: text.bodyMedium!.copyWith(color: p.textMuted),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// حضوري: كشف حصصي الشهري، ما حضرتُه وما غبتُ عنه وتأخري.
+class MyAttendanceScreen extends ConsumerWidget {
+  const MyAttendanceScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(myTeacherIdProvider);
+    if (me == null) {
+      return const Scaffold(
+        appBar: ClayAppBar(title: 'حضوري', showBack: true),
+        body: ClayLoadingView(),
+      );
+    }
+    return TeacherMonthScreen(teacherId: me);
   }
 }

@@ -29,6 +29,7 @@ export 'src/shell/qr_scanning.dart';
 export 'src/shell/school_app.dart';
 export 'src/shell/session_closer.dart';
 export 'src/shell/session_roster.dart';
+export 'src/shell/teacher_month.dart';
 export 'src/theme/clay_colors.dart';
 export 'src/theme/clay_theme.dart';
 export 'src/theme/clay_tokens.dart';

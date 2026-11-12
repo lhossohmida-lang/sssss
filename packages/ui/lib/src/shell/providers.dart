@@ -619,3 +619,11 @@ final myDaySessionsProvider = StreamProvider.autoDispose
       if (me == null) return Stream.value(const <DaySession>[]);
       return ref.watch(attendanceServiceProvider).watchDay(date, teacherId: me);
     });
+
+/// صف الأستاذ صاحب الجلسة (رمزه واسمه)، أو `null`.
+final StreamProvider<TeacherRow?> myTeacherProvider =
+    StreamProvider.autoDispose<TeacherRow?>((ref) {
+      final me = ref.watch(myTeacherIdProvider);
+      if (me == null) return Stream.value(null);
+      return ref.watch(runtimeProvider).db.watchTeacher(me);
+    });

@@ -45,6 +45,11 @@ final List<AppTab> teacherTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> teacherPages = [
+  AppPage(path: '/my-qr', builder: (context, state) => const MyQrScreen()),
+  AppPage(
+    path: '/my-attendance',
+    builder: (context, state) => const MyAttendanceScreen(),
+  ),
   AppPage(
     path: '/attendance/:id',
     builder: (context, state) =>

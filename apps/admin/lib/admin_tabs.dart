@@ -76,7 +76,7 @@ final List<AppPage> adminPages = [
   AppPage(
     path: '/teacher-attendance/:id',
     requires: PermissionModule.teachers,
-    builder: (context, state) => TeacherMonthScreen(
+    builder: (context, state) => AdminTeacherMonth(
       teacherId: state.pathParameters['id']!,
       month: state.uri.queryParameters['month'],
     ),

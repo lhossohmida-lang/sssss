@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
-import 'worker_attendance_screens.dart' show MonthBar, currentMonthKey;
-
 /// كم يوماً للخلف تُنبَّه الحصص التي لم يحضرها أستاذها.
 const int missedAlertDays = 7;
 
@@ -148,145 +146,17 @@ class _TeacherSheetScreenState extends ConsumerState<TeacherSheetScreen> {
   }
 }
 
-/// كشف أستاذ لشهر حصة بحصة، مع تسجيل حضوره يدوياً لحصة نسي مسحها.
-class TeacherMonthScreen extends ConsumerStatefulWidget {
-  const TeacherMonthScreen({required this.teacherId, this.month, super.key});
+/// كشف أستاذ لشهر في الإدارة: مع تسجيل حضوره يدوياً لمن يملك تعديل الأساتذة.
+class AdminTeacherMonth extends ConsumerWidget {
+  const AdminTeacherMonth({required this.teacherId, this.month, super.key});
 
   final String teacherId;
   final String? month;
 
   @override
-  ConsumerState<TeacherMonthScreen> createState() => _TeacherMonthScreenState();
-}
-
-class _TeacherMonthScreenState extends ConsumerState<TeacherMonthScreen> {
-  late String _month = widget.month ?? currentMonthKey();
-
-  Future<void> _markPresent(TeacherSessionRow row, String name) async {
-    final ok = await showClayConfirm(
-      context,
-      title: 'تسجيل حضور الأستاذ',
-      message:
-          'تسجيل حضور $name لحصة ${row.groupLabel} يوم ${row.date} '
-          'يدوياً (نسي مسح رمزه)؟',
-      confirmLabel: 'تسجيل الحضور',
-    );
-    if (!ok) return;
-    await ref.read(teacherAttendanceProvider).markPresent(row.sessionId);
-  }
-
-  static String _time(int millis) {
-    final t = DateTime.fromMillisecondsSinceEpoch(
-      millis,
-      isUtc: true,
-    ).toLocal();
-    return DateKey.formatMinutes(DateKey.minutesOf(t));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final p = context.palette;
-    final canEdit = ref.can(PermissionModule.teachers, PermissionAction.edit);
-    final sheet = ref.watch(teacherSheetProvider(_month));
-    final month = sheet.value
-        ?.where((m) => m.teacherId == widget.teacherId)
-        .firstOrNull;
-
-    return Scaffold(
-      appBar: ClayAppBar(title: month?.name ?? 'كشف الأستاذ', showBack: true),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: ClaySpacing.screenPadding,
-            ),
-            child: MonthBar(
-              month: _month,
-              onChanged: (m) => setState(() => _month = m),
-            ),
-          ),
-          Expanded(
-            child: month == null
-                ? (sheet.isLoading
-                      ? const ClayLoadingView()
-                      : const ClayEmptyView(
-                          title: 'لا حصص لهذا الأستاذ في هذا الشهر',
-                          icon: ClayIcons.teachers,
-                        ))
-                : Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: ClaySpacing.screenPadding,
-                        ),
-                        child: ClayCard(
-                          flat: true,
-                          child: Text(
-                            'حضر ${month.attended} من ${month.held} حصة '
-                            'منتهية · غاب ${month.missed} · '
-                            'تأخر ${month.totalLateMinutes} د',
-                            style: text.titleSmall,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(
-                            ClaySpacing.screenPadding,
-                          ),
-                          itemCount: month.sessions.length,
-                          itemExtent: 96,
-                          itemBuilder: (context, i) {
-                            final s = month.sessions[i];
-                            final badge = switch (s.status) {
-                              TeacherSessionStatus.present => const ClayBadge(
-                                label: 'حضر',
-                                tone: ClayTone.success,
-                              ),
-                              TeacherSessionStatus.absent => const ClayBadge(
-                                label: 'لم يحضر',
-                                tone: ClayTone.danger,
-                              ),
-                              TeacherSessionStatus.pending => const ClayBadge(
-                                label: 'لم تنتهِ',
-                                tone: ClayTone.neutral,
-                              ),
-                            };
-                            final detail =
-                                s.status == TeacherSessionStatus.present
-                                ? 'دخل ${_time(s.checkIn!)}'
-                                      '${s.checkOut == null ? '' : ' وخرج ${_time(s.checkOut!)}'}'
-                                      '${s.lateMinutes > 0 ? ' · تأخر ${s.lateMinutes} د' : ''}'
-                                : '${DateKey.formatMinutes(s.startMinutes)}–'
-                                      '${DateKey.formatMinutes(s.endMinutes)}';
-                            return ClayListTile(
-                              title: '${_dayLabel(s.date)} · ${s.groupLabel}',
-                              subtitle: detail,
-                              onTap:
-                                  canEdit &&
-                                      s.status == TeacherSessionStatus.absent
-                                  ? () => _markPresent(s, month.name)
-                                  : null,
-                              trailing: [
-                                badge,
-                                if (canEdit &&
-                                    s.status == TeacherSessionStatus.absent)
-                                  Icon(
-                                    ClayIcons.check,
-                                    color: p.textMuted,
-                                    semanticLabel: 'تسجيل الحضور يدوياً',
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context, WidgetRef ref) => TeacherMonthScreen(
+    teacherId: teacherId,
+    month: month,
+    canMark: ref.can(PermissionModule.teachers, PermissionAction.edit),
+  );
 }
