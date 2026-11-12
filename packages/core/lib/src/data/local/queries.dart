@@ -59,4 +59,16 @@ extension AppQueries on AppDatabase {
       ..where((t) => t.id.equals(id) & t.deletedAt.isNull());
     return query.watchSingleOrNull();
   }
+
+  /// أبناء الوليّ [parentId] الأحياء مرتبين بالاسم، ولحظياً.
+  Stream<List<StudentRow>> watchChildren(String parentId) {
+    final query = select(students)
+      ..where((s) => s.parentAccountId.equals(parentId) & s.deletedAt.isNull())
+      ..orderBy([
+        (s) => OrderingTerm.asc(s.firstName),
+        (s) => OrderingTerm.asc(s.lastName),
+        (s) => OrderingTerm.asc(s.id),
+      ]);
+    return query.watch();
+  }
 }

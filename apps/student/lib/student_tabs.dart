@@ -1,11 +1,13 @@
 import 'package:school_ui/school_ui.dart';
 
+import 'screens/home_screen.dart';
+
 /// تبويبات تطبيق الوليّ والتلميذ.
 final List<AppTab> studentTabs = [
   AppTab(
     path: '/home',
     destination: const ClayDestination(label: 'الرئيسية', icon: ClayIcons.home),
-    builder: (_) => const TabPlaceholder(title: 'الرئيسية'),
+    builder: (_) => const ParentHomeScreen(),
   ),
   AppTab(
     path: '/attendance',

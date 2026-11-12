@@ -722,3 +722,44 @@ final gradeEntriesProvider = FutureProvider.autoDispose
           .watch(gradeServiceProvider)
           .entries(key.groupId, title: key.title, date: key.date),
     );
+
+/// معرّف الوليّ صاحب الجلسة (تطبيق الوليّ)، أو `null`.
+final Provider<String?> myParentIdProvider = Provider<String?>(
+  (ref) => ref.watch(
+    sessionProvider.select(
+      (s) => s.value?.role == UserRole.parent ? s.value?.entityId : null,
+    ),
+  ),
+);
+
+/// أبناء الوليّ مرتبين بالاسم، ولحظياً.
+final StreamProvider<List<StudentRow>> childrenProvider =
+    StreamProvider.autoDispose<List<StudentRow>>((ref) {
+      final me = ref.watch(myParentIdProvider);
+      if (me == null) return Stream.value(const <StudentRow>[]);
+      return ref.watch(runtimeProvider).db.watchChildren(me);
+    });
+
+/// الابن الذي اختاره الوليّ في مبدّل الأبناء (يشترك فيه كل تبويب).
+class SelectedChild extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String studentId) => state = studentId;
+}
+
+final NotifierProvider<SelectedChild, String?> selectedChildIdProvider =
+    NotifierProvider<SelectedChild, String?>(SelectedChild.new);
+
+/// الابن المعروض الآن: المختار إن كان من أبناء الوليّ، وإلا أولهم؛ و`null`
+/// إن لم يكن له أبناء بعد.
+final Provider<StudentRow?> selectedChildProvider =
+    Provider.autoDispose<StudentRow?>((ref) {
+      final children = ref.watch(childrenProvider).value ?? const [];
+      if (children.isEmpty) return null;
+      final id = ref.watch(selectedChildIdProvider);
+      for (final child in children) {
+        if (child.id == id) return child;
+      }
+      return children.first;
+    });
