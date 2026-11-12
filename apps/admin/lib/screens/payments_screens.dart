@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'receipt_action.dart';
+
 /// «2026-11-14 10:30» من وقت بالمللي ثانية (بالتوقيت المحلي).
 String paymentDateText(int millis) {
   final t = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
@@ -559,7 +561,7 @@ class _PayableTile extends StatelessWidget {
 }
 
 /// تفاصيل دفعة (الوصل): رقمه وتاريخه والتلميذ وما دُفع عنه والمبلغ
-/// والمستلِم. زر عرض ملف PDF يُضاف في المهمة 2.18.
+/// والباقي والمستلِم، مع عرض الوصل PDF للطباعة أو المشاركة.
 class PaymentDetailsScreen extends ConsumerWidget {
   const PaymentDetailsScreen({required this.paymentId, super.key});
 
@@ -622,12 +624,26 @@ class PaymentDetailsScreen extends ConsumerWidget {
                     row('التلميذ', d.item.studentName),
                     row('عن', d.item.description),
                     row('التاريخ', paymentDateText(payment.createdAt)),
+                    if (d.remaining != null)
+                      row(
+                        'الباقي',
+                        d.remaining == 0
+                            ? 'مسدَّد بالكامل'
+                            : Money.format(d.remaining!),
+                      ),
                     row('المستلِم', d.receivedByName),
                     if (payment.note.isNotEmpty) row('ملاحظة', payment.note),
                   ],
                 ),
               ),
               const SizedBox(height: ClaySpacing.md),
+              ClayButton(
+                label: 'عرض الوصل وطباعته',
+                icon: ClayIcons.print,
+                expand: true,
+                onPressed: () => showReceipt(context, ref, d),
+              ),
+              const SizedBox(height: ClaySpacing.sm),
               ClayButton(
                 label: 'ملف التلميذ',
                 icon: ClayIcons.students,

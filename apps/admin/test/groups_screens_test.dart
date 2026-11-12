@@ -29,6 +29,7 @@ const viewer = TestAccount(
 Future<AppRuntime> openGroups(
   WidgetTester tester, {
   TestAccount account = owner,
+  FakePdfPresenter? pdfPresenter,
 }) async {
   final runtime = await bootApp(
     tester,
@@ -36,6 +37,7 @@ Future<AppRuntime> openGroups(
     app: AppIdentity.admin,
     accounts: [account],
     pages: adminPages,
+    pdfPresenter: pdfPresenter,
   );
   await loginWith(tester, account.email, account.password);
   final db = runtime.db;

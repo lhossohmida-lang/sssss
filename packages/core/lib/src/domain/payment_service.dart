@@ -122,11 +122,16 @@ class PaymentDetail {
     required this.item,
     required this.receivedByName,
     required this.studentId,
+    this.remaining,
   });
 
   final PaymentListItem item;
   final String receivedByName;
   final String studentId;
+
+  /// الباقي الآن من البند الذي دُفع عنه (يساوي الباقي بعد هذه الدفعة إن
+  /// كانت آخر دفعاته)، و`null` إن تعذّر حسابه.
+  final int? remaining;
 
   PaymentRow get payment => item.payment;
 }
@@ -467,7 +472,20 @@ class PaymentService {
         .getSingleOrNull();
     if (row == null) return null;
     final display = row.read<String?>('display_name') ?? '';
+    int? remaining;
+    try {
+      remaining = await _remaining(
+        studentId: payment.studentId,
+        type: PaymentType.fromCode(payment.type),
+        groupId: payment.groupId,
+        cycleNumber: payment.cycleNumber,
+        periodKey: payment.periodKey,
+      );
+    } on ValidationException {
+      remaining = null;
+    }
     return PaymentDetail(
+      remaining: remaining,
       studentId: payment.studentId,
       receivedByName: display.isNotEmpty
           ? display

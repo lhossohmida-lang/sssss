@@ -46,6 +46,7 @@ export 'src/domain/photo_processor.dart';
 export 'src/domain/photo_service.dart';
 export 'src/domain/pricing.dart';
 export 'src/domain/qr_code.dart';
+export 'src/domain/receipt_pdf.dart';
 export 'src/domain/recent_scans.dart';
 export 'src/domain/registration_service.dart';
 export 'src/domain/request_service.dart';

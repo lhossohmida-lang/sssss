@@ -21,8 +21,13 @@ const paymentsViewer = TestAccount(
 Future<AppRuntime> openPayments(
   WidgetTester tester, {
   TestAccount account = owner,
+  FakePdfPresenter? pdfPresenter,
 }) async {
-  final runtime = await openGroups(tester, account: account);
+  final runtime = await openGroups(
+    tester,
+    account: account,
+    pdfPresenter: pdfPresenter,
+  );
   final db = runtime.db;
   await runDb(tester, () async {
     await GroupService(
@@ -125,6 +130,8 @@ void main() {
     expect(find.text(Money.format(500)), findsOneWidget);
     expect(find.text('سمير بن علي'), findsOneWidget);
     expect(find.text('المدير'), findsOneWidget);
+    // الباقي بعد الجزئية.
+    expect(find.text(Money.format(1500)), findsOneWidget);
 
     final rows = await runDb(
       tester,
@@ -139,6 +146,33 @@ void main() {
     expect(find.textContaining('000001'), findsOneWidget);
     expect(find.text('1 دفعة'), findsOneWidget);
     expect(find.text(Money.format(500)), findsWidgets);
+  });
+
+  appTest('الوصل PDF بمقاس A5 يُعرض للمعاينة والمشاركة', (tester) async {
+    final presenter = FakePdfPresenter();
+    await openPayments(tester, pdfPresenter: presenter);
+    await startPayment(tester);
+    await tester.tap(find.text('رياضيات · المجموعة 1 · الدورة 1'));
+    await tester.pumpAndSettle();
+    await tester.enterText(amountField(), '2000');
+    await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
+    await tester.pumpAndSettle();
+    expect(find.text('مسدَّد بالكامل'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ClayButton, 'عرض الوصل وطباعته'));
+    // بناء الملف يعمل في الزمن الحقيقي (قراءة الخط والإعدادات).
+    for (var i = 0; i < 40 && presenter.shown.isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+    }
+    expect(presenter.shown, hasLength(1));
+    final shown = presenter.shown.single;
+    expect(shown.fileName, matches(RegExp(r'^receipt-[A-Z]{3}-000001\.pdf$')));
+    expect(shown.title, startsWith('وصل '));
+    expect(String.fromCharCodes(shown.bytes.take(5)), '%PDF-');
+    expect(shown.bytes.length, greaterThan(5000));
   });
 
   appTest('الباقي بعد الجزئية يظهر في المرة التالية', (tester) async {

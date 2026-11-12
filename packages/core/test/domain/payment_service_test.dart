@@ -343,6 +343,15 @@ void main() {
       expect(await payments.detail('nope'), isNull);
     });
 
+    test('الباقي الآن من البند في تفاصيل الدفعة', () async {
+      final first = await payMonth(500);
+      expect((await payments.detail(first.id))!.remaining, 1500);
+      final last = await payMonth(1500);
+      expect((await payments.detail(last.id))!.remaining, 0);
+      // الباقي حالي لا تاريخي: يظهر صفراً في وصل الدفعة الأولى أيضاً.
+      expect((await payments.detail(first.id))!.remaining, 0);
+    });
+
     test('المستلم بلا اسم يُعرض ببريده، والمجهول بشرطة', () async {
       final paid = await payMonth(500);
       expect((await payments.detail(paid.id))!.receivedByName, '—');
