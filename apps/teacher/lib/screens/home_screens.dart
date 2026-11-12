@@ -110,7 +110,9 @@ class _SessionTile extends StatelessWidget {
           'حاضر ${item.present} · غائب ${item.absent} · '
           'بلا تسجيل ${item.unmarked < 0 ? 0 : item.unmarked}',
       subtitleLines: 2,
-      onTap: () => context.push('/groups/${s.groupId}'),
+      onTap: item.cancelled
+          ? () => context.push('/groups/${s.groupId}')
+          : () => context.push('/attendance/${s.id}'),
       trailing: [ClayBadge(label: phase.label, tone: phase.tone)],
     );
   }
@@ -202,6 +204,38 @@ class TeacherGroupDetailsScreen extends ConsumerWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// ورقة حضور حصة للأستاذ: لحصص مجموعاته فقط، يسجّل حاضراً أو غائباً (لا
+/// «برخصة»؛ هي للإدارة)، وتُغلق الحصة وتُغيَّب البقية تلقائياً عند نهايتها.
+class TeacherSessionRoster extends ConsumerWidget {
+  const TeacherSessionRoster({required this.sessionId, super.key});
+
+  final String sessionId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final roster = ref.watch(sessionRosterProvider(sessionId));
+    final groups = ref.watch(myGroupsProvider).value;
+    final mine =
+        roster.value != null &&
+        groups != null &&
+        groups.any((g) => g.id == roster.value!.session.groupId);
+    if (roster.hasValue && groups != null && !mine) {
+      return const Scaffold(
+        appBar: ClayAppBar(title: 'ورقة الحضور', showBack: true),
+        body: ClayEmptyView(
+          title: 'هذه الحصة ليست من حصصك',
+          icon: ClayIcons.attendance,
+        ),
+      );
+    }
+    return SessionRosterScreen(
+      sessionId: sessionId,
+      canWrite: true,
+      canExcuse: false,
     );
   }
 }

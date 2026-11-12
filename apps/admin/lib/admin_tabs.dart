@@ -198,7 +198,7 @@ final List<AppPage> adminPages = [
     path: '/attendance/:id',
     requires: PermissionModule.attendance,
     builder: (context, state) =>
-        SessionRosterScreen(sessionId: state.pathParameters['id']!),
+        AdminSessionRoster(sessionId: state.pathParameters['id']!),
   ),
   AppPage(
     path: '/groups/new',

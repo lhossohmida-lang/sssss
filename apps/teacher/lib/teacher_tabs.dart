@@ -46,6 +46,11 @@ final List<AppTab> teacherTabs = [
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> teacherPages = [
   AppPage(
+    path: '/attendance/:id',
+    builder: (context, state) =>
+        TeacherSessionRoster(sessionId: state.pathParameters['id']!),
+  ),
+  AppPage(
     path: '/groups/:id',
     builder: (context, state) =>
         TeacherGroupDetailsScreen(groupId: state.pathParameters['id']!),

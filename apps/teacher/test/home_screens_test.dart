@@ -253,9 +253,9 @@ void main() {
     expect(find.text('نور بن علي'), findsOneWidget);
   });
 
-  appTest('النقر على حصة من الرئيسية يفتح مجموعتها', (tester) async {
+  appTest('النقر على حصة ملغاة من الرئيسية يفتح مجموعتها', (tester) async {
     await openTeacher(tester);
-    await tester.tap(find.text('المجموعة 1 · رياضيات').first);
+    await tester.tap(find.text('ملغاة'));
     await tester.pumpAndSettle();
     expect(find.text('الدورة 1 (الحالية)'), findsOneWidget);
   });

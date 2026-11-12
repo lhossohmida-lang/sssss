@@ -31,7 +31,7 @@ Future<void> seedScannerData(WidgetTester tester, AppRuntime runtime) async {
   final db = runtime.db;
   await runDb(tester, () async {
     final now = DateTime.now();
-    final start = (DateKey.minutesOf(now) - 5).clamp(0, 1300);
+    final start = (DateKey.minutesOf(now) - 5).clamp(0, 1430);
     await db
         .into(db.subjects)
         .insert(
@@ -79,7 +79,7 @@ Future<void> seedScannerData(WidgetTester tester, AppRuntime runtime) async {
             cycleNumber: 1,
             date: DateKey.of(now),
             startMinutes: start,
-            endMinutes: start + 90,
+            endMinutes: (start + 90).clamp(0, 1439),
             sessionNumber: const Value(1),
           ),
         );
