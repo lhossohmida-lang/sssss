@@ -1,5 +1,6 @@
 import 'package:school_ui/school_ui.dart';
 
+import 'screens/attendance_screen.dart';
 import 'screens/home_screen.dart';
 
 /// تبويبات تطبيق الوليّ والتلميذ.
@@ -15,7 +16,7 @@ final List<AppTab> studentTabs = [
       label: 'الحضور',
       icon: ClayIcons.attendance,
     ),
-    builder: (_) => const TabPlaceholder(title: 'الحضور'),
+    builder: (_) => const ParentAttendanceScreen(),
   ),
   AppTab(
     path: '/schedule',

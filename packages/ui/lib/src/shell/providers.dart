@@ -763,3 +763,20 @@ final Provider<StudentRow?> selectedChildProvider =
       }
       return children.first;
     });
+
+/// كشف حضور التلميذ في مجموعاته (تطبيق الوليّ).
+final Provider<ChildAttendanceService> childAttendanceServiceProvider =
+    Provider<ChildAttendanceService>(
+      (ref) => ChildAttendanceService(ref.watch(runtimeProvider).db),
+    );
+
+/// ما يحدّد كشفاً: التلميذ والمجموعة والشهر `YYYY-MM`.
+typedef ChildMonthKey = ({String studentId, String groupId, String month});
+
+/// حصص مجموعة لتلميذ في شهر بحاله في كل منها، ولحظياً.
+final childMonthProvider = StreamProvider.autoDispose
+    .family<List<ChildSession>, ChildMonthKey>(
+      (ref, key) => ref
+          .watch(childAttendanceServiceProvider)
+          .watchMonth(key.studentId, key.groupId, key.month),
+    );

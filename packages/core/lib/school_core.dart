@@ -30,6 +30,7 @@ export 'src/data/remote/upload_worker.dart';
 export 'src/domain/account_service.dart';
 export 'src/domain/attendance_service.dart';
 export 'src/domain/catalog_service.dart';
+export 'src/domain/child_attendance.dart';
 export 'src/domain/cycle_service.dart';
 export 'src/domain/dashboard_queries.dart';
 export 'src/domain/date_key.dart';

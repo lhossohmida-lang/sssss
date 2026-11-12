@@ -150,7 +150,7 @@ Future<AppRuntime> openParent(
               updatedAt: 1,
               groupId: 'g1',
               cycleNumber: 1,
-              date: '2026-10-0$n',
+              date: '2026-01-0$n',
               startMinutes: 600,
               endMinutes: 690,
               status: const Value('normal'),
