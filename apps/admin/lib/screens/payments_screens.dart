@@ -7,16 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
-import 'receipt_action.dart';
-
-/// «2026-11-14 10:30» من وقت بالمللي ثانية (بالتوقيت المحلي).
-String paymentDateText(int millis) {
-  final t = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
-  final hh = t.hour.toString().padLeft(2, '0');
-  final mm = t.minute.toString().padLeft(2, '0');
-  return '${DateKey.of(t)} $hh:$mm';
-}
-
 /// تبويب المدفوعات: ما استُلم اليوم، وقائمة الدفعات مع بحث بالتلميذ أو رقم
 /// الوصل وتصفية بالنوع، وزر تسجيل دفعة.
 class PaymentsScreen extends ConsumerStatefulWidget {

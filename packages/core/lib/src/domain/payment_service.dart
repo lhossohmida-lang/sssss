@@ -395,10 +395,12 @@ class PaymentService {
   // ---------------------------------------------------------------------------
 
   /// مدفوعات مطابقة للبحث (اسم التلميذ أو رقم الوصل)، الأحدث أولاً، وتتحدث
-  /// لحظياً. [type] يحصر النوع.
+  /// لحظياً. [type] يحصر النوع، و[studentId] يحصر دفعات تلميذ بعينه (كشف
+  /// الوليّ لابنه).
   Stream<PaymentPage> watchPayments({
     String query = '',
     PaymentType? type,
+    String? studentId,
     int limit = pageSize,
   }) {
     return db
@@ -407,16 +409,28 @@ class PaymentService {
           readsFrom: {db.payments, db.students, db.groups, db.subjects},
         )
         .watch()
-        .asyncMap((_) => payments(query: query, type: type, limit: limit));
+        .asyncMap(
+          (_) => payments(
+            query: query,
+            type: type,
+            studentId: studentId,
+            limit: limit,
+          ),
+        );
   }
 
   Future<PaymentPage> payments({
     String query = '',
     PaymentType? type,
+    String? studentId,
     int limit = pageSize,
   }) async {
     final where = StringBuffer('p.deleted_at IS NULL');
     final vars = <Variable<Object>>[];
+    if (studentId != null) {
+      where.write(' AND p.student_id = ?');
+      vars.add(Variable<String>(studentId));
+    }
     if (type != null) {
       where.write(' AND p.type = ?');
       vars.add(Variable<String>(type.code));

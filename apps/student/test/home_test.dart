@@ -14,12 +14,14 @@ Future<AppRuntime> openParent(
   WidgetTester tester, {
   bool seed = true,
   bool secondChild = true,
+  PdfPresenter? pdfPresenter,
 }) async {
   final runtime = await bootApp(
     tester,
     studentTabs,
     app: AppIdentity.student,
     accounts: [parent],
+    pdfPresenter: pdfPresenter,
   );
   await loginWith(tester, parent.email, parent.password);
   if (!seed) return runtime;

@@ -2,6 +2,7 @@ import 'package:school_ui/school_ui.dart';
 
 import 'screens/attendance_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/payments_screen.dart';
 import 'screens/schedule_screen.dart';
 
 /// تبويبات تطبيق الوليّ والتلميذ.
@@ -33,7 +34,7 @@ final List<AppTab> studentTabs = [
       label: 'المدفوعات',
       icon: ClayIcons.payments,
     ),
-    builder: (_) => const TabPlaceholder(title: 'المدفوعات'),
+    builder: (_) => const ParentPaymentsScreen(),
   ),
   AppTab(
     path: '/account',

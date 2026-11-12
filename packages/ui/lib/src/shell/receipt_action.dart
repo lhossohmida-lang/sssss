@@ -1,10 +1,18 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_core/school_core.dart';
-import 'package:school_ui/school_ui.dart';
 
-import 'payments_screens.dart';
+import 'pdf_viewer.dart';
+import 'providers.dart';
+
+/// «2026-11-14 10:30» من وقت بالمللي ثانية (بالتوقيت المحلي).
+String paymentDateText(int millis) {
+  final t = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true).toLocal();
+  final hh = t.hour.toString().padLeft(2, '0');
+  final mm = t.minute.toString().padLeft(2, '0');
+  return '${DateKey.of(t)} $hh:$mm';
+}
 
 /// بيانات الوصل من الدفعة: اسم المدرسة وعنوانها وهاتفها وشعارها من الإعدادات.
 Future<ReceiptData> receiptData(WidgetRef ref, PaymentDetail detail) async {

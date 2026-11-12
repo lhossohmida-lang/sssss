@@ -796,3 +796,13 @@ final childWeeklyProvider = StreamProvider.autoDispose
           WeeklyScheduleQueries(ref.watch(runtimeProvider).db)
               .watch(studentId: studentId),
     );
+
+typedef ChildPaymentsKey = ({String studentId, int limit});
+
+/// دفعات تلميذ، الأحدث أولاً، ولحظياً (كشف الوليّ).
+final childPaymentsProvider = StreamProvider.autoDispose
+    .family<PaymentPage, ChildPaymentsKey>(
+      (ref, key) => ref
+          .watch(paymentServiceProvider)
+          .watchPayments(studentId: key.studentId, limit: key.limit),
+    );

@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
-import 'payments_screens.dart' show paymentDateText;
-
 /// خلاص الأساتذة: ما يستحقونه من نصيبهم عن الدورات المكتملة (بقدر ما سدّد
 /// التلاميذ وحضروا)، وما أُفرج عنه لاحقاً حين دفع المتأخرون، مع تسليم المال.
 class PayoutsScreen extends ConsumerStatefulWidget {

@@ -298,6 +298,25 @@ void main() {
       expect((await payments.payments(query: 'لا أحد')).items, isEmpty);
     });
 
+    test('الحصر بتلميذ: دفعاته وحدها بعدّها الصحيح', () async {
+      await seed();
+      final s2 = await payments.payments(studentId: 's2');
+      expect(s2.total, 1);
+      expect(s2.items.single.payment.studentId, 's2');
+      final s1 = await payments.payments(studentId: 's1');
+      expect(s1.total, 2);
+      expect(s1.items.map((i) => i.payment.studentId).toSet(), {'s1'});
+      expect((await payments.payments(studentId: 'nobody')).items, isEmpty);
+      // مع نوع معيّن.
+      expect(
+        (await payments.payments(
+          studentId: 's1',
+          type: PaymentType.registrationFee,
+        )).total,
+        1,
+      );
+    });
+
     test('التصفية بالنوع والتحميل المقسّم', () async {
       await seed();
       final fees = await payments.payments(type: PaymentType.registrationFee);
