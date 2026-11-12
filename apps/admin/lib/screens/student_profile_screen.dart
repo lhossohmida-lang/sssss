@@ -6,6 +6,7 @@ import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
 import 'registration_screen.dart' show ChoiceDraft, SubjectChoiceCard;
+import 'student_card_action.dart';
 import 'teachers_screens.dart' show showCredentialsDialog;
 
 /// ملف التلميذ: بياناته ووليّه، مجموعاته بحضوره ومستحقاته، قوائم انتظاره،
@@ -268,6 +269,14 @@ class StudentProfileScreen extends ConsumerWidget {
                         textDirection: TextDirection.ltr,
                         child: SelectableText(s.qrCode, style: text.bodySmall),
                       ),
+                    ),
+                    const SizedBox(height: ClaySpacing.md),
+                    ClayButton(
+                      label: 'بطاقة التلميذ PDF',
+                      icon: ClayIcons.print,
+                      kind: ClayButtonKind.secondary,
+                      expand: true,
+                      onPressed: () => showStudentCard(context, ref, profile),
                     ),
                   ]),
                   if (canEdit) ...[

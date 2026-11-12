@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:admin/admin_tabs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +31,7 @@ Future<AppRuntime> openSettings(
   WidgetTester tester,
   TestAccount account, {
   SchoolSettings? preset,
+  FakePhotoSource? photoSource,
 }) async {
   final runtime = await bootApp(
     tester,
@@ -36,6 +39,7 @@ Future<AppRuntime> openSettings(
     app: AppIdentity.admin,
     accounts: [account],
     pages: adminPages,
+    photoSource: photoSource,
   );
   await loginWith(tester, account.email, account.password);
   await tester.runAsync(
@@ -305,5 +309,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('الإعدادات'), findsNothing);
     expect(find.text('لا توجد أقسام متاحة'), findsOneWidget);
+  });
+
+  appTest('الشعار: يُلتقط ويُحفظ فوراً ويُرفع ثم يُزال', (tester) async {
+    final source = FakePhotoSource(samplePngBytes(width: 800, height: 600));
+    final runtime = await openSettings(tester, owner, photoSource: source);
+    expect(find.byTooltip('إزالة الشعار'), findsNothing);
+    await tester.tap(find.widgetWithText(ClayButton, 'التقاط صورة'));
+    // الضغط يجري في isolate حقيقي: انتظار بزمن حقيقي مع دفع الإطارات.
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      if (find.byTooltip('إزالة الشعار').evaluate().isNotEmpty) break;
+    }
+    expect(find.byTooltip('إزالة الشعار'), findsOneWidget);
+    expect(source.captures, 1);
+    final queue = await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.uploadQueue).getSingle(),
+    );
+    expect(queue.targetTable, 'settings');
+    final local = await runDb(
+      tester,
+      () => (runtime.db.select(
+        runtime.db.settings,
+      )..where((t) => t.key.equals(SettingKeys.schoolLogoLocal))).getSingle(),
+    );
+    expect(File(local.value).existsSync(), isTrue);
+
+    await tester.tap(find.byTooltip('إزالة الشعار'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('إزالة الشعار'), findsNothing);
+    final cleared = await runDb(
+      tester,
+      () => (runtime.db.select(
+        runtime.db.settings,
+      )..where((t) => t.key.equals(SettingKeys.schoolLogoLocal))).getSingle(),
+    );
+    expect(cleared.value, isEmpty);
+    // حذف الملف نفسه مختبَر في LogoService؛ هنا تبقى قراءة FileImage
+    // معلّقة في زمن الاختبار الوهمي فتقفل الملف على Windows.
   });
 }

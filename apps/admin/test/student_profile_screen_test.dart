@@ -37,6 +37,7 @@ class Opened {
 Future<Opened> openProfile(
   WidgetTester tester, {
   TestAccount account = owner,
+  FakePdfPresenter? presenter,
 }) async {
   final provisioner = FakeAccountProvisioner();
   final runtime = await bootApp(
@@ -46,6 +47,7 @@ Future<Opened> openProfile(
     accounts: [account],
     pages: adminPages,
     provisioner: provisioner,
+    pdfPresenter: presenter,
   );
   await loginWith(tester, account.email, account.password);
   final db = runtime.db;
@@ -271,5 +273,31 @@ void main() {
     expect(find.widgetWithText(ClayButton, 'إضافة مادة'), findsNothing);
     expect(find.widgetWithText(ClayButton, 'حذف التلميذ'), findsNothing);
     expect(find.byTooltip('مغادرة مجموعة رياضيات'), findsNothing);
+  });
+
+  appTest('بطاقة التلميذ: PDF حقيقي يُعرض بالمعاينة والمشاركة', (tester) async {
+    final presenter = FakePdfPresenter();
+    final o = await openProfile(tester, presenter: presenter);
+    await runDb(
+      tester,
+      () => SettingsService(
+        o.runtime.db,
+        o.runtime.writer,
+      ).save(const SchoolSettings(schoolName: 'مدرسة النجاح')),
+    );
+    await tester.tap(find.widgetWithText(ClayButton, 'بطاقة التلميذ PDF'));
+    // بناء الملف يعمل في الزمن الحقيقي (قراءة الخط والملفات).
+    for (var i = 0; i < 40 && presenter.shown.isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+    }
+    expect(presenter.shown, hasLength(1));
+    final shown = presenter.shown.single;
+    expect(shown.title, 'بطاقة أحمد بن علي');
+    expect(shown.fileName, 'student-card-${o.student.id}.pdf');
+    expect(String.fromCharCodes(shown.bytes.take(5)), '%PDF-');
+    expect(shown.bytes.length, greaterThan(5000));
   });
 }

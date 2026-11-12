@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   camera_windows
+  printing
   url_launcher_windows
 )
 

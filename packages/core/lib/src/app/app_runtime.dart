@@ -18,6 +18,7 @@ import '../auth/supabase_auth_gateway.dart';
 import '../data/local/app_database.dart';
 import '../data/local/open_database.dart';
 import '../data/local/sync_writer.dart';
+import '../data/remote/file_store.dart';
 import '../data/remote/supabase_backend.dart';
 import '../data/remote/sync_coordinator.dart';
 import '../data/remote/sync_engine.dart';
@@ -83,6 +84,7 @@ class AppRuntime {
     required this.localGateway,
     required this.provisioner,
     required this.photosDirectory,
+    required this.fileStore,
     required SyncLifecycle? syncLifecycle,
     required this._seeder,
   }) : _sync = syncLifecycle;
@@ -100,6 +102,9 @@ class AppRuntime {
 
   /// مجلد الصور المضغوطة على الجهاز.
   final Directory photosDirectory;
+
+  /// مخزن ملفات الخادم (لجلب شعار رفعه جهاز آخر)؛ `null` دون خادم.
+  final FileStore? fileStore;
 
   /// ينشئ حسابات الدخول (تطبيق الإدارة فقط)؛ `null` في غيره.
   final AccountProvisioner? provisioner;
@@ -190,6 +195,7 @@ class AppRuntime {
       writer: writer,
       localGateway: local,
       photosDirectory: photosDirectory ?? await _photosDirectory(app),
+      fileStore: client == null ? null : SupabaseFileStore(client),
       provisioner:
           provisioner ??
           (app != AppIdentity.admin

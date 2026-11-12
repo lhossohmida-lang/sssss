@@ -235,3 +235,14 @@ final studentProfileProvider = StreamProvider.autoDispose
           '${now.month.toString().padLeft(2, '0')}';
       return ref.watch(studentServiceProvider).watch(studentId, month: month);
     });
+
+/// شعار المدرسة (ضغط وحفظ ورفع وجلب).
+final Provider<LogoService> logoServiceProvider = Provider<LogoService>((ref) {
+  final runtime = ref.watch(runtimeProvider);
+  return LogoService(
+    runtime.db,
+    runtime.writer,
+    directory: runtime.photosDirectory,
+    files: runtime.fileStore,
+  );
+});

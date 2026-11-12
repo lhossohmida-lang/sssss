@@ -183,7 +183,15 @@ class UploadWorker {
     final table = db.allTables.firstWhere(
       (t) => t.actualTableName == tableName,
     );
-    await writer.patch(table, key: {'id': rowId}, values: {column: stored});
+    // مفتاح الجدول الأساسي: `id` غالباً، و`key` لجدول الإعدادات.
+    final keyColumn = table.$primaryKey.length == 1
+        ? table.$primaryKey.single.name
+        : 'id';
+    await writer.patch(
+      table,
+      key: {keyColumn: rowId},
+      values: {column: stored},
+    );
   }
 
   Future<void> _fail(UploadQueueRow item, String message, {int? attempts}) =>

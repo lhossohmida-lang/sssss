@@ -114,7 +114,7 @@ class PhotoService {
   Future<void> _delete(String path) async {
     try {
       final file = File(path);
-      if (await file.exists()) await file.delete();
+      if (file.existsSync()) file.deleteSync();
     } on FileSystemException {
       // ملف قديم عالق لا يمنع حفظ الصورة الجديدة.
     }

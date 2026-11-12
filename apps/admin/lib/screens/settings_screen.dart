@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _threshold = TextEditingController();
 
   SchoolSettings? _loaded;
+  File? _logo;
   FeePeriod _period = FeePeriod.year;
   List<Semester> _semesters = const [];
   Map<String, String> _errors = const {};
@@ -38,6 +41,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _loadLogo();
     ref.read(settingsServiceProvider).load().then((settings) {
       if (!mounted) return;
       setState(() {
@@ -53,6 +57,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _semesters = settings.semesters;
       });
     });
+  }
+
+  Future<void> _loadLogo() async {
+    final file = await ref.read(logoServiceProvider).resolve();
+    if (mounted) setState(() => _logo = file);
+  }
+
+  /// يحفظ الشعار فور اختياره (كالمستويات) ولا ينتظر زر الحفظ.
+  Future<void> _setLogo(Uint8List? bytes) async {
+    if (bytes == null) return;
+    try {
+      await ref.read(logoServiceProvider).set(bytes);
+      await _loadLogo();
+    } on FormatException catch (e) {
+      if (mounted) setState(() => _message = 'تعذّر حفظ الشعار: ${e.message}');
+    }
+  }
+
+  Future<void> _removeLogo() async {
+    await ref.read(logoServiceProvider).clear();
+    await _loadLogo();
   }
 
   @override
@@ -228,6 +253,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                     section('بيانات المدرسة', [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClayPhotoField(
+                              name: _name.text,
+                              current: _logo == null ? null : FileImage(_logo!),
+                              enabled: canEdit,
+                              onChanged: _setLogo,
+                            ),
+                          ),
+                          if (_logo != null && canEdit)
+                            IconButton(
+                              tooltip: 'إزالة الشعار',
+                              icon: const Icon(ClayIcons.delete),
+                              onPressed: _removeLogo,
+                            ),
+                        ],
+                      ),
+                      gap(),
                       ClayTextField(
                         controller: _name,
                         label: 'اسم المدرسة',

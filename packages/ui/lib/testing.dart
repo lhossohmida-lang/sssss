@@ -40,6 +40,7 @@ Future<AppRuntime> bootApp(
   List<AppPage> pages = const [],
   AccountProvisioner? provisioner,
   PhotoSource? photoSource,
+  PdfPresenter? pdfPresenter,
 }) async {
   final runtime = (await tester.runAsync(
     () => startTestRuntime(
@@ -60,6 +61,8 @@ Future<AppRuntime> bootApp(
         runtimeProvider.overrideWithValue(runtime),
         if (photoSource != null)
           photoSourceProvider.overrideWithValue(photoSource),
+        if (pdfPresenter != null)
+          pdfPresenterProvider.overrideWithValue(pdfPresenter),
       ],
       child: SchoolApp(tabs: tabs, pages: pages),
     ),
@@ -113,5 +116,20 @@ class FakePhotoSource implements PhotoSource {
   Future<Uint8List?> capture(BuildContext context) async {
     captures++;
     return bytes;
+  }
+}
+
+/// عارض PDF وهمي: يسجّل ما طُلب عرضه دون معاينة حقيقية.
+class FakePdfPresenter implements PdfPresenter {
+  final List<({Uint8List bytes, String fileName, String title})> shown = [];
+
+  @override
+  Future<void> show(
+    BuildContext context, {
+    required Uint8List bytes,
+    required String fileName,
+    required String title,
+  }) async {
+    shown.add((bytes: bytes, fileName: fileName, title: title));
   }
 }

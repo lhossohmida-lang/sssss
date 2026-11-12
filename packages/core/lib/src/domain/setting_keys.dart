@@ -4,7 +4,12 @@
 /// تُثبَّت في الكود (الإجابتان 21 و22).
 abstract final class SettingKeys {
   static const String schoolName = 'school_name';
+
+  /// مسار الشعار في مخزن الصور على الخادم (يُكتب بعد اكتمال الرفع).
   static const String schoolLogo = 'school_logo';
+
+  /// مسار الشعار على هذا الجهاز؛ يُزامَن لكنه لا يعني شيئاً لجهاز آخر.
+  static const String schoolLogoLocal = 'school_logo_local';
   static const String schoolAddress = 'school_address';
   static const String schoolPhone = 'school_phone';
 
