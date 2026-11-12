@@ -3,6 +3,7 @@ import 'package:school_ui/school_ui.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/payments_screen.dart';
+import 'screens/qr_screen.dart';
 import 'screens/schedule_screen.dart';
 
 /// تبويبات تطبيق الوليّ والتلميذ.
@@ -41,4 +42,9 @@ final List<AppTab> studentTabs = [
     destination: const ClayDestination(label: 'حسابي', icon: ClayIcons.parents),
     builder: (_) => const TabPlaceholder(title: 'حسابي'),
   ),
+];
+
+/// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
+final List<AppPage> studentPages = [
+  AppPage(path: '/qr', builder: (context, state) => const ChildQrScreen()),
 ];

@@ -21,6 +21,7 @@ Future<AppRuntime> openParent(
     studentTabs,
     app: AppIdentity.student,
     accounts: [parent],
+    pages: studentPages,
     pdfPresenter: pdfPresenter,
   );
   await loginWith(tester, parent.email, parent.password);

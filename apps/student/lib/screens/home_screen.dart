@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
@@ -147,6 +148,14 @@ class _Summary extends StatelessWidget {
                 ),
               ],
             ),
+          const SizedBox(height: ClaySpacing.md),
+          ClayButton(
+            label: 'رمز الدخول QR',
+            icon: ClayIcons.scan,
+            kind: ClayButtonKind.secondary,
+            expand: true,
+            onPressed: () => context.push('/qr'),
+          ),
           if (profile.waiting.isNotEmpty) ...[
             const SizedBox(height: ClaySpacing.sm),
             Wrap(
