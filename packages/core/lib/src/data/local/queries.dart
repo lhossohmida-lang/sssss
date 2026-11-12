@@ -44,4 +44,12 @@ extension AppQueries on AppDatabase {
       ..orderBy([(t) => OrderingTerm.asc(t.name)]);
     return query.watch();
   }
+
+  /// الأساتذة الأحياء مرتبون بالاسم (للمرشِّحات والقوائم الخفيفة).
+  Stream<List<TeacherRow>> watchTeachers() {
+    final query = select(teachers)
+      ..where((t) => t.deletedAt.isNull())
+      ..orderBy([(t) => OrderingTerm.asc(t.name)]);
+    return query.watch();
+  }
 }

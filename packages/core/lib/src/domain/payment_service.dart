@@ -9,6 +9,7 @@ import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
 import 'money.dart';
+import 'payout_service.dart';
 
 /// بيانات هذا الجهاز التي لا تُزامَن: بادئة أرقام الوصولات.
 class DeviceInfoStore {
@@ -160,6 +161,8 @@ class PaymentService {
   final DuesService dues;
   final DeviceInfoStore device;
 
+  late final PayoutService _payouts = PayoutService(db, writer, dues);
+
   static const String fieldAmount = 'amount';
   static const String fieldItem = 'item';
   static const int pageSize = 50;
@@ -296,13 +299,13 @@ class PaymentService {
       final receivedBy = writer.actor().userId;
       final receipt = await nextReceiptNumber();
       return switch (type) {
-        PaymentType.month => dues.recordMonthPayment(
+        PaymentType.month => _recordMonth(
           studentId: studentId,
           groupId: groupId!,
           cycleNumber: cycleNumber!,
           amount: amount,
           receivedBy: receivedBy,
-          receiptNumber: receipt,
+          receipt: receipt,
           note: note.trim(),
         ),
         PaymentType.registrationFee => dues.payRegistrationFee(
@@ -321,6 +324,30 @@ class PaymentService {
         ),
       };
     });
+  }
+
+  /// دفع شهر: يُفرَج بعده عن نصيب الأستاذ المعلّق في دورات المجموعة
+  /// المنتهية، فيظهر في خلاصاته غير المسلَّمة (قرار 54).
+  Future<PaymentRow> _recordMonth({
+    required String studentId,
+    required String groupId,
+    required int cycleNumber,
+    required int amount,
+    required String receivedBy,
+    required String receipt,
+    required String note,
+  }) async {
+    final payment = await dues.recordMonthPayment(
+      studentId: studentId,
+      groupId: groupId,
+      cycleNumber: cycleNumber,
+      amount: amount,
+      receivedBy: receivedBy,
+      receiptNumber: receipt,
+      note: note,
+    );
+    await _payouts.releasePending(groupId);
+    return payment;
   }
 
   Future<int> _remaining({

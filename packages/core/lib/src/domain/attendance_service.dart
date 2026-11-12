@@ -7,6 +7,7 @@ import 'cycle_service.dart';
 import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
+import 'payout_service.dart';
 import 'stable_id.dart';
 
 /// حصة في قائمة يوم، مع عدّادات حضورها.
@@ -96,6 +97,8 @@ class AttendanceService {
   final SyncWriter writer;
   final CycleService cycles;
   final DuesService dues;
+
+  late final PayoutService _payouts = PayoutService(db, writer, dues);
 
   // ---------------------------------------------------------------------------
   // القراءة
@@ -353,10 +356,14 @@ class AttendanceService {
           await _write(session, studentId, AttendanceStatus.absent);
         }
         await cycles.closeSession(id);
-        await cycles.completeCycleIfDone(
+        final finished = await cycles.completeCycleIfDone(
           session.groupId,
           fromDate: DateKey.next(session.date),
         );
+        // اكتمال الدورة يُنشئ خلاص الأستاذ عنها بما دُفع حتى الآن.
+        if (finished != null) {
+          await _payouts.createCyclePayout(session.groupId, finished);
+        }
         return true;
       });
       if (done) closed++;

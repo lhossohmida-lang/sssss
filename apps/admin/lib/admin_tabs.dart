@@ -10,6 +10,7 @@ import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/more_page.dart';
 import 'screens/payments_screens.dart';
+import 'screens/payouts_screens.dart';
 import 'screens/registration_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/schedule_screen.dart';
@@ -63,6 +64,17 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/payouts',
+    requires: PermissionModule.payouts,
+    builder: (context, state) => const PayoutsScreen(),
+  ),
+  AppPage(
+    path: '/payouts/:id',
+    requires: PermissionModule.payouts,
+    builder: (context, state) =>
+        PayoutDetailsScreen(payoutId: state.pathParameters['id']!),
+  ),
   AppPage(
     path: '/fees',
     requires: PermissionModule.payments,

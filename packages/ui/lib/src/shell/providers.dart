@@ -485,3 +485,50 @@ final feeReportProvider = StreamProvider.autoDispose
             query: key.query,
           ),
     );
+
+/// خلاص الأساتذة (تطبيق الإدارة).
+final Provider<PayoutService> payoutServiceProvider = Provider<PayoutService>((
+  ref,
+) {
+  final runtime = ref.watch(runtimeProvider);
+  return PayoutService(
+    runtime.db,
+    runtime.writer,
+    ref.watch(duesServiceProvider),
+  );
+});
+
+final Provider<PayoutQueries> payoutQueriesProvider = Provider<PayoutQueries>(
+  (ref) => PayoutQueries(
+    ref.watch(runtimeProvider).db,
+    ref.watch(payoutServiceProvider),
+  ),
+);
+
+typedef PayoutKey = ({PayoutStatus status, String? teacherId});
+
+final payoutsProvider = StreamProvider.autoDispose
+    .family<List<PayoutItem>, PayoutKey>(
+      (ref, key) => ref
+          .watch(payoutQueriesProvider)
+          .watch(status: key.status, teacherId: key.teacherId),
+    );
+
+/// ملخص الخلاصات (لأستاذ أو للكل).
+final payoutSummaryProvider = StreamProvider.autoDispose
+    .family<PayoutSummary, String?>(
+      (ref, teacherId) =>
+          ref.watch(payoutQueriesProvider).watchSummary(teacherId: teacherId),
+    );
+
+/// تفصيل خلاص؛ يُعاد حسابه بعد التسليم.
+final payoutDetailProvider = FutureProvider.autoDispose
+    .family<PayoutDetail?, String>(
+      (ref, id) => ref.watch(payoutQueriesProvider).detail(id),
+    );
+
+/// أساتذة المدرسة للاختيار في المرشِّحات (قراءة خفيفة بلا خدمة الحسابات).
+final StreamProvider<List<TeacherRow>> teacherOptionsProvider =
+    StreamProvider.autoDispose<List<TeacherRow>>(
+      (ref) => ref.watch(runtimeProvider).db.watchTeachers(),
+    );

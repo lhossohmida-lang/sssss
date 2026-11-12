@@ -26,6 +26,12 @@ class MoreEntry {
 /// أقسام «المزيد»؛ كل مهمة لاحقة تضيف قسمها هنا مع صفحته في `adminPages`.
 const List<MoreEntry> moreEntries = [
   MoreEntry(
+    label: 'خلاص الأساتذة',
+    icon: ClayIcons.payments,
+    path: '/payouts',
+    requires: PermissionModule.payouts,
+  ),
+  MoreEntry(
     label: 'حقوق التسجيل',
     icon: ClayIcons.payments,
     path: '/fees',
