@@ -43,6 +43,7 @@ Future<AppRuntime> bootApp(
   PhotoSource? photoSource,
   PdfPresenter? pdfPresenter,
   QrCodeSource Function()? qrCamera,
+  QrCodeSource Function()? usbReader,
   ScanFeedback? scanFeedback,
   bool sessionCloser = false,
 }) async {
@@ -70,6 +71,8 @@ Future<AppRuntime> bootApp(
           pdfPresenterProvider.overrideWithValue(pdfPresenter),
         if (qrCamera != null)
           qrCameraFactoryProvider.overrideWithValue(qrCamera),
+        if (usbReader != null)
+          usbReaderFactoryProvider.overrideWithValue(usbReader),
         if (scanFeedback != null)
           scanFeedbackProvider.overrideWithValue(scanFeedback),
       ],

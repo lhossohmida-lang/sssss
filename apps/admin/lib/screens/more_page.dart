@@ -26,6 +26,12 @@ class MoreEntry {
 /// أقسام «المزيد»؛ كل مهمة لاحقة تضيف قسمها هنا مع صفحته في `adminPages`.
 const List<MoreEntry> moreEntries = [
   MoreEntry(
+    label: 'شاشة المدخل',
+    icon: ClayIcons.students,
+    path: '/entrance',
+    requires: PermissionModule.scanner,
+  ),
+  MoreEntry(
     label: 'الماسح',
     icon: ClayIcons.scan,
     path: '/scanner',

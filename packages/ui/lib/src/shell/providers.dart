@@ -395,3 +395,10 @@ final Provider<ScanService> scanServiceProvider =
               ),
       );
     });
+
+/// المسحات الحديثة القادمة من أي جهاز (شاشة المدخل).
+final Provider<RecentScanFeed> recentScanFeedProvider =
+    Provider.autoDispose<RecentScanFeed>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return RecentScanFeed(runtime.db, ref.watch(duesServiceProvider));
+    });

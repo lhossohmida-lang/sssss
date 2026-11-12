@@ -18,6 +18,7 @@ export 'src/clay/clay_time_picker.dart';
 export 'src/shell/app_page.dart';
 export 'src/shell/app_tab.dart';
 export 'src/shell/auth_screens.dart';
+export 'src/shell/keyboard_wedge.dart';
 export 'src/shell/list_page.dart';
 export 'src/shell/notifications_screen.dart';
 export 'src/shell/pdf_viewer.dart';

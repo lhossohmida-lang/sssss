@@ -25,35 +25,9 @@ const _noScanner = TestAccount(
   permissions: '{"students":["view"]}',
 );
 
-/// يبذر مجموعة بحصة جارية الآن وتلميذين (أحدهما منتسب) وأستاذاً، ثم يفتح
-/// الماسح من «المزيد».
-Future<({AppRuntime runtime, FakeQrSource? source, RecordingScanFeedback fb})>
-openScanner(
-  WidgetTester tester, {
-  bool camera = true,
-  TestAccount account = _owner,
-  Duration indexRefresh = const Duration(seconds: 10),
-}) async {
-  final source = camera ? FakeQrSource() : null;
-  final feedback = RecordingScanFeedback();
-  final runtime = await bootApp(
-    tester,
-    adminTabs,
-    app: AppIdentity.admin,
-    accounts: [account],
-    pages: [
-      AppPage(
-        path: '/scanner',
-        requires: PermissionModule.scanner,
-        action: PermissionAction.use,
-        builder: (context, state) =>
-            ScannerScreen(indexRefreshAfter: indexRefresh),
-      ),
-    ],
-    qrCamera: source == null ? null : () => source,
-    scanFeedback: feedback,
-  );
-  await loginWith(tester, account.email, account.password);
+/// يفتح الماسح من «المزيد» بعد بذر بياناته.
+/// يبذر مجموعة بحصة جارية الآن وتلميذين (أحدهما منتسب) وأستاذاً.
+Future<void> seedScannerData(WidgetTester tester, AppRuntime runtime) async {
   final db = runtime.db;
   await runDb(tester, () async {
     final now = DateTime.now();
@@ -149,6 +123,36 @@ openScanner(
           ),
         );
   });
+}
+
+Future<({AppRuntime runtime, FakeQrSource? source, RecordingScanFeedback fb})>
+openScanner(
+  WidgetTester tester, {
+  bool camera = true,
+  TestAccount account = _owner,
+  Duration indexRefresh = const Duration(seconds: 10),
+}) async {
+  final source = camera ? FakeQrSource() : null;
+  final feedback = RecordingScanFeedback();
+  final runtime = await bootApp(
+    tester,
+    adminTabs,
+    app: AppIdentity.admin,
+    accounts: [account],
+    pages: [
+      AppPage(
+        path: '/scanner',
+        requires: PermissionModule.scanner,
+        action: PermissionAction.use,
+        builder: (context, state) =>
+            ScannerScreen(indexRefreshAfter: indexRefresh),
+      ),
+    ],
+    qrCamera: source == null ? null : () => source,
+    scanFeedback: feedback,
+  );
+  await loginWith(tester, account.email, account.password);
+  await seedScannerData(tester, runtime);
   await tester.tap(find.text('المزيد').last);
   await tester.pumpAndSettle();
   final entry = find.text('الماسح');

@@ -3,6 +3,7 @@ import 'package:school_ui/school_ui.dart';
 
 import 'screens/attendance_screens.dart';
 import 'screens/catalog_screens.dart';
+import 'screens/entrance_screen.dart';
 import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/more_page.dart';
@@ -59,6 +60,12 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/entrance',
+    requires: PermissionModule.scanner,
+    action: PermissionAction.use,
+    builder: (context, state) => const EntranceScreen(),
+  ),
   AppPage(
     path: '/scanner',
     requires: PermissionModule.scanner,
