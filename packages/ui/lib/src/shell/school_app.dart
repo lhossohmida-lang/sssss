@@ -272,6 +272,9 @@ class _SchoolAppState extends ConsumerState<SchoolApp> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ClayApp(app: _runtime.app, routerConfig: _router);
+  Widget build(BuildContext context) {
+    // مهام الخلفية (التغييب التلقائي) تعيش ما دام التطبيق مفتوحاً.
+    ref.watch(sessionCloserProvider);
+    return ClayApp(app: _runtime.app, routerConfig: _router);
+  }
 }

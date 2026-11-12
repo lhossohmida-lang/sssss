@@ -41,6 +41,7 @@ Future<AppRuntime> bootApp(
   AccountProvisioner? provisioner,
   PhotoSource? photoSource,
   PdfPresenter? pdfPresenter,
+  bool sessionCloser = false,
 }) async {
   final runtime = (await tester.runAsync(
     () => startTestRuntime(
@@ -59,6 +60,7 @@ Future<AppRuntime> bootApp(
     ProviderScope(
       overrides: [
         runtimeProvider.overrideWithValue(runtime),
+        sessionCloserEnabledProvider.overrideWithValue(sessionCloser),
         if (photoSource != null)
           photoSourceProvider.overrideWithValue(photoSource),
         if (pdfPresenter != null)

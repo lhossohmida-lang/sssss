@@ -19,11 +19,15 @@ class ClayListTile extends StatelessWidget {
     this.leading,
     this.trailing = const [],
     this.onTap,
+    this.subtitleLines = 1,
     super.key,
   });
 
   final String title;
   final String? subtitle;
+
+  /// عدد أسطر السطر الثاني (يُقتطع بعدها)؛ الصف يحتاج ارتفاعاً يتسع لها.
+  final int subtitleLines;
   final Widget? leading;
   final List<Widget> trailing;
   final VoidCallback? onTap;
@@ -62,7 +66,7 @@ class ClayListTile extends StatelessWidget {
                   if (subtitle != null)
                     Text(
                       subtitle!,
-                      maxLines: 1,
+                      maxLines: subtitleLines,
                       overflow: TextOverflow.ellipsis,
                       style: text.bodySmall!.copyWith(color: p.textMuted),
                     ),

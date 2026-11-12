@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_core/school_core.dart';
 
+import 'session_closer.dart';
+
 /// وقت التشغيل (قاعدة، مصادقة، مزامنة). يُمرَّر في `main` عبر
 /// `ProviderScope(overrides: [runtimeProvider.overrideWithValue(runtime)])`.
 final Provider<AppRuntime> runtimeProvider = Provider<AppRuntime>(
@@ -288,4 +290,56 @@ final groupItemProvider = Provider.autoDispose.family<GroupItem?, String>((
 ) {
   final groups = ref.watch(groupsProvider).value ?? const <GroupItem>[];
   return groups.where((g) => g.id == groupId).firstOrNull;
+});
+
+/// الحضور اليدوي والتغييب التلقائي (تطبيق الإدارة).
+final Provider<AttendanceService> attendanceServiceProvider =
+    Provider<AttendanceService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return AttendanceService(
+        runtime.db,
+        runtime.writer,
+        CycleService(runtime.db, runtime.writer),
+        ref.watch(duesServiceProvider),
+      );
+    });
+
+/// حصص يوم (مفتاحه `YYYY-MM-DD`) بعدّادات حضورها.
+final daySessionsProvider = StreamProvider.autoDispose
+    .family<List<DaySession>, String>(
+      (ref, date) => ref.watch(attendanceServiceProvider).watchDay(date),
+    );
+
+/// ورقة حضور حصة.
+final sessionRosterProvider = StreamProvider.autoDispose
+    .family<SessionRoster?, String>(
+      (ref, sessionId) =>
+          ref.watch(attendanceServiceProvider).watchRoster(sessionId),
+    );
+
+/// هل تعمل مهمة التغييب التلقائي؟ تعطّلها الاختبارات التي لا تريد مؤقتاً
+/// في الخلفية.
+final Provider<bool> sessionCloserEnabledProvider = Provider<bool>(
+  (ref) => true,
+);
+
+/// مهمة الخلفية: تغلق الحصص المنتهية وتغيّب من لم يُسجَّل (تطبيق الإدارة،
+/// لمن يملك صلاحية الحضور أو الماسح فقط).
+final Provider<void> sessionCloserProvider = Provider<void>((ref) {
+  if (!ref.watch(sessionCloserEnabledProvider)) return;
+  final runtime = ref.watch(runtimeProvider);
+  if (runtime.app != AppIdentity.admin) return;
+  final eligible = ref.watch(
+    sessionProvider.select((s) {
+      final session = s.value;
+      if (session == null || !session.allowsApp(AppIdentity.admin)) {
+        return false;
+      }
+      return session.policy.canAnyOf(PermissionModule.attendance) ||
+          session.policy.canAnyOf(PermissionModule.scanner);
+    }),
+  );
+  if (!eligible) return;
+  final closer = SessionCloser(ref.watch(attendanceServiceProvider))..start();
+  ref.onDispose(closer.dispose);
 });

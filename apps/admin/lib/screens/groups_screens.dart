@@ -65,6 +65,7 @@ class GroupsScreen extends ConsumerWidget {
                     subtitle:
                         '${item.teacherName} · ${item.roomName ?? 'بلا قاعة'} '
                         '· ${item.studentCount} تلميذ\n${item.scheduleText}',
+                    subtitleLines: 2,
                     onTap: () => context.push('/groups/${item.id}'),
                     trailing: [
                       if (canEdit)

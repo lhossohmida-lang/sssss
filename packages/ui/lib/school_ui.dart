@@ -24,6 +24,7 @@ export 'src/shell/pdf_viewer.dart';
 export 'src/shell/photo_capture.dart';
 export 'src/shell/providers.dart';
 export 'src/shell/school_app.dart';
+export 'src/shell/session_closer.dart';
 export 'src/theme/clay_colors.dart';
 export 'src/theme/clay_theme.dart';
 export 'src/theme/clay_tokens.dart';

@@ -1,6 +1,7 @@
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'screens/attendance_screens.dart';
 import 'screens/catalog_screens.dart';
 import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
@@ -55,6 +56,17 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/attendance',
+    requires: PermissionModule.attendance,
+    builder: (context, state) => const AttendanceScreen(),
+  ),
+  AppPage(
+    path: '/attendance/:id',
+    requires: PermissionModule.attendance,
+    builder: (context, state) =>
+        SessionRosterScreen(sessionId: state.pathParameters['id']!),
+  ),
   AppPage(
     path: '/groups/new',
     requires: PermissionModule.groups,
