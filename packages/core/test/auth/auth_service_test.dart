@@ -483,6 +483,114 @@ void main() {
     });
   });
 
+  group('تغيير كلمة السر من «حسابي»', () {
+    setUp(() async {
+      await service.signIn(email: 'owner@school.local', password: 'ownerpass1');
+    });
+
+    test('بكلمة السر الحالية الصحيحة: تتغير وتصلح للدخول التالي', () async {
+      await service.updatePassword(
+        currentPassword: 'ownerpass1',
+        newPassword: 'FreshPass22',
+      );
+      expect(gateway.lastPasswordSet, 'FreshPass22');
+      expect(service.current!.email, 'owner@school.local');
+      await service.signOut();
+      final session = await service.signIn(
+        email: 'owner@school.local',
+        password: 'FreshPass22',
+      );
+      expect(session.role, UserRole.owner);
+    });
+
+    test('الحالية خاطئة: رفض برسالة واضحة ودون تغيير', () async {
+      await expectLater(
+        service.updatePassword(
+          currentPassword: 'wrong-pass',
+          newPassword: 'FreshPass22',
+        ),
+        throwsA(
+          isA<AuthFailureException>()
+              .having(
+                (e) => e.failure,
+                'failure',
+                AuthFailure.invalidCredentials,
+              )
+              .having((e) => e.message, 'message', contains('الحالية')),
+        ),
+      );
+      expect(gateway.lastPasswordSet, isNull);
+    });
+
+    test('الحالية فارغة، والجديدة قصيرة أو مطابقة للحالية', () async {
+      await expectLater(
+        service.updatePassword(currentPassword: '', newPassword: 'FreshPass22'),
+        throwsA(isA<AuthFailureException>()),
+      );
+      await expectLater(
+        service.updatePassword(
+          currentPassword: 'ownerpass1',
+          newPassword: 'short',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.failure,
+            'failure',
+            AuthFailure.weakPassword,
+          ),
+        ),
+      );
+      await expectLater(
+        service.updatePassword(
+          currentPassword: 'ownerpass1',
+          newPassword: 'ownerpass1',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.message,
+            'message',
+            contains('تختلف'),
+          ),
+        ),
+      );
+      expect(gateway.lastPasswordSet, isNull);
+    });
+
+    test('انقطاع الاتصال: يبقى خطأ شبكة لا «كلمة سر خاطئة»', () async {
+      gateway.offline = true;
+      await expectLater(
+        service.updatePassword(
+          currentPassword: 'ownerpass1',
+          newPassword: 'FreshPass22',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.failure,
+            'failure',
+            AuthFailure.network,
+          ),
+        ),
+      );
+    });
+
+    test('دون تسجيل دخول يُرفض', () async {
+      await service.signOut();
+      await expectLater(
+        service.updatePassword(
+          currentPassword: 'ownerpass1',
+          newPassword: 'FreshPass22',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.failure,
+            'failure',
+            AuthFailure.notSignedIn,
+          ),
+        ),
+      );
+    });
+  });
+
   group('تحديث الجلسة بعد المزامنة', () {
     test('تغيّر صلاحيات العامل يصل إلى الجلسة ويُبث', () async {
       await service.signIn(email: 'w@school.local', password: 'workerpass');

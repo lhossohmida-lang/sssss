@@ -146,6 +146,48 @@ class AuthService {
     return updated;
   }
 
+  /// تغيير كلمة السر باختيار المستخدم من «حسابي»: يتحقق من كلمة السر
+  /// الحالية أولاً (بإعادة الدخول بها) ثم يغيّرها.
+  ///
+  /// يرمي [AuthFailureException]: `invalidCredentials` إن أخطأ في الحالية،
+  /// و`weakPassword` إن كانت الجديدة غير مقبولة أو مثل الحالية، و`network`
+  /// عند انقطاع الاتصال، و`notSignedIn` إن لم يُسجَّل الدخول.
+  Future<AuthSession> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = _current;
+    if (session == null) {
+      throw const AuthFailureException(AuthFailure.notSignedIn);
+    }
+    if (currentPassword.isEmpty) {
+      throw const AuthFailureException(
+        AuthFailure.invalidCredentials,
+        message: 'أدخل كلمة السر الحالية',
+      );
+    }
+    final problem = LoginCredentials.passwordProblem(newPassword);
+    if (problem != null) {
+      throw AuthFailureException(AuthFailure.weakPassword, message: problem);
+    }
+    if (newPassword == currentPassword) {
+      throw const AuthFailureException(
+        AuthFailure.weakPassword,
+        message: 'كلمة السر الجديدة يجب أن تختلف عن الحالية',
+      );
+    }
+    try {
+      await gateway.signIn(email: session.email, password: currentPassword);
+    } on AuthFailureException catch (e) {
+      if (e.failure != AuthFailure.invalidCredentials) rethrow;
+      throw const AuthFailureException(
+        AuthFailure.invalidCredentials,
+        message: 'كلمة السر الحالية غير صحيحة',
+      );
+    }
+    return changePassword(newPassword: newPassword);
+  }
+
   /// يعيد قراءة الحساب محلياً بعد المزامنة (تغيّر صلاحيات أو اسم أو حذف).
   ///
   /// يخرج إن حُذف الحساب من النظام.

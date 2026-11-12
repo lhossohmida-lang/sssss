@@ -1,5 +1,6 @@
 import 'package:school_ui/school_ui.dart';
 
+import 'screens/account_screen.dart';
 import 'screens/files_screens.dart';
 import 'screens/grades_screens.dart';
 import 'screens/home_screens.dart';
@@ -43,7 +44,7 @@ final List<AppTab> teacherTabs = [
       label: 'حسابي',
       icon: ClayIcons.teachers,
     ),
-    builder: (_) => const TabPlaceholder(title: 'حسابي'),
+    builder: (_) => const TeacherAccountScreen(),
   ),
 ];
 
