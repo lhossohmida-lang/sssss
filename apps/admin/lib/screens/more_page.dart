@@ -4,12 +4,25 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+/// مجموعة أقسام في قائمة «المزيد».
+enum MoreSection {
+  teaching('التعليم'),
+  finance('المالية'),
+  team('الفريق'),
+  system('النظام');
+
+  const MoreSection(this.title);
+
+  final String title;
+}
+
 /// قسم في قائمة «المزيد».
 class MoreEntry {
   const MoreEntry({
     required this.label,
     required this.icon,
     required this.path,
+    required this.section,
     this.requires,
   });
 
@@ -19,120 +32,166 @@ class MoreEntry {
   /// مسار صفحته (`AppPage`).
   final String path;
 
+  /// المجموعة التي يُعرض تحت عنوانها.
+  final MoreSection section;
+
   /// الوحدة التي يشترطها ظهور القسم.
   final PermissionModule? requires;
 }
 
-/// أقسام «المزيد»؛ كل مهمة لاحقة تضيف قسمها هنا مع صفحته في `adminPages`.
+/// أقسام «المزيد» مجمّعة؛ كل مهمة لاحقة تضيف قسمها مع صفحته في `adminPages`.
 const List<MoreEntry> moreEntries = [
-  MoreEntry(
-    label: 'خلاص الأساتذة',
-    icon: ClayIcons.payments,
-    path: '/payouts',
-    requires: PermissionModule.payouts,
-  ),
-  MoreEntry(
-    label: 'حقوق التسجيل',
-    icon: ClayIcons.payments,
-    path: '/fees',
-    requires: PermissionModule.payments,
-  ),
-  MoreEntry(
-    label: 'المستحقات',
-    icon: ClayIcons.dues,
-    path: '/dues',
-    requires: PermissionModule.payments,
-  ),
-  MoreEntry(
-    label: 'شاشة المدخل',
-    icon: ClayIcons.students,
-    path: '/entrance',
-    requires: PermissionModule.scanner,
-  ),
-  MoreEntry(
-    label: 'الماسح',
-    icon: ClayIcons.scan,
-    path: '/scanner',
-    requires: PermissionModule.scanner,
-  ),
   MoreEntry(
     label: 'الحضور',
     icon: ClayIcons.attendance,
     path: '/attendance',
+    section: MoreSection.teaching,
     requires: PermissionModule.attendance,
-  ),
-  MoreEntry(
-    label: 'قوائم الانتظار',
-    icon: ClayIcons.waiting,
-    path: '/waiting',
-    requires: PermissionModule.waiting,
   ),
   MoreEntry(
     label: 'الجدول الأسبوعي',
     icon: ClayIcons.schedule,
     path: '/schedule',
+    section: MoreSection.teaching,
     requires: PermissionModule.groups,
   ),
   MoreEntry(
-    label: 'حضور العمال',
-    icon: ClayIcons.attendance,
-    path: '/worker-attendance',
-    requires: PermissionModule.workers,
+    label: 'قوائم الانتظار',
+    icon: ClayIcons.waiting,
+    path: '/waiting',
+    section: MoreSection.teaching,
+    requires: PermissionModule.waiting,
   ),
   MoreEntry(
-    label: 'العمال',
-    icon: ClayIcons.workers,
-    path: '/workers',
-    requires: PermissionModule.workers,
+    label: 'الماسح',
+    icon: ClayIcons.scan,
+    path: '/scanner',
+    section: MoreSection.teaching,
+    requires: PermissionModule.scanner,
   ),
   MoreEntry(
-    label: 'حضور الأساتذة',
-    icon: ClayIcons.attendance,
-    path: '/teacher-attendance',
-    requires: PermissionModule.teachers,
+    label: 'شاشة المدخل',
+    icon: ClayIcons.students,
+    path: '/entrance',
+    section: MoreSection.teaching,
+    requires: PermissionModule.scanner,
+  ),
+  MoreEntry(
+    label: 'المستحقات',
+    icon: ClayIcons.dues,
+    path: '/dues',
+    section: MoreSection.finance,
+    requires: PermissionModule.payments,
+  ),
+  MoreEntry(
+    label: 'حقوق التسجيل',
+    icon: ClayIcons.payments,
+    path: '/fees',
+    section: MoreSection.finance,
+    requires: PermissionModule.payments,
+  ),
+  MoreEntry(
+    label: 'خلاص الأساتذة',
+    icon: ClayIcons.payments,
+    path: '/payouts',
+    section: MoreSection.finance,
+    requires: PermissionModule.payouts,
   ),
   MoreEntry(
     label: 'الأساتذة',
     icon: ClayIcons.teachers,
     path: '/teachers',
+    section: MoreSection.team,
     requires: PermissionModule.teachers,
+  ),
+  MoreEntry(
+    label: 'حضور الأساتذة',
+    icon: ClayIcons.attendance,
+    path: '/teacher-attendance',
+    section: MoreSection.team,
+    requires: PermissionModule.teachers,
+  ),
+  MoreEntry(
+    label: 'العمال',
+    icon: ClayIcons.workers,
+    path: '/workers',
+    section: MoreSection.team,
+    requires: PermissionModule.workers,
+  ),
+  MoreEntry(
+    label: 'حضور العمال',
+    icon: ClayIcons.attendance,
+    path: '/worker-attendance',
+    section: MoreSection.team,
+    requires: PermissionModule.workers,
   ),
   MoreEntry(
     label: 'المواد',
     icon: ClayIcons.subjects,
     path: '/subjects',
+    section: MoreSection.system,
     requires: PermissionModule.subjects,
   ),
   MoreEntry(
     label: 'القاعات',
     icon: ClayIcons.rooms,
     path: '/rooms',
+    section: MoreSection.system,
     requires: PermissionModule.rooms,
   ),
   MoreEntry(
     label: 'الإعدادات',
     icon: ClayIcons.settings,
     path: '/settings',
+    section: MoreSection.system,
     requires: PermissionModule.settings,
   ),
 ];
 
-/// قائمة «المزيد»: الأقسام التي لا يتسع لها الشريط السفلي، حسب صلاحيات
-/// المستخدم.
+/// عنصر في عرض «المزيد»: عنوان مجموعة أو قسم.
+sealed class _Row {
+  const _Row();
+}
+
+class _Header extends _Row {
+  const _Header(this.title);
+
+  final String title;
+}
+
+class _Entry extends _Row {
+  const _Entry(this.entry);
+
+  final MoreEntry entry;
+}
+
+/// قائمة «المزيد»: الأقسام التي لا يتسع لها الشريط السفلي مجمّعة بعناوين،
+/// وتظهر لكل مستخدم ما يملك صلاحيته فقط، والمجموعة الفارغة تختفي بعنوانها.
 class MorePage extends ConsumerWidget {
   const MorePage({super.key});
+
+  static const double _headerExtent = 48;
+  static const double _entryExtent = 84;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider.select((s) => s.value));
-    final entries = [
-      for (final entry in moreEntries)
-        if (session != null &&
-            (entry.requires == null ||
-                session.policy.canAnyOf(entry.requires!)))
-          entry,
-    ];
-    if (entries.isEmpty) {
+    final rows = <_Row>[];
+    for (final section in MoreSection.values) {
+      final visible = [
+        for (final entry in moreEntries)
+          if (entry.section == section &&
+              session != null &&
+              (entry.requires == null ||
+                  session.policy.canAnyOf(entry.requires!)))
+            entry,
+      ];
+      if (visible.isEmpty) continue;
+      rows
+        ..add(_Header(section.title))
+        ..addAll(visible.map(_Entry.new));
+    }
+    if (rows.isEmpty) {
       return const ClayEmptyView(
         title: 'لا توجد أقسام متاحة',
         message: 'اطلب من الإدارة تفعيل الصلاحيات لحسابك',
@@ -140,30 +199,33 @@ class MorePage extends ConsumerWidget {
     }
     return ListView.builder(
       padding: const EdgeInsets.all(ClaySpacing.screenPadding),
-      itemCount: entries.length,
-      itemExtent: 84,
+      itemCount: rows.length,
+      itemExtentBuilder: (i, _) =>
+          rows[i] is _Header ? _headerExtent : _entryExtent,
       itemBuilder: (context, i) {
-        final entry = entries[i];
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: ClaySpacing.xs),
-          child: ClayCard(
-            flat: true,
-            semanticLabel: entry.label,
-            onTap: () => context.push(entry.path),
-            child: Row(
-              children: [
-                Icon(entry.icon, color: context.palette.accent),
-                const SizedBox(width: ClaySpacing.lg),
-                Expanded(
-                  child: Text(
-                    entry.label,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+        final row = rows[i];
+        if (row is _Header) {
+          return Align(
+            alignment: AlignmentDirectional.bottomStart,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: ClaySpacing.xs),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  row.title,
+                  style: Theme.of(context).textTheme.titleSmall!
+                      .copyWith(color: context.palette.textMuted),
                 ),
-                const Icon(Icons.chevron_left_rounded),
-              ],
+              ),
             ),
-          ),
+          );
+        }
+        final entry = (row as _Entry).entry;
+        return ClayListTile(
+          leading: Icon(entry.icon, color: context.palette.accent),
+          title: entry.label,
+          onTap: () => context.push(entry.path),
+          trailing: const [Icon(Icons.chevron_left_rounded)],
         );
       },
     );

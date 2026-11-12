@@ -116,6 +116,15 @@ class StudentProfileScreen extends ConsumerWidget {
       PermissionModule.students,
       PermissionAction.delete,
     );
+    // المبالغ والمستحقات لمن يملك عرض «المدفوعات» فقط (2.25).
+    final canSeeMoney = ref.can(
+      PermissionModule.payments,
+      PermissionAction.view,
+    );
+    final canReceive = ref.can(
+      PermissionModule.receiveMoney,
+      PermissionAction.use,
+    );
     final state = ref.watch(studentProfileProvider(studentId));
 
     Widget card(String title, List<Widget> children) => Padding(
@@ -170,15 +179,17 @@ class StudentProfileScreen extends ConsumerWidget {
                           Text(profile.fullName, style: text.headlineSmall),
                           if (profile.levelName != null)
                             Text(profile.levelName!, style: text.bodyMedium),
-                          const SizedBox(height: ClaySpacing.md),
-                          ClayBadge(
-                            label: profile.totalRemaining == 0
-                                ? 'لا مستحقات'
-                                : 'عليه ${Money.format(profile.totalRemaining)}',
-                            tone: profile.totalRemaining == 0
-                                ? ClayTone.success
-                                : ClayTone.warning,
-                          ),
+                          if (canSeeMoney) ...[
+                            const SizedBox(height: ClaySpacing.md),
+                            ClayBadge(
+                              label: profile.totalRemaining == 0
+                                  ? 'لا مستحقات'
+                                  : 'عليه ${Money.format(profile.totalRemaining)}',
+                              tone: profile.totalRemaining == 0
+                                  ? ClayTone.success
+                                  : ClayTone.warning,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -207,6 +218,7 @@ class StudentProfileScreen extends ConsumerWidget {
                     for (final info in profile.enrolments)
                       _EnrolmentTile(
                         info: info,
+                        showMoney: canSeeMoney,
                         onLeave: canEdit
                             ? () => _leaveGroup(context, ref, info)
                             : null,
@@ -236,26 +248,27 @@ class StudentProfileScreen extends ConsumerWidget {
                           ],
                         ),
                     ]),
-                  card('المستحقات', [
-                    _InfoRow(
-                      label: 'الدورات',
-                      value: Money.format(profile.cyclesRemaining),
-                    ),
-                    _InfoRow(
-                      label: 'حقوق التسجيل',
-                      value: Money.format(profile.registrationFeeRemaining),
-                    ),
-                    if (s.usesTransport)
+                  if (canSeeMoney)
+                    card('المستحقات', [
                       _InfoRow(
-                        label: 'نقل هذا الشهر',
-                        value: Money.format(profile.transportRemaining),
+                        label: 'الدورات',
+                        value: Money.format(profile.cyclesRemaining),
                       ),
-                    const Divider(),
-                    _InfoRow(
-                      label: 'المجموع',
-                      value: Money.format(profile.totalRemaining),
-                    ),
-                  ]),
+                      _InfoRow(
+                        label: 'حقوق التسجيل',
+                        value: Money.format(profile.registrationFeeRemaining),
+                      ),
+                      if (s.usesTransport)
+                        _InfoRow(
+                          label: 'نقل هذا الشهر',
+                          value: Money.format(profile.transportRemaining),
+                        ),
+                      const Divider(),
+                      _InfoRow(
+                        label: 'المجموع',
+                        value: Money.format(profile.totalRemaining),
+                      ),
+                    ]),
                   card('رمز الدخول', [
                     Center(
                       child: ClayQrCode(
@@ -279,6 +292,16 @@ class StudentProfileScreen extends ConsumerWidget {
                       onPressed: () => showStudentCard(context, ref, profile),
                     ),
                   ]),
+                  if (canReceive && canSeeMoney) ...[
+                    ClayButton(
+                      label: 'تسجيل دفعة',
+                      icon: ClayIcons.payments,
+                      expand: true,
+                      onPressed: () =>
+                          context.push('/payments/new?student=$studentId'),
+                    ),
+                    const SizedBox(height: ClaySpacing.md),
+                  ],
                   if (canEdit) ...[
                     ClayButton(
                       label: 'تعديل البيانات',
@@ -369,10 +392,17 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _EnrolmentTile extends StatelessWidget {
-  const _EnrolmentTile({required this.info, required this.onLeave});
+  const _EnrolmentTile({
+    required this.info,
+    required this.onLeave,
+    required this.showMoney,
+  });
 
   final EnrolmentInfo info;
   final VoidCallback? onLeave;
+
+  /// هل تُعرض الأسعار والباقي؟ (لمن يملك عرض المدفوعات).
+  final bool showMoney;
 
   @override
   Widget build(BuildContext context) {
@@ -402,7 +432,9 @@ class _EnrolmentTile extends StatelessWidget {
               ],
             ),
             Text(
-              '${info.teacherName} · ${Money.format(info.netPrice)} للدورة',
+              showMoney
+                  ? '${info.teacherName} · ${Money.format(info.netPrice)} للدورة'
+                  : info.teacherName,
               style: text.bodySmall!.copyWith(color: p.textMuted),
             ),
             const SizedBox(height: ClaySpacing.sm),
@@ -419,7 +451,7 @@ class _EnrolmentTile extends StatelessWidget {
                   label: 'برخصة ${info.excused}',
                   tone: ClayTone.excused,
                 ),
-                if (info.remaining > 0)
+                if (showMoney && info.remaining > 0)
                   ClayBadge(
                     label: 'الباقي ${Money.format(info.remaining)}',
                     tone: ClayTone.warning,

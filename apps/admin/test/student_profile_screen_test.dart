@@ -275,6 +275,64 @@ void main() {
     expect(find.byTooltip('مغادرة مجموعة رياضيات'), findsNothing);
   });
 
+  appTest('من لا يملك عرض المدفوعات: لا مبالغ ولا مستحقات ولا زر دفع', (
+    tester,
+  ) async {
+    await openProfile(tester, account: viewer);
+    expect(find.text('أحمد بن علي'), findsWidgets);
+    expect(find.textContaining('عليه'), findsNothing);
+    expect(find.text('المستحقات'), findsNothing);
+    expect(find.textContaining('للدورة'), findsNothing);
+    expect(find.textContaining('الباقي'), findsNothing);
+    expect(find.widgetWithText(ClayButton, 'تسجيل دفعة'), findsNothing);
+    // الحضور والمجموعة ظاهران.
+    expect(find.textContaining('رياضيات · المجموعة 1'), findsOneWidget);
+  });
+
+  appTest('عرض المدفوعات بلا استلام المال: المبالغ بلا زر دفع', (tester) async {
+    await openProfile(
+      tester,
+      account: const TestAccount(
+        id: 'u-w2',
+        email: 'w2@school.local',
+        password: 'w2-pass-1',
+        role: UserRole.worker,
+        entityId: 'w2',
+        displayName: 'عامل',
+        permissions: '{"students":["view"],"payments":["view"]}',
+      ),
+    );
+    expect(find.text('المستحقات'), findsOneWidget);
+    expect(find.textContaining('للدورة'), findsOneWidget);
+    expect(find.widgetWithText(ClayButton, 'تسجيل دفعة'), findsNothing);
+  });
+
+  appTest('استلام المال: زر دفع يفتح التسجيل بالتلميذ مختاراً', (tester) async {
+    await openProfile(
+      tester,
+      account: const TestAccount(
+        id: 'u-w3',
+        email: 'w3@school.local',
+        password: 'w3-pass-1',
+        role: UserRole.worker,
+        entityId: 'w3',
+        displayName: 'عامل',
+        permissions:
+            '{"students":["view"],"payments":["view"],"receive_money":["use"]}',
+      ),
+    );
+    await tester.tap(find.widgetWithText(ClayButton, 'تسجيل دفعة'));
+    await tester.pumpAndSettle();
+    expect(find.text('تسجيل دفعة'), findsWidgets);
+    expect(find.text('رياضيات · المجموعة 1 · الدورة 1'), findsOneWidget);
+  });
+
+  appTest('المالك: المستحقات وزر الدفع ظاهران', (tester) async {
+    await openProfile(tester);
+    expect(find.text('المستحقات'), findsOneWidget);
+    expect(find.widgetWithText(ClayButton, 'تسجيل دفعة'), findsOneWidget);
+  });
+
   appTest('بطاقة التلميذ: PDF حقيقي يُعرض بالمعاينة والمشاركة', (tester) async {
     final presenter = FakePdfPresenter();
     final o = await openProfile(tester, presenter: presenter);

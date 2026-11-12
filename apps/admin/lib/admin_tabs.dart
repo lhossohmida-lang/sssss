@@ -3,6 +3,7 @@ import 'package:school_ui/school_ui.dart';
 
 import 'screens/attendance_screens.dart';
 import 'screens/catalog_screens.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/dues_screen.dart';
 import 'screens/entrance_screen.dart';
 import 'screens/fees_screen.dart';
@@ -29,7 +30,7 @@ final List<AppTab> adminTabs = [
   AppTab(
     path: '/dashboard',
     destination: const ClayDestination(label: 'الرئيسية', icon: ClayIcons.home),
-    builder: (_) => const TabPlaceholder(title: 'لوحة التحكم'),
+    builder: (_) => const DashboardScreen(),
   ),
   AppTab(
     path: '/students',

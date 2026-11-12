@@ -581,3 +581,10 @@ final missedSessionsProvider = StreamProvider.autoDispose
       (ref, since) =>
           ref.watch(teacherAttendanceProvider).watchMissed(since: since),
     );
+
+/// أرقام لوحة التحكم.
+final StreamProvider<DashboardStats> dashboardProvider =
+    StreamProvider.autoDispose<DashboardStats>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return DashboardQueries(runtime.db, runtime.writer).watch();
+    });

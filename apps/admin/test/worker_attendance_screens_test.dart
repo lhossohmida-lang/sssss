@@ -1,6 +1,8 @@
 import 'package:admin/admin_tabs.dart';
 import 'package:admin/screens/worker_attendance_screens.dart';
 import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
+import 'package:flutter/material.dart' show Scaffold;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_core/testing.dart';
@@ -87,6 +89,25 @@ Future<AppRuntime> openSheet(
   return runtime;
 }
 
+/// ينتظر وصول تحديث القاعدة إلى الشاشة (الاستعلامات اللحظية في زمن حقيقي).
+Future<void> settleDb(WidgetTester tester) async {
+  for (var i = 0; i < 4; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.pumpAndSettle();
+}
+
+/// يُعيد حساب الكشف من القاعدة (لا يصلنا إشعار الاستعلام اللحظي داخل منطقة
+/// الاختبار الوهمية، وهو يعمل في التطبيق الحقيقي).
+Future<void> reopenWorker(WidgetTester tester) async {
+  ProviderScope.containerOf(tester.element(find.byType(Scaffold).first))
+      .invalidate(workerSheetProvider);
+  await settleDb(tester);
+}
+
 Future<void> openWorker(WidgetTester tester) async {
   await tester.tap(find.text('سمير'));
   await tester.pumpAndSettle();
@@ -136,6 +157,7 @@ void main() {
     expect(find.text('تعديل يوم ${currentMonthKey()}-02'), findsOneWidget);
     await tester.tap(find.widgetWithText(ClayButton, 'نصف يوم'));
     await tester.pumpAndSettle();
+    await settleDb(tester);
     final row = await runDb(
       tester,
       () => (runtime.db.select(
@@ -143,6 +165,7 @@ void main() {
       )..where((a) => a.date.equals('${currentMonthKey()}-02'))).getSingle(),
     );
     expect(row.overrideKind, 'half');
+    await reopenWorker(tester);
     expect(find.textContaining('(معدَّل)'), findsOneWidget);
     expect(
       find.textContaining('أجر الشهر ${Money.format(1600)}'),
@@ -153,6 +176,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'إلغاء التعديل'));
     await tester.pumpAndSettle();
+    await settleDb(tester);
+    await reopenWorker(tester);
     expect(find.textContaining('(معدَّل)'), findsNothing);
     expect(
       find.textContaining('أجر الشهر ${Money.format(1000)}'),
@@ -167,6 +192,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'غائب (بلا أجر)'));
     await tester.pumpAndSettle();
+    await settleDb(tester);
+    await reopenWorker(tester);
     expect(find.textContaining('أجر الشهر ${Money.format(0)}'), findsOneWidget);
   });
 
