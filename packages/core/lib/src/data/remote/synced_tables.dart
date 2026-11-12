@@ -5,4 +5,5 @@ const Set<String> localOnlyTables = {
   'upload_queue',
   'device_session',
   'local_credentials',
+  'device_info',
 };

@@ -51,6 +51,7 @@ part 'app_database.g.dart';
     SyncState,
     DeviceSession,
     LocalCredentials,
+    DeviceInfo,
     UploadQueue,
   ],
 )
@@ -58,11 +59,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      // 2: بيانات الجهاز المحلية (بادئة الوصولات).
+      if (from < 2) await m.createTable(deviceInfo);
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

@@ -39,6 +39,7 @@ export 'src/domain/group_grid.dart';
 export 'src/domain/group_service.dart';
 export 'src/domain/logo_service.dart';
 export 'src/domain/money.dart';
+export 'src/domain/payment_service.dart';
 export 'src/domain/payout_service.dart';
 export 'src/domain/phone.dart';
 export 'src/domain/photo_processor.dart';

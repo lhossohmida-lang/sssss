@@ -402,3 +402,46 @@ final Provider<RecentScanFeed> recentScanFeedProvider =
       final runtime = ref.watch(runtimeProvider);
       return RecentScanFeed(runtime.db, ref.watch(duesServiceProvider));
     });
+
+/// المدفوعات وتسجيلها بوصل مرقَّم (تطبيق الإدارة).
+final Provider<PaymentService> paymentServiceProvider =
+    Provider<PaymentService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return PaymentService(
+        runtime.db,
+        runtime.writer,
+        ref.watch(duesServiceProvider),
+        DeviceInfoStore(runtime.db),
+      );
+    });
+
+typedef PaymentPageKey = ({String query, PaymentType? type, int limit});
+
+/// صفحة من قائمة المدفوعات للبحث والنوع والحد.
+final paymentPageProvider = StreamProvider.autoDispose
+    .family<PaymentPage, PaymentPageKey>(
+      (ref, key) => ref
+          .watch(paymentServiceProvider)
+          .watchPayments(query: key.query, type: key.type, limit: key.limit),
+    );
+
+/// مجموع ما استُلم اليوم.
+final StreamProvider<int> receivedTodayProvider =
+    StreamProvider.autoDispose<int>(
+      (ref) =>
+          ref.watch(paymentServiceProvider).watchReceivedOn(DateTime.now()),
+    );
+
+/// ما يمكن لتلميذ دفعه الآن؛ يُعاد حسابه بعد كل دفعة.
+final payablesProvider = FutureProvider.autoDispose
+    .family<List<PayableItem>, String>(
+      (ref, studentId) => ref
+          .watch(paymentServiceProvider)
+          .payables(studentId, now: DateTime.now()),
+    );
+
+/// دفعة بتفاصيلها (شاشة الوصل).
+final paymentDetailProvider = FutureProvider.autoDispose
+    .family<PaymentDetail?, String>(
+      (ref, id) => ref.watch(paymentServiceProvider).detail(id),
+    );

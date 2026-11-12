@@ -173,3 +173,14 @@ class LocalCredentials extends Table {
   @override
   Set<Column> get primaryKey => {accountId};
 }
+
+/// بيانات خاصة بهذا الجهاز لا تُزامَن (مثل بادئة أرقام الوصولات).
+@DataClassName('DeviceInfoRow')
+class DeviceInfo extends Table {
+  TextColumn get key => text()();
+
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}

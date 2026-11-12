@@ -7,6 +7,7 @@ import 'screens/entrance_screen.dart';
 import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/more_page.dart';
+import 'screens/payments_screens.dart';
 import 'screens/registration_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/schedule_screen.dart';
@@ -49,7 +50,7 @@ final List<AppTab> adminTabs = [
       icon: ClayIcons.payments,
     ),
     requires: PermissionModule.payments,
-    builder: (_) => const TabPlaceholder(title: 'المدفوعات'),
+    builder: (_) => const PaymentsScreen(),
   ),
   AppTab(
     path: '/more',
@@ -60,6 +61,20 @@ final List<AppTab> adminTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> adminPages = [
+  AppPage(
+    path: '/payments/new',
+    requires: PermissionModule.receiveMoney,
+    action: PermissionAction.use,
+    builder: (context, state) =>
+        PaymentFormScreen(studentId: state.uri.queryParameters['student']),
+  ),
+  // بعد `/payments/new` حتى لا يُقرأ «new» معرّفاً لدفعة.
+  AppPage(
+    path: '/payments/:id',
+    requires: PermissionModule.payments,
+    builder: (context, state) =>
+        PaymentDetailsScreen(paymentId: state.pathParameters['id']!),
+  ),
   AppPage(
     path: '/entrance',
     requires: PermissionModule.scanner,
