@@ -67,6 +67,21 @@ class ChatContact {
   final String displayName;
 }
 
+/// عضو نشط في غرفة، للعرض وإدارة العضويات.
+class ChatRoomMemberItem {
+  const ChatRoomMemberItem({
+    required this.id,
+    required this.userId,
+    required this.role,
+    required this.displayName,
+  });
+
+  final String id;
+  final String userId;
+  final UserRole role;
+  final String displayName;
+}
+
 /// ملخص محادثة للقائمة، مع آخر رسالة وعدّاد غير المقروء.
 class ChatRoomListItem {
   const ChatRoomListItem({
@@ -548,6 +563,37 @@ class ChatService {
       await _requireCanRead(roomId);
       return rows.isEmpty ? null : db.chatRooms.map(rows.first.data);
     });
+  }
+
+  /// يعرض أعضاء غرفة للمشرف فقط، بما فيهم دورهم واسمهم الظاهر.
+  Future<List<ChatRoomMemberItem>> roomMembers(String roomId) async {
+    if (!principal.canViewAll) {
+      throw const ChatAccessException('تحتاج هذه العملية صلاحية عرض المحادثات');
+    }
+    await _requireCanRead(roomId);
+    final rows = await db
+        .customSelect(
+          'SELECT m.id, m.user_id, m.user_role, '
+          "COALESCE(NULLIF(a.display_name, ''), a.email, m.user_id) "
+          'AS display_name FROM chat_members m '
+          'LEFT JOIN user_accounts a ON a.id = m.user_id '
+          'AND a.deleted_at IS NULL '
+          'WHERE m.room_id = ? AND m.deleted_at IS NULL '
+          'ORDER BY display_name, m.user_id',
+          variables: [Variable<String>(roomId)],
+          readsFrom: {db.chatMembers, db.chatRooms, db.userAccounts},
+        )
+        .get();
+    return rows
+        .map(
+          (row) => ChatRoomMemberItem(
+            id: row.read<String>('id'),
+            userId: row.read<String>('user_id'),
+            role: UserRole.fromCode(row.read<String>('user_role')),
+            displayName: row.read<String>('display_name'),
+          ),
+        )
+        .toList(growable: false);
   }
 
   /// عضوية المستخدم الحالي في غرفة، لتحديث حالة الكتم مباشرةً.

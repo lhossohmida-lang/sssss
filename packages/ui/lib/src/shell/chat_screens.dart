@@ -388,6 +388,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   final TextEditingController _composer = TextEditingController();
   final ScrollController _scroll = ScrollController();
   List<ChatMessageRow> _page = const [];
+  final Set<String> _deletedMessageIds = {};
   bool _hasMore = false;
   bool _loadingPage = true;
   bool _sending = false;
@@ -473,8 +474,14 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   List<ChatMessageRow> _mergeMessages(List<ChatMessageRow> live) {
     final byId = <String, ChatMessageRow>{
-      for (final message in _page) message.id: message,
-      for (final message in live) message.id: message,
+      for (final message in _page)
+        if (message.deletedAt == null &&
+            !_deletedMessageIds.contains(message.id))
+          message.id: message,
+      for (final message in live)
+        if (message.deletedAt == null &&
+            !_deletedMessageIds.contains(message.id))
+          message.id: message,
     };
     return byId.values.toList()..sort((a, b) {
       final byTime = a.createdAt.compareTo(b.createdAt);
@@ -583,6 +590,165 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     }
   }
 
+  Future<void> _closeRoom() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('إغلاق المحادثة؟'),
+        content: const Text('سيتمكن الأعضاء من قراءة الرسائل السابقة فقط.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('إغلاق المحادثة'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(chatServiceProvider).closeRoom(widget.roomId);
+    } on Object catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _deleteMessage(String messageId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف الرسالة؟'),
+        content: const Text('ستُحذف الرسالة من المحادثة لجميع الأعضاء.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(chatServiceProvider).deleteMessage(messageId);
+      if (mounted) setState(() => _deletedMessageIds.add(messageId));
+    } on Object catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _showMembers() async {
+    try {
+      final members = await ref
+          .read(chatServiceProvider)
+          .roomMembers(widget.roomId);
+      if (!mounted) return;
+      final active = [...members];
+      final session = ref.read(sessionProvider).value;
+      final canRemove =
+          session?.role == UserRole.owner ||
+          session?.can(PermissionModule.chat, PermissionAction.edit) == true;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, updateDialog) => AlertDialog(
+            title: const Text('أعضاء المحادثة'),
+            content: SizedBox(
+              width: 420,
+              height: 320,
+              child: active.isEmpty
+                  ? const Center(child: Text('لا يوجد أعضاء نشطون'))
+                  : ListView.builder(
+                      itemCount: active.length,
+                      itemExtent: 72,
+                      itemBuilder: (context, index) {
+                        final member = active[index];
+                        final self = member.userId == session?.accountId;
+                        final mayRemove =
+                            canRemove &&
+                            (!self || session?.role == UserRole.owner);
+                        return ListTile(
+                          leading: const Icon(Icons.person_outline_rounded),
+                          title: Text(member.displayName),
+                          subtitle: Text(member.role.label),
+                          trailing: mayRemove
+                              ? IconButton(
+                                  tooltip: 'إزالة ${member.displayName}',
+                                  onPressed: () async {
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (confirmContext) => AlertDialog(
+                                        title: const Text('إزالة العضو؟'),
+                                        content: Text(
+                                          'لن يتمكن ${member.displayName} من متابعة هذه المحادثة.',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(
+                                              confirmContext,
+                                              false,
+                                            ),
+                                            child: const Text('إلغاء'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(
+                                              confirmContext,
+                                              true,
+                                            ),
+                                            child: const Text('إزالة'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirmed != true) return;
+                                    try {
+                                      await ref
+                                          .read(chatServiceProvider)
+                                          .removeMember(
+                                            widget.roomId,
+                                            member.userId,
+                                          );
+                                      updateDialog(
+                                        () => active.removeWhere(
+                                          (row) => row.userId == member.userId,
+                                        ),
+                                      );
+                                      ref.invalidate(
+                                        chatRoomMembersProvider(widget.roomId),
+                                      );
+                                    } on Object catch (error) {
+                                      _showError(error);
+                                    }
+                                  },
+                                  icon: const Icon(
+                                    Icons.person_remove_alt_1_outlined,
+                                  ),
+                                )
+                              : null,
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('إغلاق'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } on Object catch (error) {
+      _showError(error);
+    }
+  }
+
   Future<void> _openAttachment(ChatMessageRow message) async {
     Uint8List? bytes;
     final localPath = message.attachmentLocalPath;
@@ -681,6 +847,19 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         final membership = ref.watch(chatMembershipProvider(widget.roomId));
         final muted = membership.value?.muted ?? false;
         final canSend = _canSend(session, membership);
+        final canManage = _canManage(session);
+        final canDeleteAny = _canDeleteAny(session);
+        final senderNames = <String, String>{};
+        if (_canViewAll(session)) {
+          final members =
+              ref.watch(chatRoomMembersProvider(widget.roomId)).value ??
+              const <ChatRoomMemberItem>[];
+          senderNames.addEntries(
+            members.map(
+              (member) => MapEntry(member.userId, member.displayName),
+            ),
+          );
+        }
         return Scaffold(
           appBar: ClayAppBar(
             title: room.title.isEmpty ? 'محادثة خاصة' : room.title,
@@ -697,6 +876,25 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       : Icons.notifications_active_outlined,
                 ),
               ),
+              if (canManage)
+                PopupMenuButton<String>(
+                  tooltip: 'إدارة المحادثة',
+                  onSelected: (action) {
+                    if (action == 'members') unawaited(_showMembers());
+                    if (action == 'close') unawaited(_closeRoom());
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'members',
+                      child: Text('أعضاء المحادثة'),
+                    ),
+                    if (!room.isClosed)
+                      const PopupMenuItem(
+                        value: 'close',
+                        child: Text('إغلاق المحادثة'),
+                      ),
+                  ],
+                ),
             ],
           ),
           body: Column(
@@ -705,7 +903,16 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               Expanded(
                 child: messagesState.when(
                   loading: () => _loadingPage && _page.isNotEmpty
-                      ? _messageList(_page, session?.accountId, room.type)
+                      ? _messageList(
+                          _page,
+                          session?.accountId,
+                          room.type,
+                          senderNames: senderNames,
+                          showSender:
+                              room.type == ChatRoomType.group.code ||
+                              _canViewAll(session),
+                          canDeleteAny: canDeleteAny,
+                        )
                       : const ClayLoadingView(),
                   error: (error, _) => _accessError(error),
                   data: (live) {
@@ -721,6 +928,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       messages,
                       session?.accountId,
                       room.type,
+                      senderNames: senderNames,
+                      showSender:
+                          room.type == ChatRoomType.group.code ||
+                          _canViewAll(session),
+                      canDeleteAny: canDeleteAny,
                     );
                   },
                 ),
@@ -736,8 +948,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   Widget _messageList(
     List<ChatMessageRow> messages,
     String? accountId,
-    String roomType,
-  ) => ListView.builder(
+    String roomType, {
+    required Map<String, String> senderNames,
+    required bool showSender,
+    required bool canDeleteAny,
+  }) => ListView.builder(
     controller: _scroll,
     reverse: true,
     padding: const EdgeInsets.fromLTRB(
@@ -769,7 +984,13 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       return _ChatMessageBubble(
         message: message,
         own: message.senderId == accountId,
-        showSender: roomType == ChatRoomType.group.code,
+        showSender: showSender,
+        senderLabel: message.senderId == accountId
+            ? 'أنت'
+            : senderNames[message.senderId] ??
+                  _roleName(_roleFromCode(message.senderRole)),
+        canDelete: canDeleteAny,
+        onDelete: () => _deleteMessage(message.id),
         onAttachmentTap: () => _openAttachment(message),
       );
     },
@@ -826,6 +1047,20 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     ),
   );
 
+  bool _canViewAll(AuthSession? session) =>
+      session?.role == UserRole.owner ||
+      session?.can(PermissionModule.chat, PermissionAction.view) == true ||
+      session?.can(PermissionModule.chat, PermissionAction.edit) == true;
+
+  bool _canManage(AuthSession? session) =>
+      session?.role == UserRole.owner ||
+      session?.can(PermissionModule.chat, PermissionAction.edit) == true;
+
+  bool _canDeleteAny(AuthSession? session) =>
+      _canManage(session) ||
+      (_canViewAll(session) &&
+          session?.can(PermissionModule.chat, PermissionAction.delete) == true);
+
   bool _canSend(AuthSession? session, AsyncValue<ChatMemberRow?> membership) {
     if (session == null || membership.hasError) return false;
     return session.role == UserRole.owner ||
@@ -861,12 +1096,18 @@ class _ChatMessageBubble extends StatelessWidget {
     required this.message,
     required this.own,
     required this.showSender,
+    required this.senderLabel,
+    required this.canDelete,
+    required this.onDelete,
     required this.onAttachmentTap,
   });
 
   final ChatMessageRow message;
   final bool own;
   final bool showSender;
+  final String senderLabel;
+  final bool canDelete;
+  final VoidCallback onDelete;
   final VoidCallback onAttachmentTap;
 
   @override
@@ -912,9 +1153,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: ClaySpacing.xs),
                       child: Text(
-                        own
-                            ? 'أنت'
-                            : _roleName(_roleFromCode(message.senderRole)),
+                        senderLabel,
                         style: text.labelSmall!.copyWith(color: palette.accent),
                       ),
                     ),
@@ -934,14 +1173,37 @@ class _ChatMessageBubble extends StatelessWidget {
                   const SizedBox(height: ClaySpacing.xs),
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
-                    child: Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(
-                        _timeText(message.createdAt),
-                        style: text.labelSmall!.copyWith(
-                          color: palette.textMuted,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            _timeText(message.createdAt),
+                            style: text.labelSmall!.copyWith(
+                              color: palette.textMuted,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (canDelete)
+                          PopupMenuButton<String>(
+                            tooltip: 'إجراءات الرسالة',
+                            padding: EdgeInsets.zero,
+                            onSelected: (action) {
+                              if (action == 'delete') onDelete();
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('حذف الرسالة'),
+                              ),
+                            ],
+                            icon: const Icon(
+                              Icons.more_horiz_rounded,
+                              size: 18,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],

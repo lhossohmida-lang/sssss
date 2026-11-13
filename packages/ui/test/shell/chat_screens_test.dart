@@ -232,4 +232,160 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 10));
   });
+
+  testWidgets('moderator manages members, deletes messages, and closes room', (
+    tester,
+  ) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final writer = SyncWriter(
+      db,
+      actor: () => const Actor(userId: 'owner', userName: 'المدير'),
+      clock: () => 100,
+      idGenerator: () => 'moderator-chat-id',
+    );
+    await db
+        .into(db.chatRooms)
+        .insert(
+          ChatRoomsCompanion.insert(
+            id: 'private-room',
+            createdAt: 1,
+            updatedAt: 1,
+            type: ChatRoomType.private.code,
+            title: const Value('محادثة خاصة'),
+            createdBy: 'teacher',
+          ),
+        );
+    await db.batch((batch) {
+      batch.insertAll(db.userAccounts, [
+        UserAccountsCompanion.insert(
+          id: 'teacher',
+          createdAt: 1,
+          updatedAt: 1,
+          email: 'teacher@example.test',
+          role: UserRole.teacher.code,
+          displayName: const Value('الأستاذ كمال'),
+          mustChangePassword: const Value(false),
+        ),
+        UserAccountsCompanion.insert(
+          id: 'parent',
+          createdAt: 1,
+          updatedAt: 1,
+          email: 'parent@example.test',
+          role: UserRole.parent.code,
+          displayName: const Value('ولي سمير'),
+          mustChangePassword: const Value(false),
+        ),
+      ]);
+      batch.insertAll(db.chatMembers, [
+        ChatMembersCompanion.insert(
+          id: 'member-teacher',
+          createdAt: 1,
+          updatedAt: 1,
+          roomId: 'private-room',
+          userId: 'teacher',
+          userRole: UserRole.teacher.code,
+        ),
+        ChatMembersCompanion.insert(
+          id: 'member-parent',
+          createdAt: 1,
+          updatedAt: 1,
+          roomId: 'private-room',
+          userId: 'parent',
+          userRole: UserRole.parent.code,
+        ),
+      ]);
+      batch.insert(
+        db.chatMessages,
+        ChatMessagesCompanion.insert(
+          id: 'message-1',
+          createdAt: 50,
+          updatedAt: 50,
+          roomId: 'private-room',
+          senderId: 'teacher',
+          senderRole: UserRole.teacher.code,
+          content: const Value('رسالة قابلة للحذف'),
+        ),
+      );
+    });
+    final service = ChatService(
+      db,
+      writer,
+      const ChatPrincipal(
+        userId: 'owner',
+        role: UserRole.owner,
+        policy: AccessPolicy(role: UserRole.owner),
+      ),
+    );
+    final session = AuthSession(
+      const AccountRecord(
+        id: 'owner',
+        email: 'owner@example.test',
+        role: UserRole.owner,
+        displayName: 'المدير',
+        mustChangePassword: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ClayApp(
+        app: AppIdentity.admin,
+        home: ProviderScope(
+          overrides: [
+            sessionProvider.overrideWith((ref) => Stream.value(session)),
+            chatServiceProvider.overrideWith((ref) => service),
+          ],
+          child: const ChatRoomScreen(roomId: 'private-room'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('رسالة قابلة للحذف'), findsOneWidget);
+    expect(find.text('الأستاذ كمال'), findsOneWidget);
+    expect(find.byTooltip('إدارة المحادثة'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('إدارة المحادثة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('أعضاء المحادثة'));
+    await tester.pumpAndSettle();
+    expect(find.text('ولي سمير'), findsOneWidget);
+    await tester.tap(find.byTooltip('إزالة ولي سمير'));
+    await tester.pumpAndSettle();
+    expect(find.text('إزالة العضو؟'), findsOneWidget);
+    await tester.tap(find.text('إزالة').last);
+    await tester.pumpAndSettle();
+    expect(find.text('ولي سمير'), findsNothing);
+    await tester.tap(find.widgetWithText(TextButton, 'إغلاق'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('إجراءات الرسالة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حذف الرسالة'));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف الرسالة؟'), findsOneWidget);
+    await tester.tap(find.text('حذف').last);
+    await tester.pumpAndSettle();
+    expect(find.text('رسالة قابلة للحذف'), findsNothing);
+    expect(
+      (await (db.select(
+        db.chatMessages,
+      )..where((row) => row.id.equals('message-1'))).getSingle()).deletedAt,
+      isNotNull,
+    );
+
+    await tester.tap(find.byTooltip('إدارة المحادثة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إغلاق المحادثة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إغلاق المحادثة').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('أُغلقت هذه المحادثة؛ يمكنك قراءة الرسائل السابقة فقط'),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
+  });
 }

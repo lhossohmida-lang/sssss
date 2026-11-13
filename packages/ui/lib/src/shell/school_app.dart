@@ -162,6 +162,11 @@ class ShellPage extends ConsumerWidget {
     final tab = tabs[shell.currentIndex];
     final school = ref.watch(schoolNameProvider).value ?? '';
     final unread = ref.watch(unreadCountProvider).value ?? 0;
+    final hasChat =
+        session.role == UserRole.teacher || session.role == UserRole.parent;
+    final chatUnread = hasChat
+        ? ref.watch(chatUnreadCountProvider).value ?? 0
+        : 0;
     final p = context.palette;
     final text = Theme.of(context).textTheme;
 
@@ -175,6 +180,18 @@ class ShellPage extends ConsumerWidget {
       appBar: ClayAppBar(
         title: tab.destination.label,
         actions: [
+          if (hasChat)
+            IconButton(
+              tooltip: chatUnread > 0
+                  ? 'المحادثات ($chatUnread غير مقروءة)'
+                  : 'المحادثات',
+              icon: Badge(
+                isLabelVisible: chatUnread > 0,
+                label: Text(chatUnread > 99 ? '99+' : '$chatUnread'),
+                child: Icon(ClayIcons.chat, color: p.text),
+              ),
+              onPressed: () => context.push('/chat'),
+            ),
           IconButton(
             tooltip: unread > 0
                 ? 'الإشعارات ($unread غير مقروءة)'

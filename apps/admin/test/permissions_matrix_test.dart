@@ -13,6 +13,7 @@ AccessPolicy worker(WorkerPermissions permissions) =>
 
 /// صلاحية واحدة على وحدة: الفعل المشترط أو «العرض» أو أول فعل للوحدة.
 PermissionAction neededOf(AppPage page) =>
+    page.anyActions?.first ??
     page.action ??
     (page.requires!.actions.contains(PermissionAction.view)
         ? PermissionAction.view

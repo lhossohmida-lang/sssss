@@ -299,6 +299,16 @@ select test.sees('select 1 from teacher_payouts', 1, 'الأستاذ 1: خلاص
 select test.sees('select 1 from payments', 0, 'الأستاذ 1: لا مدفوعات');
 select test.sees('select 1 from workers', 0, 'الأستاذ 1: لا عمال');
 select test.sees('select 1 from user_accounts', 1, 'الأستاذ 1: حسابه فقط');
+select test.sees('select 1 from chat_user_accounts', 2,
+  'الأستاذ 1: حسابه ووليّو مجموعته في عرض المحادثة');
+select test.sees(
+  $$select 1 from chat_user_accounts where id = 'acc-p1'
+    and email = 'chat-contact+6163632d7031@invalid.local'
+    and must_change_password = false$$, 1,
+  'الأستاذ يرى اسم الوليّ دون بريده أو حالة كلمة سره');
+select test.sees(
+  $$select 1 from chat_user_accounts where id in ('acc-t2', 'acc-p2')$$, 0,
+  'الأستاذ لا يرى حسابات مجموعة أخرى');
 select test.sees('select 1 from sms_queue', 0, 'الأستاذ 1: لا طابور رسائل');
 
 select test.allowed(
@@ -450,6 +460,17 @@ select test.sees('select 1 from workers', 0, 'الوليّ: لا عمال');
 select test.sees('select 1 from sms_queue', 0, 'الوليّ: لا طابور رسائل');
 select test.sees('select 1 from audit_log', 0, 'الوليّ: لا سجل عمليات');
 select test.sees('select 1 from parents', 1, 'الوليّ: سجله فقط');
+select test.sees('select 1 from user_accounts', 1, 'الوليّ: حسابه فقط');
+select test.sees('select 1 from chat_user_accounts', 2,
+  'الوليّ 1: حسابه وأستاذ ابنه في عرض المحادثة');
+select test.sees(
+  $$select 1 from chat_user_accounts where id = 'acc-t1'
+    and email = 'chat-contact+6163632d7431@invalid.local'
+    and must_change_password = false$$, 1,
+  'الوليّ يرى اسم الأستاذ دون بريده أو حالة كلمة سره');
+select test.sees(
+  $$select 1 from chat_user_accounts where id in ('acc-t2', 'acc-p2')$$, 0,
+  'الوليّ لا يرى حسابات مجموعة أخرى');
 select test.denied(
   $$insert into attendance (id, created_at, updated_at, session_id, student_id,
       status, scanned_at, method)

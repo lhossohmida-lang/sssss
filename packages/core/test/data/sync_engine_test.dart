@@ -540,11 +540,28 @@ void main() {
           parent.firstWhere((t) => t.local == 'groups').remote,
           'group_cards',
         );
+        final parentAccounts = parent.firstWhere(
+          (t) => t.local == 'user_accounts',
+        );
+        expect(parentAccounts.remote, 'chat_user_accounts');
+        expect(parentAccounts.push, isTrue);
+        expect(
+          SyncProfile.forRole(UserRole.teacher)
+              .firstWhere((t) => t.local == 'user_accounts')
+              .remote,
+          'chat_user_accounts',
+        );
         expect(
           SyncProfile.forRole(UserRole.teacher)
               .firstWhere((t) => t.local == 'teachers')
               .remote,
           'teachers',
+        );
+        expect(
+          SyncProfile.forRole(UserRole.teacher)
+              .firstWhere((t) => t.local == 'groups')
+              .remote,
+          'groups',
         );
 
         // الخادم فيه أستاذ كامل؛ العرض يحجب بريده ورمزه ومبلغه.
@@ -570,6 +587,32 @@ void main() {
               'qr_code': 'X-${t['id']}',
             },
         ];
+        remote.views['chat_user_accounts'] = () => [
+          {
+            'id': 'u-parent',
+            'created_at': 1,
+            'updated_at': 2,
+            'deleted_at': null,
+            'synced_at': 2,
+            'email': 'parent@school.local',
+            'role': UserRole.parent.code,
+            'entity_id': 'p1',
+            'display_name': 'ولي سمير',
+            'must_change_password': true,
+          },
+          {
+            'id': 'u-teacher',
+            'created_at': 1,
+            'updated_at': 2,
+            'deleted_at': null,
+            'synced_at': 2,
+            'email': 'chat-contact+752d74656163686572@invalid.local',
+            'role': UserRole.teacher.code,
+            'entity_id': 't1',
+            'display_name': 'الأستاذ كريم',
+            'must_change_password': false,
+          },
+        ];
         final parentEngine = engineFor(a, role: UserRole.parent);
         await parentEngine.pullAll();
         final card = await a.db.select(a.db.teachers).getSingle();
@@ -577,6 +620,14 @@ void main() {
         expect(card.email, '');
         expect(card.ratePerStudent, 0);
         expect(card.qrCode, 'X-t1');
+        final syncedAccounts = await a.db.select(a.db.userAccounts).get();
+        expect(
+          syncedAccounts.map((account) => (account.id, account.email)),
+          unorderedEquals([
+            ('u-parent', 'parent@school.local'),
+            ('u-teacher', 'chat-contact+752d74656163686572@invalid.local'),
+          ]),
+        );
 
         // حتى لو دخل تعديل على الأساتذة في طابور الوليّ فلا يُدفع.
         await a.db

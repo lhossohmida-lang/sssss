@@ -52,6 +52,12 @@ final chatMembershipProvider = StreamProvider.autoDispose
       (ref, roomId) => ref.watch(chatServiceProvider).watchMyMembership(roomId),
     );
 
+/// أسماء أعضاء غرفة ظاهرة للمشرفين لإدارة العضويات ونسبة الرسائل لأصحابها.
+final chatRoomMembersProvider = FutureProvider.autoDispose
+    .family<List<ChatRoomMemberItem>, String>(
+      (ref, roomId) => ref.watch(chatServiceProvider).roomMembers(roomId),
+    );
+
 typedef ChatMessagesKey = ({String roomId, int limit});
 
 /// أحدث الرسائل، بحد أقصى 50 رسالة.
@@ -90,6 +96,17 @@ final StreamProvider<int> unreadCountProvider = StreamProvider.autoDispose<int>(
         .watchUnreadNotificationCount(accountId);
   },
 );
+
+/// إجمالي المحادثات غير المقروءة في تطبيقي الأستاذ والوليّ.
+final StreamProvider<int> chatUnreadCountProvider =
+    StreamProvider.autoDispose<int>((ref) {
+      return ref
+          .watch(chatServiceProvider)
+          .watchRooms()
+          .map(
+            (rooms) => rooms.fold(0, (total, room) => total + room.unreadCount),
+          );
+    });
 
 /// إشعارات المستخدم الحالي، الأحدث أولاً (آخر 200).
 final StreamProvider<List<NotificationRow>> notificationsProvider =

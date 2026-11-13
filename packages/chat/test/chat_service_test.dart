@@ -428,11 +428,24 @@ void main() {
         final room = await h.teacher.createPrivateRoom('u-parent');
         final message = await h.teacher.sendText(room.id, 'رسالة قابلة للحذف');
         final manager = h.owner;
+        final members = await manager.roomMembers(room.id);
+
+        expect(
+          members.map((member) => (member.userId, member.displayName)),
+          unorderedEquals([
+            ('u-parent', 'ولي سمير'),
+            ('u-teacher', 'الأستاذ كمال'),
+          ]),
+        );
 
         final adminReply = await manager.sendText(room.id, 'رسالة الإدارة');
         expect(adminReply.senderRole, UserRole.owner.code);
         expect(await manager.deleteMessage(message.id), isTrue);
         expect(await manager.removeMember(room.id, 'u-parent'), isTrue);
+        expect(
+          (await manager.roomMembers(room.id)).map((member) => member.userId),
+          ['u-teacher'],
+        );
         expect(await manager.closeRoom(room.id), isTrue);
         expect(await manager.closeRoom(room.id), isFalse);
         expect(

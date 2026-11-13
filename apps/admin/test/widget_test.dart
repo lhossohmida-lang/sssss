@@ -31,6 +31,26 @@ const teacher = TestAccount(
   entityId: 't1',
 );
 
+const chatViewer = TestAccount(
+  id: 'u-chat-viewer',
+  email: 'chat-viewer@school.local',
+  password: 'chat-viewer-pass-1',
+  role: UserRole.worker,
+  entityId: 'w2',
+  displayName: 'مراقب المحادثات',
+  permissions: '{"chat":["view"]}',
+);
+
+const chatDeleter = TestAccount(
+  id: 'u-chat-deleter',
+  email: 'chat-deleter@school.local',
+  password: 'chat-deleter-pass-1',
+  role: UserRole.worker,
+  entityId: 'w3',
+  displayName: 'حاذف رسائل بلا عرض',
+  permissions: '{"chat":["delete"]}',
+);
+
 void main() {
   appTest('يفتح بالعربية ومن اليمين إلى اليسار على شاشة الدخول', (
     tester,
@@ -73,6 +93,34 @@ void main() {
     expect(find.text('التلاميذ'), findsWidgets);
     expect(find.text('المدفوعات'), findsWidgets);
     expect(find.text('المجموعات'), findsNothing);
+  });
+
+  appTest('عامل عرض المحادثات يفتح صندوق الإدارة دون إنشاء', (tester) async {
+    await bootApp(
+      tester,
+      adminTabs,
+      app: AppIdentity.admin,
+      accounts: [chatViewer],
+      pages: adminPages,
+    );
+    await loginWith(tester, chatViewer.email, chatViewer.password);
+    await openMoreEntry(tester, 'المحادثات');
+    expect(find.text('لا توجد محادثات بعد'), findsOneWidget);
+    expect(find.byTooltip('محادثة جديدة'), findsNothing);
+  });
+
+  appTest('صلاحية حذف فقط لا تكشف صندوق المحادثات', (tester) async {
+    await bootApp(
+      tester,
+      adminTabs,
+      app: AppIdentity.admin,
+      accounts: [chatDeleter],
+      pages: adminPages,
+    );
+    await loginWith(tester, chatDeleter.email, chatDeleter.password);
+    await tester.tap(find.text('المزيد').last);
+    await tester.pumpAndSettle();
+    expect(find.text('المحادثات'), findsNothing);
   });
 
   appTest('حساب الأستاذ لا يدخل تطبيق الإدارة', (tester) async {

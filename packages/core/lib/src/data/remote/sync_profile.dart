@@ -64,21 +64,25 @@ abstract final class SyncProfile {
 
   /// جداول المزامنة لدور المستخدم.
   ///
-  /// الوليّ يسحب الأساتذة والمجموعات من العرضين المحجوبين `teacher_cards`
-  /// و`group_cards` ولا يدفع إليهما.
+  /// الأستاذ والوليّ يسحبان حسابات المراسلة من العرض المحدود
+  /// `chat_user_accounts`. الوليّ أيضاً يسحب الأستاذ والمجموعة من بطاقتين
+  /// تحجبان البيانات المالية والتعريفية الحساسة.
   static List<SyncTable> forRole(UserRole role) {
-    if (role != UserRole.parent) {
+    if (role != UserRole.parent && role != UserRole.teacher) {
       return [for (final name in _order) SyncTable(name)];
     }
     return [
       for (final name in _order)
         switch (name) {
-          'teachers' => const SyncTable(
+          'user_accounts'
+              when role == UserRole.teacher || role == UserRole.parent =>
+            const SyncTable('user_accounts', remote: 'chat_user_accounts'),
+          'teachers' when role == UserRole.parent => const SyncTable(
             'teachers',
             remote: 'teacher_cards',
             push: false,
           ),
-          'groups' => const SyncTable(
+          'groups' when role == UserRole.parent => const SyncTable(
             'groups',
             remote: 'group_cards',
             push: false,

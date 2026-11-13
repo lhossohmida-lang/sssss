@@ -10,6 +10,7 @@ class AppPage {
     required this.builder,
     this.requires,
     this.action,
+    this.anyActions,
   });
 
   /// مسار الصفحة، ويقبل معاملات مثل `/students/:id`.
@@ -22,6 +23,9 @@ class AppPage {
   /// الفعل المشترط على [requires] بالتحديد (مثل «إضافة» لصفحة التسجيل)؛
   /// دونه يكفي أي فعل.
   final PermissionAction? action;
+
+  /// أحد هذه الأفعال يكفي للوصول إلى الصفحة.
+  final Set<PermissionAction>? anyActions;
 
   /// هل تنطبق هذه الصفحة على [location]؟ (للتحقق من الصلاحية)
   bool matches(String location) {
@@ -37,6 +41,10 @@ class AppPage {
   bool visibleTo(AccessPolicy policy) {
     final module = requires;
     if (module == null) return true;
+    final alternatives = anyActions;
+    if (alternatives != null) {
+      return alternatives.any((action) => policy.can(module, action));
+    }
     final needed = action;
     return needed == null
         ? policy.canAnyOf(module)

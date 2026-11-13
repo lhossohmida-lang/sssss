@@ -276,6 +276,25 @@ final List<AppPage> adminPages = [
     builder: (context, state) => const SmsCenterScreen(),
   ),
   AppPage(
+    path: '/chat',
+    requires: PermissionModule.chat,
+    anyActions: {PermissionAction.view, PermissionAction.edit},
+    builder: (context, state) => const ChatInboxScreen(),
+  ),
+  AppPage(
+    path: '/chat/new',
+    requires: PermissionModule.chat,
+    anyActions: {PermissionAction.add, PermissionAction.edit},
+    builder: (context, state) => const ChatCreateScreen(),
+  ),
+  AppPage(
+    path: '/chat/:roomId',
+    requires: PermissionModule.chat,
+    anyActions: {PermissionAction.view, PermissionAction.edit},
+    builder: (context, state) =>
+        ChatRoomScreen(roomId: state.pathParameters['roomId']!),
+  ),
+  AppPage(
     path: '/settings',
     requires: PermissionModule.settings,
     builder: (context, state) => const SettingsScreen(),

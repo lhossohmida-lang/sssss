@@ -57,6 +57,20 @@ void main() {
     }
   });
 
+  appTest('مدخل المحادثات يفتح صندوق رسائل الوليّ', (tester) async {
+    await bootApp(
+      tester,
+      studentTabs,
+      app: AppIdentity.student,
+      accounts: [parent],
+      pages: studentPages,
+    );
+    await loginWith(tester, parent.email, parent.password);
+    await tester.tap(find.byTooltip('المحادثات'));
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد محادثات بعد'), findsOneWidget);
+  });
+
   appTest('حساب الأستاذ لا يدخل تطبيق الوليّ', (tester) async {
     final runtime = await bootApp(
       tester,

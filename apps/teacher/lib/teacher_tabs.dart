@@ -50,6 +50,16 @@ final List<AppTab> teacherTabs = [
 
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> teacherPages = [
+  AppPage(path: '/chat', builder: (context, state) => const ChatInboxScreen()),
+  AppPage(
+    path: '/chat/new',
+    builder: (context, state) => const ChatCreateScreen(),
+  ),
+  AppPage(
+    path: '/chat/:roomId',
+    builder: (context, state) =>
+        ChatRoomScreen(roomId: state.pathParameters['roomId']!),
+  ),
   AppPage(
     path: '/groups/:id/files',
     builder: (context, state) =>

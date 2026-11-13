@@ -24,6 +24,7 @@ class MoreEntry {
     required this.path,
     required this.section,
     this.requires,
+    this.anyActions,
   });
 
   final String label;
@@ -37,6 +38,9 @@ class MoreEntry {
 
   /// الوحدة التي يشترطها ظهور القسم.
   final PermissionModule? requires;
+
+  /// أحد هذه الأفعال يكفي لإظهار هذا القسم.
+  final Set<PermissionAction>? anyActions;
 }
 
 /// أقسام «المزيد» مجمّعة؛ كل مهمة لاحقة تضيف قسمها مع صفحته في `adminPages`.
@@ -96,6 +100,14 @@ const List<MoreEntry> moreEntries = [
     path: '/payouts',
     section: MoreSection.finance,
     requires: PermissionModule.payouts,
+  ),
+  MoreEntry(
+    label: 'المحادثات',
+    icon: ClayIcons.chat,
+    path: '/chat',
+    section: MoreSection.team,
+    requires: PermissionModule.chat,
+    anyActions: {PermissionAction.view, PermissionAction.edit},
   ),
   MoreEntry(
     label: 'طلبات الأساتذة',
@@ -198,7 +210,10 @@ class MorePage extends ConsumerWidget {
           if (entry.section == section &&
               session != null &&
               (entry.requires == null ||
-                  session.policy.canAnyOf(entry.requires!)))
+                  (entry.anyActions?.any(
+                        (action) => session.can(entry.requires!, action),
+                      ) ??
+                      session.policy.canAnyOf(entry.requires!))))
             entry,
       ];
       if (visible.isEmpty) continue;
