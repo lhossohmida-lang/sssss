@@ -541,8 +541,8 @@ select test.denied(
 select test.denied(
   $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
       sender_role, content)
-    values ('msg2', 1, 1, 'room1', 'acc-t1', 'teacher', 'انتحال')$$,
-  'الوليّ يرسل رسالة باسم الأستاذ');
+    values ('msg2', 1, 1, 'room1', 'acc-p1', 'parent', 'انتحال')$$,
+  'الأستاذ لا يرسل رسالة باسم وليّ آخر');
 select test.logout();
 
 select test.login('acc-t1');
