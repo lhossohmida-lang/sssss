@@ -5,6 +5,7 @@ import 'screens/home_screen.dart';
 import 'screens/payments_screen.dart';
 import 'screens/qr_screen.dart';
 import 'screens/schedule_screen.dart';
+import 'screens/subject_screen.dart';
 
 /// تبويبات تطبيق الوليّ والتلميذ.
 final List<AppTab> studentTabs = [
@@ -47,4 +48,9 @@ final List<AppTab> studentTabs = [
 /// صفحات بملء الشاشة خارج التبويبات؛ كل مهمة لاحقة تضيف صفحتها هنا.
 final List<AppPage> studentPages = [
   AppPage(path: '/qr', builder: (context, state) => const ChildQrScreen()),
+  AppPage(
+    path: '/subjects/:groupId',
+    builder: (context, state) =>
+        SubjectScreen(groupId: state.pathParameters['groupId']!),
+  ),
 ];

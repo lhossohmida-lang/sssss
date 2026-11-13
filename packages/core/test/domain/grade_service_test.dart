@@ -233,6 +233,44 @@ void main() {
       expect(GradeService.format(15.5), '15.5');
     });
 
+    test(
+      'نتائج تلميذ في مجموعة: الأحدث أولاً بسلّمها ومتوسطها من 20',
+      () async {
+        await save({
+          's1': (score: 15.0, note: 'جيد'),
+          's2': (score: 9.0, note: ''),
+        });
+        await save(
+          {'s1': (score: 40.0, note: '')},
+          title: 'فرض',
+          date: '2026-11-21',
+          max: 50,
+        );
+        final list = await grades.forStudent('s1', 'g1');
+        expect(list.map((g) => g.title), ['فرض', 'اختبار الفصل']);
+        expect(list.first.score, 40);
+        expect(list.first.maxScore, 50);
+        expect(list.first.outOf20, 16);
+        expect(list.last.note, 'جيد');
+        // (16 + 15) / 2
+        expect(GradeService.averageOutOf20(list), 15.5);
+        expect(GradeService.averageOutOf20(const []), isNull);
+        // تلميذ آخر ومجموعة أخرى ومحذوف.
+        expect((await grades.forStudent('s2', 'g1')).single.score, 9);
+        expect(await grades.forStudent('s1', 'other'), isEmpty);
+        await grades.deleteAssessment(
+          'g1',
+          title: 'فرض',
+          date: '2026-11-21',
+          teacherId: 't1',
+        );
+        expect(
+          (await grades.forStudent('s1', 'g1')).single.title,
+          'اختبار الفصل',
+        );
+      },
+    );
+
     test('watchAssessments يتحدث بعد الحفظ', () async {
       final seen = <int>[];
       final sub = grades

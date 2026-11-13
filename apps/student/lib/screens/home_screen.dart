@@ -194,6 +194,7 @@ class _SubjectCard extends StatelessWidget {
       child: ClayCard(
         flat: true,
         padding: const EdgeInsets.all(ClaySpacing.md),
+        onTap: () => context.push('/subjects/${info.groupId}'),
         semanticLabel:
             '${info.subjectName}، المجموعة ${info.groupNumber}، '
             'الأستاذ ${info.teacherName}',

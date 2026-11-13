@@ -806,3 +806,14 @@ final childPaymentsProvider = StreamProvider.autoDispose
           .watch(paymentServiceProvider)
           .watchPayments(studentId: key.studentId, limit: key.limit),
     );
+
+/// ما يحدّد نتائج تلميذ: هو ومجموعته.
+typedef ChildGradesKey = ({String studentId, String groupId});
+
+/// نتائج تلميذ في مجموعة، الأحدث أولاً، ولحظياً (كشف الوليّ).
+final childGradesProvider = StreamProvider.autoDispose
+    .family<List<ChildGrade>, ChildGradesKey>(
+      (ref, key) => ref
+          .watch(gradeServiceProvider)
+          .watchForStudent(key.studentId, key.groupId),
+    );

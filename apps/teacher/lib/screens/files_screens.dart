@@ -1,17 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
-
-/// «2.5 ك.ب» أو «1.2 م.ب» من حجم بالبايت (أرقام لاتينية).
-String fileSizeText(int bytes) {
-  if (bytes < 1024) return '$bytes بايت';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} ك.ب';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} م.ب';
-}
 
 /// ملفات المجموعة: دروس وتمارين يرفعها الأستاذ لتلاميذه، يفتح كل ملف
 /// بالضغط عليه، وتُعاد تسميته أو يُحذف.
@@ -19,57 +10,6 @@ class GroupFilesScreen extends ConsumerWidget {
   const GroupFilesScreen({required this.groupId, super.key});
 
   final String groupId;
-
-  Future<void> _open(
-    BuildContext context,
-    WidgetRef ref,
-    GroupFileItem item,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final service = ref.read(groupFileServiceProvider);
-    Uint8List? bytes = await service.readLocal(item.file);
-    if (bytes == null) {
-      // النسخة المحلية غير موجودة (ملف رُفع من جهاز آخر): يُجلب من الخادم.
-      final url = item.file.fileUrl;
-      final store = ref.read(runtimeProvider).fileStore;
-      if (url != null && store != null) {
-        final slash = url.indexOf('/');
-        try {
-          bytes = await store.download(
-            bucket: url.substring(0, slash),
-            remotePath: url.substring(slash + 1),
-          );
-        } on RemoteException {
-          bytes = null;
-        }
-      }
-    }
-    if (bytes == null) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('تعذّر فتح الملف الآن؛ تحقّق من الاتصال وأعد المحاولة'),
-        ),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    if (item.isPdf) {
-      await ref
-          .read(pdfPresenterProvider)
-          .show(
-            context,
-            bytes: bytes,
-            fileName: item.fileName,
-            title: item.title,
-          );
-    } else {
-      await showClayDialog<void>(
-        context,
-        title: item.title,
-        content: InteractiveViewer(child: Image.memory(bytes)),
-      );
-    }
-  }
 
   Future<void> _rename(
     BuildContext context,
@@ -155,7 +95,7 @@ class GroupFilesScreen extends ConsumerWidget {
                         item.isPdf ? ClayIcons.files : ClayIcons.receipt,
                         color: p.accent,
                       ),
-                      onTap: () => _open(context, ref, item),
+                      onTap: () => openGroupFile(context, ref, item),
                       trailing: [
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,

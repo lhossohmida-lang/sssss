@@ -43,6 +43,29 @@ class GradeEntry {
   final String note;
 }
 
+/// نتيجة تلميذ في اختبار كما يراها وليّه.
+class ChildGrade {
+  const ChildGrade({
+    required this.id,
+    required this.title,
+    required this.date,
+    required this.score,
+    required this.maxScore,
+    required this.note,
+  });
+
+  final String id;
+  final String title;
+  final String date;
+  final double score;
+  final double maxScore;
+  final String note;
+
+  /// العلامة منسوبة إلى 20 (سلّم المدارس الجزائرية) لتُقارن النتائج بسلالم
+  /// مختلفة.
+  double get outOf20 => score / maxScore * 20;
+}
+
 /// ما يُدخله الأستاذ لتلميذ: علامته (أو `null` لعدم الإدخال) وملاحظته.
 typedef GradeInput = ({double? score, String note});
 
@@ -251,6 +274,48 @@ class GradeService {
       }
       return rows.length;
     });
+  }
+
+  /// نتائج تلميذ في مجموعة، الأحدث أولاً، ولحظياً.
+  Stream<List<ChildGrade>> watchForStudent(String studentId, String groupId) {
+    return db
+        .customSelect('SELECT 1', readsFrom: {db.grades})
+        .watch()
+        .asyncMap((_) => forStudent(studentId, groupId));
+  }
+
+  Future<List<ChildGrade>> forStudent(String studentId, String groupId) async {
+    final rows =
+        await (db.select(db.grades)
+              ..where(
+                (g) =>
+                    g.studentId.equals(studentId) &
+                    g.groupId.equals(groupId) &
+                    g.deletedAt.isNull(),
+              )
+              ..orderBy([
+                (g) => OrderingTerm.desc(g.date),
+                (g) => OrderingTerm.asc(g.title),
+                (g) => OrderingTerm.asc(g.id),
+              ]))
+            .get();
+    return [
+      for (final g in rows)
+        ChildGrade(
+          id: g.id,
+          title: g.title,
+          date: g.date,
+          score: g.score,
+          maxScore: g.maxScore,
+          note: g.note,
+        ),
+    ];
+  }
+
+  /// متوسط [grades] منسوباً إلى 20، أو `null` إن لم توجد نتائج.
+  static double? averageOutOf20(List<ChildGrade> grades) {
+    if (grades.isEmpty) return null;
+    return grades.fold<double>(0, (sum, g) => sum + g.outOf20) / grades.length;
   }
 
   /// «15.5» أو «20» بلا كسر زائد.

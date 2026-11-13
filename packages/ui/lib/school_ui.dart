@@ -22,6 +22,7 @@ export 'src/shell/attendance_grid.dart';
 export 'src/shell/auth_screens.dart';
 export 'src/shell/child_switcher.dart';
 export 'src/shell/file_picking.dart';
+export 'src/shell/group_file_viewer.dart';
 export 'src/shell/keyboard_wedge.dart';
 export 'src/shell/list_page.dart';
 export 'src/shell/notifications_screen.dart';
