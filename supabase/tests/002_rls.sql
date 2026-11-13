@@ -709,6 +709,6 @@ select test.denied(
 select test.logout();
 
 select test.login('acc-t1');
-select test.sees('select 1 from chat_messages where room_id = ''room-group''', 1,
-  'أستاذ المجموعة النشط يقرأ رسائلها');
+select test.sees('select 1 from chat_messages where room_id = ''room-group''', 2,
+  'أستاذ المجموعة النشط يقرأ رسائل الغرفة قبل مغادرة الوليّ');
 select test.logout();
