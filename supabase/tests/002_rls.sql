@@ -592,6 +592,8 @@ select test.allowed(
 select test.logout();
 
 select test.login('acc-w2');
+select test.sees('select 1 where app.can(''chat'', ''edit'')', 1,
+  'العامل يملك صلاحية تعديل المحادثات');
 select test.sees('select 1 from chat_rooms where id = ''room1''', 1,
   'العامل المراقب يرى الغرفة');
 select test.sees('select 1 from chat_messages where room_id = ''room1''', 3,
