@@ -84,7 +84,7 @@ values ('w1', 1, 1, 'سمير', '0660000001', 'w1@school.local', 'W-AAAAAAAAAA',
         480, 1020, 2000, 1200, '{}',
         '{"students": ["view", "add"], "scanner": ["use"], "receive_money": ["use"]}'),
        ('w2', 1, 1, 'نادية', '0660000002', 'w2@school.local', 'W-BBBBBBBBBB',
-        480, 1020, 2000, 1200, '{}', '{"chat":["edit"]}');
+        480, 1020, 2000, 1200, '{}', '{}');
 
 insert into parents (id, created_at, updated_at, phone, email, name)
 values ('p1', 1, 1, '0550000001', 'p1@school.local', 'وليّ 1'),
@@ -589,6 +589,13 @@ select test.allowed(
       sender_role, content)
     values ('msg-owner', 3, 3, 'room1', 'acc-owner', 'owner', 'رسالة من الإدارة')$$,
   'المالك يكتب في غرفة يراقبها');
+select test.logout();
+
+select test.login('acc-owner');
+select test.allowed(
+  $$update workers set permissions = '{"chat":["edit"]}', updated_at = 4
+     where id = 'w2'$$,
+  'المالك يفعّل مراقبة المحادثات للعامل 2');
 select test.logout();
 
 select test.login('acc-w2');
