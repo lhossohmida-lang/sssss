@@ -71,4 +71,11 @@ extension AppQueries on AppDatabase {
       ]);
     return query.watch();
   }
+
+  /// صف وليّ حي بمعرّفه، ولحظياً (`null` إن لم يوجد أو حُذف).
+  Stream<ParentRow?> watchParent(String id) {
+    final query = select(parents)
+      ..where((p) => p.id.equals(id) & p.deletedAt.isNull());
+    return query.watchSingleOrNull();
+  }
 }

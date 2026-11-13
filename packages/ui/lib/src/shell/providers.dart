@@ -817,3 +817,11 @@ final childGradesProvider = StreamProvider.autoDispose
           .watch(gradeServiceProvider)
           .watchForStudent(key.studentId, key.groupId),
     );
+
+/// صف الوليّ صاحب الجلسة (هاتفه)، أو `null`.
+final StreamProvider<ParentRow?> myParentProvider =
+    StreamProvider.autoDispose<ParentRow?>((ref) {
+      final me = ref.watch(myParentIdProvider);
+      if (me == null) return Stream.value(null);
+      return ref.watch(runtimeProvider).db.watchParent(me);
+    });

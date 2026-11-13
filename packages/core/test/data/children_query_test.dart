@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
 
@@ -63,5 +63,12 @@ void main() {
     await sub.cancel();
     expect(seen.first, 1);
     expect(seen.last, 2);
+  });
+
+  test('watchParent: صف الوليّ، وnull إن لم يوجد أو حُذف', () async {
+    expect((await env.db.watchParent('p1').first)?.email, 'p1@school.local');
+    expect(await env.db.watchParent('nobody').first, isNull);
+    await env.writer.softDelete(env.db.parents, key: {'id': 'p2'});
+    expect(await env.db.watchParent('p2').first, isNull);
   });
 }

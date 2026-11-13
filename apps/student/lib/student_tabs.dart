@@ -1,5 +1,6 @@
 import 'package:school_ui/school_ui.dart';
 
+import 'screens/account_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/payments_screen.dart';
@@ -41,7 +42,7 @@ final List<AppTab> studentTabs = [
   AppTab(
     path: '/account',
     destination: const ClayDestination(label: 'حسابي', icon: ClayIcons.parents),
-    builder: (_) => const TabPlaceholder(title: 'حسابي'),
+    builder: (_) => const ParentAccountScreen(),
   ),
 ];
 
