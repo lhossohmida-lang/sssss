@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_core/school_core.dart';
@@ -7,9 +8,11 @@ import '../clay/clay_container.dart';
 import '../clay/clay_display.dart';
 import '../clay/clay_icons.dart';
 import '../clay/clay_navigation.dart';
+import '../clay/clay_overlays.dart';
 import '../clay/clay_selection.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import 'attendance_excel.dart';
 import 'providers.dart';
 
 /// ورقة حضور حصة: حالة كل تلميذ بنقرة، وتسجيل الكل حاضراً دفعة واحدة.
@@ -50,16 +53,101 @@ class _SessionRosterScreenState extends ConsumerState<SessionRosterScreen> {
     }
   }
 
+  Future<void> _export(SessionRoster roster) async {
+    if (_busy) return;
+    final controller = TextEditingController(
+      text: AttendanceExcelExporter.defaultFileName(
+        AttendanceExcelData.fromRoster(roster),
+      ),
+    );
+    try {
+      final requestedName = await showClayDialog<String>(
+        context,
+        title: 'تصدير ورقة الحضور',
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 100,
+          textDirection: TextDirection.rtl,
+          decoration: const InputDecoration(labelText: 'اسم الملف'),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          ClayButton(
+            label: 'إلغاء',
+            kind: ClayButtonKind.secondary,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          ClayButton(
+            label: 'متابعة',
+            icon: Icons.file_download_outlined,
+            onPressed: () => Navigator.of(context).pop(controller.text),
+          ),
+        ],
+      );
+      if (requestedName == null || !mounted) return;
+
+      final fileName = AttendanceExcelExporter.normalizeFileName(requestedName);
+      setState(() => _busy = true);
+      final bytes = await AttendanceExcelExporter.generate(
+        AttendanceExcelData.fromRoster(roster),
+      );
+      if (!mounted) return;
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'حفظ كشف الحضور',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: const ['xlsx'],
+        bytes: bytes,
+      );
+      if (savedPath == null || !mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('حُفظ ملف Excel: $fileName')));
+    } on FormatException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message.toString())));
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذّر إنشاء ملف Excel أو حفظه')),
+        );
+      }
+    } finally {
+      controller.dispose();
+      if (mounted && _busy) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final p = context.palette;
     final roster = ref.watch(sessionRosterProvider(widget.sessionId));
+    final currentRoster = roster.value;
     final canWrite = widget.canWrite;
     final service = ref.watch(attendanceServiceProvider);
 
     return Scaffold(
-      appBar: const ClayAppBar(title: 'ورقة الحضور', showBack: true),
+      appBar: ClayAppBar(
+        title: 'ورقة الحضور',
+        showBack: true,
+        actions: [
+          IconButton(
+            tooltip: 'تصدير Excel',
+            onPressed: _busy || currentRoster == null
+                ? null
+                : () => _export(currentRoster),
+            icon: _busy
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.file_download_outlined),
+          ),
+        ],
+      ),
       body: roster.when(
         loading: () => const ClayLoadingView(),
         error: (_, _) => ClayErrorView(
