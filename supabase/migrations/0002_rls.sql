@@ -159,7 +159,8 @@ returns boolean language sql stable security definer set search_path = public as
     when app.can('chat', 'add') or app.can('chat', 'edit') then true
     when room_type = 'private' then gid is null
       and app.role() in ('teacher', 'parent')
-    when room_type = 'group' then app.active_chat_group(gid)
+    when room_type = 'group' then app.role() = 'teacher'
+      and app.active_chat_group(gid)
     else false
   end
 $$;
