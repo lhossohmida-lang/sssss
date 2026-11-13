@@ -245,6 +245,46 @@ void main() {
       expect(concurrent.kind, SmsProcessKind.busy);
       expect(sent.kind, SmsProcessKind.sent);
     });
+
+    test(
+      'marks stale sends uncertain without automatically retrying',
+      () async {
+        final interrupted = await h.queue.enqueue(
+          phone: '0550123456',
+          message: 'بيانات الدخول',
+          kind: SmsTemplateKeys.accountCreated,
+        );
+        await h.writer.patch(
+          h.db.smsQueue,
+          key: {'id': interrupted.id},
+          values: {'status': SmsStatus.sending.code, 'attempts': 1},
+        );
+        h.now = h.now.add(const Duration(minutes: 3));
+
+        final recovered = await h.queue.recoverInterruptedSends();
+        final saved = await h.message(interrupted.id);
+
+        expect(recovered, 1);
+        expect(saved.status, SmsStatus.failed.code);
+        expect(saved.attempts, 1);
+        expect(saved.message, 'بيانات الدخول');
+        expect(saved.lastError, SmsQueueService.interruptedSendMessage);
+        expect(saved.notBefore, isNull);
+        expect(await h.queue.pendingCount(), 0);
+      },
+    );
+
+    test('does not recover a send that is still within its timeout', () async {
+      final row = await h.queue.enqueue(phone: '0550123456', message: 'رسالة');
+      await h.writer.patch(
+        h.db.smsQueue,
+        key: {'id': row.id},
+        values: {'status': SmsStatus.sending.code, 'attempts': 1},
+      );
+
+      expect(await h.queue.recoverInterruptedSends(), 0);
+      expect((await h.message(row.id)).status, SmsStatus.sending.code);
+    });
   });
 
   group('SmsSettingsService', () {
@@ -272,6 +312,152 @@ void main() {
       );
       await expectLater(h.settings.monthlyLimit(), throwsFormatException);
     });
+
+    test('stores the chosen SIM slot and clears it explicitly', () async {
+      expect(await h.settings.simSlotIndex(), isNull);
+      await h.settings.saveSimSlotIndex(1);
+      expect(await h.settings.simSlotIndex(), 1);
+      await h.settings.saveSimSlotIndex(null);
+      expect(await h.settings.simSlotIndex(), isNull);
+      await expectLater(h.settings.saveSimSlotIndex(-1), throwsArgumentError);
+    });
+  });
+
+  group('SmsDispatchWorker', () {
+    test(
+      'uses selected SIM and waits three seconds between messages',
+      () async {
+        await h.settings.saveSimSlotIndex(1);
+        await h.queue.enqueue(phone: '0550123456', message: 'الأولى');
+        await h.queue.enqueue(phone: '0550123456', message: 'الثانية');
+        final platform = _FakeSmsPlatform();
+        final delays = <Duration>[];
+        final worker = SmsDispatchWorker(
+          queue: h.queue,
+          settings: h.settings,
+          platform: platform,
+          now: () => h.now,
+          delay: (duration) async {
+            delays.add(duration);
+            h.now = h.now.add(duration);
+          },
+        );
+
+        final report = await worker.start();
+
+        expect(report.sent, 2);
+        expect(report.failed, 0);
+        expect(platform.sentSlots, [1, 1]);
+        expect(platform.started, 1);
+        expect(platform.stopped, 1);
+        expect(delays, [const Duration(seconds: 3)]);
+      },
+    );
+
+    test(
+      'requires an explicit SIM choice when multiple SIMs are active',
+      () async {
+        await h.queue.enqueue(phone: '0550123456', message: 'رسالة');
+        final platform = _FakeSmsPlatform();
+        final worker = SmsDispatchWorker(
+          queue: h.queue,
+          settings: h.settings,
+          platform: platform,
+          now: () => h.now,
+          delay: (_) async {},
+        );
+
+        await expectLater(
+          worker.start(),
+          throwsA(isA<SmsTransportException>()),
+        );
+        expect(platform.started, 0);
+        expect(platform.sentRows, isEmpty);
+      },
+    );
+
+    test(
+      'automatically uses the only SIM and waits through a retry delay',
+      () async {
+        await h.queue.enqueue(phone: '0550123456', message: 'رسالة');
+        final platform = _FakeSmsPlatform(
+          sims: const [
+            SmsSimCard(
+              slotIndex: 0,
+              subscriptionId: 12,
+              displayName: 'SIM 1',
+              carrierName: 'Carrier',
+            ),
+          ],
+          failuresRemaining: 1,
+        );
+        final delays = <Duration>[];
+        final worker = SmsDispatchWorker(
+          queue: h.queue,
+          settings: h.settings,
+          platform: platform,
+          now: () => h.now,
+          delay: (duration) async {
+            delays.add(duration);
+            h.now = h.now.add(duration);
+          },
+        );
+
+        final report = await worker.start();
+
+        expect(report.sent, 1);
+        expect(report.retried, 1);
+        expect(platform.sentSlots, [0, 0]);
+        expect(delays, [
+          const Duration(seconds: 3),
+          const Duration(seconds: 57),
+        ]);
+      },
+    );
+
+    test('does not start Android components when the queue is empty', () async {
+      final platform = _FakeSmsPlatform();
+      final worker = SmsDispatchWorker(
+        queue: h.queue,
+        settings: h.settings,
+        platform: platform,
+      );
+
+      final report = await worker.start();
+
+      expect(report.sent, 0);
+      expect(platform.permissionRequests, 0);
+      expect(platform.started, 0);
+    });
+
+    test(
+      'recovers a stale send before requesting Android permissions',
+      () async {
+        final row = await h.queue.enqueue(
+          phone: '0550123456',
+          message: 'رسالة',
+        );
+        await h.writer.patch(
+          h.db.smsQueue,
+          key: {'id': row.id},
+          values: {'status': SmsStatus.sending.code, 'attempts': 1},
+        );
+        h.now = h.now.add(const Duration(minutes: 3));
+        final platform = _FakeSmsPlatform();
+        final worker = SmsDispatchWorker(
+          queue: h.queue,
+          settings: h.settings,
+          platform: platform,
+        );
+
+        final report = await worker.start();
+
+        expect(report.sent, 0);
+        expect((await h.message(row.id)).status, SmsStatus.failed.code);
+        expect(platform.permissionRequests, 0);
+        expect(platform.started, 0);
+      },
+    );
   });
 
   group('SmsTemplateService', () {
@@ -368,6 +554,63 @@ class _Harness {
   }
 
   Future<void> close() => db.close();
+}
+
+class _FakeSmsPlatform implements SmsDispatchPlatform {
+  _FakeSmsPlatform({
+    this.sims = const [
+      SmsSimCard(
+        slotIndex: 0,
+        subscriptionId: 11,
+        displayName: 'SIM 1',
+        carrierName: 'Carrier',
+      ),
+      SmsSimCard(
+        slotIndex: 1,
+        subscriptionId: 22,
+        displayName: 'SIM 2',
+        carrierName: 'Carrier',
+      ),
+    ],
+    this.failuresRemaining = 0,
+  });
+
+  final List<SmsSimCard> sims;
+  int failuresRemaining;
+  int permissionRequests = 0;
+  int started = 0;
+  int stopped = 0;
+  final List<SmsQueueRow> sentRows = [];
+  final List<int> sentSlots = [];
+
+  @override
+  Future<List<SmsSimCard>> availableSimCards() async => sims;
+
+  @override
+  Future<bool> requestPermissions() async {
+    permissionRequests++;
+    return true;
+  }
+
+  @override
+  Future<void> send(SmsQueueRow message, {required int simSlotIndex}) async {
+    sentRows.add(message);
+    sentSlots.add(simSlotIndex);
+    if (failuresRemaining > 0) {
+      failuresRemaining--;
+      throw StateError('انقطاع مؤقت');
+    }
+  }
+
+  @override
+  Future<void> startForegroundService() async {
+    started++;
+  }
+
+  @override
+  Future<void> stopForegroundService() async {
+    stopped++;
+  }
 }
 
 int _epoch(DateTime local) => local.toUtc().millisecondsSinceEpoch;

@@ -29,4 +29,7 @@ abstract final class SettingKeys {
 
   /// الحد الاختياري لرسائل SMS المرسلة خلال شهر تقويمي؛ صفر يعني بلا حد.
   static const String smsMonthlyLimit = 'sms_monthly_limit';
+
+  /// خانة الشريحة المختارة لإرسال SMS على هاتف الإدارة.
+  static const String smsSimSlotIndex = 'sms_sim_slot_index';
 }

@@ -73,6 +73,9 @@ class SmsQueueService {
     Duration(minutes: 15),
     Duration(minutes: 60),
   ];
+  static const Duration interruptedSendAge = Duration(minutes: 2);
+  static const String interruptedSendMessage =
+      'انقطع التطبيق قبل تأكيد الإرسال؛ تحقّق من وصول الرسالة قبل إعادة المحاولة.';
 
   static const Set<String> _sensitiveKinds = {
     SmsTemplateKeys.accountCreated,
@@ -154,6 +157,52 @@ class SmsQueueService {
           ])
           ..limit(limit))
         .get();
+  }
+
+  Future<int> pendingCount() async {
+    final row = await db
+        .customSelect(
+          'SELECT COUNT(*) AS count FROM sms_queue WHERE status = ?',
+          variables: [Variable<String>(SmsStatus.pending.code)],
+          readsFrom: {db.smsQueue},
+        )
+        .getSingle();
+    return row.read<int>('count');
+  }
+
+  /// يحوّل عمليات الإرسال القديمة إلى فشل يحتاج مراجعة يدوية.
+  ///
+  /// لا نعيد الإرسال تلقائياً لأن رسالة SMS قد تكون وصلت قبل أن ينقطع
+  /// تأكيد Android، وإعادتها قد تكرر بيانات الحساب أو كلمة السر.
+  Future<int> recoverInterruptedSends({
+    Duration olderThan = interruptedSendAge,
+  }) async {
+    if (olderThan <= Duration.zero) {
+      throw ArgumentError.value(
+        olderThan,
+        'olderThan',
+        'يجب أن تكون المهلة موجبة',
+      );
+    }
+    final cutoff = _epoch(_localNow().subtract(olderThan));
+    final interrupted = await (db.select(
+      db.smsQueue,
+    )..where((row) => row.status.equals(SmsStatus.sending.code))).get();
+    var recovered = 0;
+    for (final row in interrupted) {
+      if (row.updatedAt > cutoff) continue;
+      final changed = await writer.patch(
+        db.smsQueue,
+        key: {'id': row.id},
+        values: {
+          'status': SmsStatus.failed.code,
+          'last_error': interruptedSendMessage,
+          'not_before': null,
+        },
+      );
+      if (changed) recovered++;
+    }
+    return recovered;
   }
 
   /// يرسل أقدم رسالة جاهزة، أو يحدّث وقتها إن وقعت في الهدوء/تجاوزت الحد.
