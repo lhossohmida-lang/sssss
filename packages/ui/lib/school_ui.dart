@@ -30,6 +30,7 @@ export 'src/shell/notifications_screen.dart';
 export 'src/shell/pdf_viewer.dart';
 export 'src/shell/photo_capture.dart';
 export 'src/shell/providers.dart';
+export 'src/shell/push_notifications.dart';
 export 'src/shell/qr_scanning.dart';
 export 'src/shell/receipt_action.dart';
 export 'src/shell/school_app.dart';

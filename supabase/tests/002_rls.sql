@@ -147,11 +147,46 @@ insert into notifications (id, created_at, updated_at, user_id, sender_id,
 values ('n1', 1, 1, 'acc-p1', 'acc-owner', 'عنوان', 'نص', 'info'),
        ('n2', 1, 1, 'acc-p2', 'acc-owner', 'عنوان', 'نص', 'info');
 
+insert into push_installations (user_id, installation_id, platform, updated_at)
+values ('acc-owner', 'fid-owner-1234567890123456', 'android', 1),
+       ('acc-p1', 'fid-parent1-1234567890123456', 'android', 1),
+       ('acc-p2', 'fid-parent2-1234567890123456', 'android', 1);
+
 -- ---------------------------------------------------------------------------
 -- غير المسجَّل لا يرى شيئاً
 -- ---------------------------------------------------------------------------
 select set_config('role', 'anon', false);
 select test.denied('select 1 from students', 'anon يقرأ التلاميذ');
+select test.logout();
+
+-- معرّفات تثبيت FCM: لا يقرأ الحساب إلا معرّفه، ولا يسجّل أو يحذف معرّفاً آخر.
+select test.login('acc-owner');
+select test.sees('select 1 from push_installations', 1, 'المدير يرى معرّف جهازه فقط');
+select test.logout();
+
+select test.login('acc-p1');
+select test.sees('select 1 from push_installations', 1, 'الولي يرى معرّف جهازه فقط');
+select test.denied(
+  $$insert into push_installations (user_id, installation_id, platform, updated_at)
+    values ('acc-p2', 'fid-stolen-1234567890123456', 'android', 2)$$,
+  'الولي لا يسجّل معرّف حساب آخر');
+select test.denied(
+  $$update push_installations set updated_at = 2 where user_id = 'acc-p2'$$,
+  'الولي لا يحدّث معرّف حساب آخر');
+select test.denied(
+  $$delete from push_installations where user_id = 'acc-p2'$$,
+  'الولي لا يحذف معرّف حساب آخر');
+select test.allowed(
+  $$insert into push_installations (user_id, installation_id, platform, updated_at)
+    values ('acc-p1', 'fid-parent1-1234567890123456', 'android', 3)
+    on conflict (installation_id) do update
+      set updated_at = excluded.updated_at$$,
+  'الولي يحدّث معرّف جهازه عبر upsert');
+select test.allowed(
+  $$delete from push_installations
+      where user_id = 'acc-p1'
+        and installation_id = 'fid-parent1-1234567890123456'$$,
+  'الولي يلغي تسجيل معرّف جهازه');
 select test.logout();
 
 select test.login('unknown-user');

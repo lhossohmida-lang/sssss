@@ -19,6 +19,7 @@ import '../data/local/app_database.dart';
 import '../data/local/open_database.dart';
 import '../data/local/sync_writer.dart';
 import '../data/remote/file_store.dart';
+import '../data/remote/push_installation_store.dart';
 import '../data/remote/supabase_backend.dart';
 import '../data/remote/sync_coordinator.dart';
 import '../data/remote/sync_engine.dart';
@@ -83,6 +84,7 @@ class AppRuntime {
     required this.writer,
     required this.localGateway,
     required this.provisioner,
+    required this.pushInstallationStore,
     required this.photosDirectory,
     required this.fileStore,
     required SyncLifecycle? syncLifecycle,
@@ -108,6 +110,9 @@ class AppRuntime {
 
   /// ينشئ حسابات الدخول (تطبيق الإدارة فقط)؛ `null` في غيره.
   final AccountProvisioner? provisioner;
+
+  /// مخزن معرّف تثبيت Firebase للحساب المسجّل؛ `null` في الوضع المحلي.
+  final PushInstallationStore? pushInstallationStore;
   final SyncLifecycle? _sync;
   final DefaultsSeeder? _seeder;
 
@@ -128,6 +133,7 @@ class AppRuntime {
     AuthGateway? gateway,
     SyncFactory? syncFactory,
     AccountProvisioner? provisioner,
+    PushInstallationStore? pushInstallationStore,
     Directory? photosDirectory,
     int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
@@ -205,6 +211,9 @@ class AppRuntime {
               : client != null
               ? SupabaseAccountProvisioner(client)
               : null),
+      pushInstallationStore:
+          pushInstallationStore ??
+          (client == null ? null : SupabasePushInstallationStore(client)),
       syncLifecycle: lifecycle,
       seeder: app == AppIdentity.admin
           ? DefaultsSeeder(

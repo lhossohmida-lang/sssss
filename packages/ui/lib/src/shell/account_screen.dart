@@ -47,7 +47,7 @@ class AccountScreen extends ConsumerWidget {
       message: 'سيُطلب منك البريد وكلمة السر عند الدخول من جديد.',
       confirmLabel: 'خروج',
     );
-    if (ok) await ref.read(runtimeProvider).auth.signOut();
+    if (ok) await ref.read(pushNotificationsProvider).signOut();
   }
 
   @override

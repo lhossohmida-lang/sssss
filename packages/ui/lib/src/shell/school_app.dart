@@ -232,7 +232,7 @@ class ShellPage extends ConsumerWidget {
             label: 'خروج',
             icon: ClayIcons.logout,
             kind: ClayButtonKind.secondary,
-            onPressed: () => ref.read(runtimeProvider).auth.signOut(),
+            onPressed: () => ref.read(pushNotificationsProvider).signOut(),
           ),
         ],
       ),
@@ -292,6 +292,8 @@ class _SchoolAppState extends ConsumerState<SchoolApp> {
   Widget build(BuildContext context) {
     // مهام الخلفية (التغييب التلقائي) تعيش ما دام التطبيق مفتوحاً.
     ref.watch(sessionCloserProvider);
+    ref.read(pushNavigationHandlerProvider).value = _router.go;
+    ref.watch(pushNotificationsProvider);
     return ClayApp(app: _runtime.app, routerConfig: _router);
   }
 }

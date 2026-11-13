@@ -442,7 +442,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           expand: true,
           onPressed: _busy
               ? null
-              : () => ref.read(runtimeProvider).auth.signOut(),
+              : () => ref.read(pushNotificationsProvider).signOut(),
         ),
       ],
     );

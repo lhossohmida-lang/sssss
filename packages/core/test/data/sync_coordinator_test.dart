@@ -125,6 +125,50 @@ void main() {
     expect(remote.rows('rooms'), isEmpty, reason: 'ما وصل بالبث لا يُعاد دفعه');
   });
 
+  test('إشعار الخادم يظهر في قائمة المستخدم وعدّاده فوراً', () async {
+    final inboxEvents = <List<NotificationRow>>[];
+    final unreadEvents = <int>[];
+    final inboxSubscription = env.db
+        .watchNotifications('acc-push')
+        .listen(inboxEvents.add);
+    final unreadSubscription = env.db
+        .watchUnreadNotificationCount('acc-push')
+        .listen(unreadEvents.add);
+    coordinator.start();
+    realtime.controller.add(
+      const RemoteChange(
+        table: 'notifications',
+        row: {
+          'id': 'notification-live',
+          'created_at': 1,
+          'updated_at': 3,
+          'deleted_at': null,
+          'user_id': 'acc-push',
+          'sender_id': 'acc-owner',
+          'title': 'طلب جديد',
+          'body': 'وصل طلبك إلى الإدارة',
+          'kind': 'request_pending',
+          'entity': 'request',
+          'entity_id': 'request-1',
+          'read_at': null,
+          'synced_at': 2,
+        },
+      ),
+    );
+
+    await until(
+      () => inboxEvents.any(
+        (rows) => rows.any((row) => row.id == 'notification-live'),
+      ),
+    );
+    await until(() => unreadEvents.contains(1));
+    expect(inboxEvents.last.single.title, 'طلب جديد');
+    expect(unreadEvents.last, 1);
+
+    await inboxSubscription.cancel();
+    await unreadSubscription.cancel();
+  });
+
   test(
     'دون إنترنت: الحالة «غير متصل» والعمل المحلي مستمر، ثم يتعافى',
     () async {

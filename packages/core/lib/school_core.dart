@@ -21,6 +21,7 @@ export 'src/data/local/queries.dart';
 export 'src/data/local/sync_writer.dart';
 export 'src/data/remote/file_store.dart';
 export 'src/data/remote/postgrest_remote_store.dart';
+export 'src/data/remote/push_installation_store.dart';
 export 'src/data/remote/remote_store.dart';
 export 'src/data/remote/supabase_backend.dart';
 export 'src/data/remote/sync_coordinator.dart';

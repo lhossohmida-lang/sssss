@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_chat/school_chat.dart';
 import 'package:school_core/school_core.dart';
 
+import 'push_notifications.dart';
 import 'session_closer.dart';
 
 /// وقت التشغيل (قاعدة، مصادقة، مزامنة). يُمرَّر في `main` عبر
@@ -18,6 +21,35 @@ final StreamProvider<AuthSession?> sessionProvider =
       final auth = ref.watch(runtimeProvider).auth;
       yield auth.current;
       yield* auth.changes;
+    });
+
+/// واجهة تمرير مسارات إشعارات FCM إلى الموجّه بعد إنشائه.
+final Provider<ValueNotifier<void Function(String)?>>
+pushNavigationHandlerProvider = Provider((ref) {
+  final handler = ValueNotifier<void Function(String)?>(null);
+  ref.onDispose(handler.dispose);
+  return handler;
+});
+
+/// يربط رمز FCM بالحساب الحالي ويتعامل مع فتح الإشعار.
+final Provider<PushNotificationCoordinator> pushNotificationsProvider =
+    Provider((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      final navigator = ref.watch(pushNavigationHandlerProvider);
+      final coordinator = PushNotificationCoordinator(
+        installationStore: runtime.pushInstallationStore,
+        isLocalMode: runtime.isLocalMode,
+        signOutAction: runtime.auth.signOut,
+        navigate: (path) {
+          navigator.value?.call(path);
+        },
+      );
+      ref.listen(sessionProvider, (_, next) {
+        unawaited(coordinator.updateSession(next.value));
+      });
+      unawaited(coordinator.updateSession(runtime.auth.current));
+      ref.onDispose(() => unawaited(coordinator.dispose()));
+      return coordinator;
     });
 
 /// خدمة المحادثات المقيّدة بالجلسة الحالية.
