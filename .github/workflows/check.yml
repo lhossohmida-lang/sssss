@@ -76,4 +76,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Apply migrations and run SQL tests
-        run: ./tool/pg_test.sh
+        shell: bash
+        run: |
+          set +e
+          ./tool/pg_test.sh 2>&1 | tee pg-test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" != "0" ]; then
+            grep -E "ERROR:|FATAL:|failed|FAIL|العملية|رأى .* والمتوقع|عملية ممنوعة" pg-test.log \
+              | tail -n 30 > pg-failure.log
+            [ -s pg-failure.log ] || tail -n 30 pg-test.log > pg-failure.log
+            msg=$(sed 's/%/%25/g' pg-failure.log | awk '{printf "%s%%0A", substr($0,1,300)}')
+            echo "::error title=server-sql-failure::${msg}"
+          fi
+          exit "$status"
