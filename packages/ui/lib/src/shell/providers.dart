@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:school_chat/school_chat.dart';
 import 'package:school_core/school_core.dart';
 
 import 'session_closer.dart';
@@ -18,6 +19,58 @@ final StreamProvider<AuthSession?> sessionProvider =
       yield auth.current;
       yield* auth.changes;
     });
+
+/// خدمة المحادثات المقيّدة بالجلسة الحالية.
+final Provider<ChatService> chatServiceProvider = Provider.autoDispose((ref) {
+  final session = ref.watch(sessionProvider).value;
+  if (session == null) {
+    throw StateError('خدمة المحادثات تتطلب جلسة مسجّلة');
+  }
+  final runtime = ref.watch(runtimeProvider);
+  return ChatService(
+    runtime.db,
+    runtime.writer,
+    ChatPrincipal.fromSession(session),
+  );
+});
+
+/// الغرف الظاهرة للمستخدم الحالي.
+final chatRoomsProvider = StreamProvider.autoDispose
+    .family<List<ChatRoomListItem>, int>(
+      (ref, limit) => ref.watch(chatServiceProvider).watchRooms(limit: limit),
+    );
+
+/// غرفة واحدة مع إعادة تحقق العضوية خلال البث.
+final chatRoomProvider = StreamProvider.autoDispose
+    .family<ChatRoomRow?, String>(
+      (ref, roomId) => ref.watch(chatServiceProvider).watchRoom(roomId),
+    );
+
+/// عضوية الحساب الحالي وحالة كتمه للغرفة.
+final chatMembershipProvider = StreamProvider.autoDispose
+    .family<ChatMemberRow?, String>(
+      (ref, roomId) => ref.watch(chatServiceProvider).watchMyMembership(roomId),
+    );
+
+typedef ChatMessagesKey = ({String roomId, int limit});
+
+/// أحدث الرسائل، بحد أقصى 50 رسالة.
+final chatMessagesProvider = StreamProvider.autoDispose
+    .family<List<ChatMessageRow>, ChatMessagesKey>(
+      (ref, key) => ref
+          .watch(chatServiceProvider)
+          .watchLatestMessages(key.roomId, limit: key.limit),
+    );
+
+typedef ChatContactSearchKey = ({String query, int limit});
+
+/// جهات الاتصال التي يسمح السياق الحالي بمراسلتها.
+final chatContactsProvider = FutureProvider.autoDispose
+    .family<List<ChatContact>, ChatContactSearchKey>(
+      (ref, key) => ref
+          .watch(chatServiceProvider)
+          .privateContacts(query: key.query, limit: key.limit),
+    );
 
 /// اسم المدرسة من الإعدادات؛ فارغ إن لم يُحدَّد بعد.
 final StreamProvider<String> schoolNameProvider = StreamProvider<String>(

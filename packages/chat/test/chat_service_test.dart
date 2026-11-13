@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +175,41 @@ void main() {
       );
     });
 
+    test('open room streams stop when a parent leaves the group', () async {
+      final room = await h.teacher.createGroupRoom('g1');
+      await h.teacher.sendText(room.id, 'رسالة قبل المغادرة');
+      final parent = h.service('u-parent', UserRole.parent, entityId: 'p1');
+      final roomStream = StreamIterator(parent.watchRoom(room.id));
+      final messageStream = StreamIterator(parent.watchLatestMessages(room.id));
+
+      expect(await roomStream.moveNext(), isTrue);
+      expect(roomStream.current?.id, room.id);
+      expect(await messageStream.moveNext(), isTrue);
+      expect(messageStream.current.single.content, 'رسالة قبل المغادرة');
+
+      final links = await (h.db.select(
+        h.db.groupStudents,
+      )..where((row) => row.studentId.isIn(['s1', 's2']))).get();
+      for (final link in links) {
+        await h.owner.writer.patch(
+          h.db.groupStudents,
+          key: {'id': link.id},
+          values: {'left_at': 1001},
+        );
+      }
+
+      await expectLater(
+        roomStream.moveNext(),
+        throwsA(isA<ChatAccessException>()),
+      );
+      await expectLater(
+        messageStream.moveNext(),
+        throwsA(isA<ChatAccessException>()),
+      );
+      await roomStream.cancel();
+      await messageStream.cancel();
+    });
+
     test(
       'archiving a group removes it from private participant access',
       () async {
@@ -344,6 +381,13 @@ void main() {
       expect(message.content, isEmpty);
       expect(message.attachmentName, 'worksheet.pdf');
       expect(message.attachmentLocalPath, 'local/worksheet.pdf');
+      final uploads = await h.db.select(h.db.uploadQueue).get();
+      expect(uploads, hasLength(1));
+      expect(uploads.single.bucket, 'files');
+      expect(uploads.single.targetTable, 'chat_messages');
+      expect(uploads.single.targetRowId, message.id);
+      expect(uploads.single.targetColumn, 'attachment_url');
+      expect(uploads.single.remotePath, 'chat/${room.id}/${message.id}.pdf');
     });
   });
 

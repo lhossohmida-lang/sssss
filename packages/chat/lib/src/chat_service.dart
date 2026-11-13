@@ -530,6 +530,47 @@ class ChatService {
         );
   }
 
+  /// بيانات غرفة واحدة، مع إعادة التحقق من العضوية عند تغيّر المجموعة.
+  Stream<ChatRoomRow?> watchRoom(String roomId) async* {
+    await _requireCanRead(roomId);
+    final query = db.customSelect(
+      'SELECT * FROM chat_rooms WHERE id = ? AND deleted_at IS NULL',
+      variables: [Variable<String>(roomId)],
+      readsFrom: {
+        db.chatRooms,
+        db.chatMembers,
+        db.groups,
+        db.groupStudents,
+        db.students,
+      },
+    );
+    yield* query.watch().asyncMap((rows) async {
+      await _requireCanRead(roomId);
+      return rows.isEmpty ? null : db.chatRooms.map(rows.first.data);
+    });
+  }
+
+  /// عضوية المستخدم الحالي في غرفة، لتحديث حالة الكتم مباشرةً.
+  Stream<ChatMemberRow?> watchMyMembership(String roomId) async* {
+    await _requireCanRead(roomId);
+    final query = db.customSelect(
+      'SELECT * FROM chat_members WHERE room_id = ? AND user_id = ? '
+      'AND deleted_at IS NULL',
+      variables: [Variable<String>(roomId), Variable<String>(principal.userId)],
+      readsFrom: {
+        db.chatMembers,
+        db.chatRooms,
+        db.groups,
+        db.groupStudents,
+        db.students,
+      },
+    );
+    yield* query.watch().asyncMap((rows) async {
+      await _requireCanRead(roomId);
+      return rows.isEmpty ? null : db.chatMembers.map(rows.first.data);
+    });
+  }
+
   /// آخر [limit] رسائل الحجرة لحظياً، بترتيب العرض من الأقدم للأحدث.
   Stream<List<ChatMessageRow>> watchLatestMessages(
     String roomId, {
@@ -537,14 +578,26 @@ class ChatService {
   }) async* {
     _validateLimit(limit);
     await _requireCanRead(roomId);
-    final query = db.select(db.chatMessages)
-      ..where((row) => row.roomId.equals(roomId) & row.deletedAt.isNull())
-      ..orderBy([
-        (row) => OrderingTerm.desc(row.createdAt),
-        (row) => OrderingTerm.desc(row.id),
-      ])
-      ..limit(limit);
-    yield* query.watch().map((rows) => rows.reversed.toList(growable: false));
+    final query = db.customSelect(
+      'SELECT * FROM chat_messages WHERE room_id = ? AND deleted_at IS NULL '
+      'ORDER BY created_at DESC, id DESC LIMIT ?',
+      variables: [Variable<String>(roomId), Variable<int>(limit)],
+      readsFrom: {
+        db.chatMessages,
+        db.chatRooms,
+        db.groups,
+        db.groupStudents,
+        db.students,
+      },
+    );
+    yield* query.watch().asyncMap((rows) async {
+      await _requireCanRead(roomId);
+      return rows
+          .map((row) => db.chatMessages.map(row.data))
+          .toList(growable: false)
+          .reversed
+          .toList(growable: false);
+    });
   }
 
   /// صفحة حتى 50 رسالة. يعاد أقدم مؤشر للطلب التالي.
@@ -628,28 +681,46 @@ class ChatService {
     final room = await _room(roomId);
     final now = writer.now();
     final id = writer.newId();
-    await writer.save(
-      db.chatMessages,
-      ChatMessagesCompanion.insert(
-        id: id,
-        createdAt: now,
-        updatedAt: now,
-        roomId: roomId,
-        senderId: principal.userId,
-        senderRole: principal.role.code,
-        content: Value(text),
-        attachmentUrl: Value(attachmentUrl),
-        attachmentName: Value(attachmentName?.trim()),
-        attachmentType: Value(attachmentType?.code),
-        attachmentLocalPath: Value(attachmentLocalPath),
-      ),
-      key: {'id': id},
-    );
-    await writer.patch(
-      db.chatRooms,
-      key: {'id': room.id},
-      values: {'last_message_at': now},
-    );
+    await db.transaction(() async {
+      await writer.save(
+        db.chatMessages,
+        ChatMessagesCompanion.insert(
+          id: id,
+          createdAt: now,
+          updatedAt: now,
+          roomId: roomId,
+          senderId: principal.userId,
+          senderRole: principal.role.code,
+          content: Value(text),
+          attachmentUrl: Value(attachmentUrl),
+          attachmentName: Value(attachmentName?.trim()),
+          attachmentType: Value(attachmentType?.code),
+          attachmentLocalPath: Value(attachmentLocalPath),
+        ),
+        key: {'id': id},
+      );
+      if (attachmentLocalPath != null && attachmentUrl == null) {
+        final extension = attachmentName!.split('.').last.toLowerCase();
+        final safeExtension = RegExp(r'^[a-z0-9]{1,10}$').hasMatch(extension)
+            ? extension
+            : 'bin';
+        await UploadQueueWriter(db, writer).enqueue(
+          kind: 'chat_attachment',
+          bucket: 'files',
+          localPath: attachmentLocalPath,
+          remotePath: 'chat/$roomId/$id.$safeExtension',
+          dedupeKey: 'chat_attachment:$id',
+          targetTable: 'chat_messages',
+          targetRowId: id,
+          targetColumn: 'attachment_url',
+        );
+      }
+      await writer.patch(
+        db.chatRooms,
+        key: {'id': room.id},
+        values: {'last_message_at': now},
+      );
+    });
     return (db.select(
       db.chatMessages,
     )..where((row) => row.id.equals(id))).getSingle();

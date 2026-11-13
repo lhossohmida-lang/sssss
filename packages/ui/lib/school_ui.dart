@@ -20,6 +20,7 @@ export 'src/shell/app_page.dart';
 export 'src/shell/app_tab.dart';
 export 'src/shell/attendance_grid.dart';
 export 'src/shell/auth_screens.dart';
+export 'src/shell/chat_screens.dart';
 export 'src/shell/child_switcher.dart';
 export 'src/shell/file_picking.dart';
 export 'src/shell/group_file_viewer.dart';
