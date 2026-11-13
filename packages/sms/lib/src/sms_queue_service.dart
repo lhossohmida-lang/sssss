@@ -139,12 +139,32 @@ class SmsQueueService {
     return enqueue(phone: phone, message: body, kind: templateKey);
   }
 
-  Stream<List<SmsQueueRow>> watchQueue() =>
-      (db.select(db.smsQueue)..orderBy([
+  Stream<List<SmsQueueRow>> watchQueue({int limit = 200}) {
+    if (limit < 1) {
+      throw ArgumentError.value(limit, 'limit', 'يجب أن يكون موجباً');
+    }
+    return (db.select(db.smsQueue)
+          ..orderBy([
             (row) => OrderingTerm.desc(row.createdAt),
             (row) => OrderingTerm.desc(row.id),
-          ]))
-          .watch();
+          ])
+          ..limit(limit))
+        .watch();
+  }
+
+  /// أعداد الحالات الدقيقة لكل الطابور، دون تحميل الرسائل إلى الذاكرة.
+  Stream<Map<String, int>> watchStatusCounts() => db
+      .customSelect(
+        'SELECT status, COUNT(*) AS count FROM sms_queue GROUP BY status',
+        readsFrom: {db.smsQueue},
+      )
+      .watch()
+      .map(
+        (rows) => {
+          for (final row in rows)
+            row.read<String>('status'): row.read<int>('count'),
+        },
+      );
 
   Future<List<SmsQueueRow>> loadQueue({int limit = 200}) {
     if (limit < 1) {

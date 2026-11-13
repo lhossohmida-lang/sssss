@@ -34,17 +34,17 @@ abstract final class SmsTemplateCatalog {
     SmsTemplateDefinition(
       key: SmsTemplateKeys.waitingThreshold,
       title: 'بلوغ حد قائمة الانتظار',
-      variables: {'school', 'name', 'subject'},
+      variables: {'school', 'name', 'subject', 'count'},
     ),
     SmsTemplateDefinition(
       key: SmsTemplateKeys.groupCreated,
       title: 'إنشاء مجموعة',
-      variables: {'school', 'name', 'subject', 'schedule'},
+      variables: {'school', 'name', 'subject', 'group', 'schedule'},
     ),
     SmsTemplateDefinition(
       key: SmsTemplateKeys.cycleCompleted,
       title: 'اكتمال الدورة',
-      variables: {'school', 'name', 'subject', 'amount'},
+      variables: {'school', 'name', 'subject', 'cycle', 'amount'},
     ),
     SmsTemplateDefinition(
       key: SmsTemplateKeys.scheduleChange,
@@ -52,14 +52,29 @@ abstract final class SmsTemplateCatalog {
       variables: {'school', 'name', 'subject', 'date', 'time', 'room'},
     ),
     SmsTemplateDefinition(
+      key: SmsTemplateKeys.requestApproved,
+      title: 'الموافقة على طلب أستاذ',
+      variables: {'school', 'name', 'subject', 'group', 'summary'},
+    ),
+    SmsTemplateDefinition(
+      key: SmsTemplateKeys.requestRejected,
+      title: 'رفض طلب أستاذ',
+      variables: {'school', 'name', 'request', 'note'},
+    ),
+    SmsTemplateDefinition(
       key: SmsTemplateKeys.paymentReceipt,
       title: 'وصل الدفع',
-      variables: {'school', 'receipt', 'amount', 'name'},
+      variables: {'school', 'receipt', 'amount', 'name', 'item', 'subject'},
     ),
     SmsTemplateDefinition(
       key: SmsTemplateKeys.paymentReminder,
       title: 'تذكير بالمستحقات',
-      variables: {'school', 'name', 'subject', 'amount'},
+      variables: {'school', 'name', 'subject', 'cycle', 'amount'},
+    ),
+    SmsTemplateDefinition(
+      key: SmsTemplateKeys.broadcast,
+      title: 'رسالة جماعية',
+      variables: {'school', 'name'},
     ),
   ];
 

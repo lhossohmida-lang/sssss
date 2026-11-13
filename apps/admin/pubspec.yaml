@@ -19,6 +19,8 @@ dependencies:
     path: ../../packages/core
   school_ui:
     path: ../../packages/ui
+  school_sms:
+    path: ../../packages/sms
   mobile_scanner: ^7.5.0
 
 dev_dependencies:

@@ -147,6 +147,13 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.rooms,
   ),
   MoreEntry(
+    label: 'الرسائل القصيرة',
+    icon: ClayIcons.sms,
+    path: '/sms',
+    section: MoreSection.system,
+    requires: PermissionModule.sms,
+  ),
+  MoreEntry(
     label: 'الإعدادات',
     icon: ClayIcons.settings,
     path: '/settings',

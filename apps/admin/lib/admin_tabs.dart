@@ -17,6 +17,7 @@ import 'screens/requests_screens.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/schedule_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/sms_screen.dart';
 import 'screens/student_profile_screen.dart';
 import 'screens/students_screen.dart';
 import 'screens/teacher_attendance_screens.dart';
@@ -268,6 +269,11 @@ final List<AppPage> adminPages = [
     path: '/rooms',
     requires: PermissionModule.rooms,
     builder: (context, state) => const RoomsScreen(),
+  ),
+  AppPage(
+    path: '/sms',
+    requires: PermissionModule.sms,
+    builder: (context, state) => const SmsCenterScreen(),
   ),
   AppPage(
     path: '/settings',

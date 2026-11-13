@@ -16,6 +16,7 @@ abstract final class SmsTemplateKeys {
   static const String requestRejected = 'request_rejected';
   static const String paymentReceipt = 'payment_receipt';
   static const String paymentReminder = 'payment_reminder';
+  static const String broadcast = 'broadcast';
 
   /// القوالب الافتراضية.
   static const Map<String, String> defaults = {
@@ -46,6 +47,7 @@ abstract final class SmsTemplateKeys {
         '{school}: وصل {receipt} بقيمة {amount} للتلميذ {name} عن {item}.',
     paymentReminder:
         '{school}: يرجى تسديد مستحقات {name} في {subject}: {amount} دج.',
+    broadcast: '{school}: رسالة إلى {name}.',
   };
 }
 

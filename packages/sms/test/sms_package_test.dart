@@ -46,6 +46,22 @@ void main() {
       expect(await h.db.select(h.db.smsQueue).get(), isEmpty);
     });
 
+    test(
+      'queue views are bounded and status counts include the full queue',
+      () async {
+        await h.queue.enqueue(phone: '0550123456', message: 'رسالة 1');
+        await h.queue.enqueue(phone: '0550123457', message: 'رسالة 2');
+        await h.insertSent(h.now);
+
+        expect(await h.queue.loadQueue(limit: 1), hasLength(1));
+        expect(await h.queue.watchQueue(limit: 1).first, hasLength(1));
+        expect(await h.queue.watchStatusCounts().first, {
+          SmsStatus.pending.code: 2,
+          SmsStatus.sent.code: 1,
+        });
+      },
+    );
+
     test('defers a message enqueued during night quiet hours', () async {
       h.now = DateTime(2026, 11, 13, 22, 15);
       final row = await h.queue.enqueue(
@@ -467,6 +483,9 @@ void main() {
         final templates = SmsTemplateService(h.db, h.writer);
         final listed = await templates.load();
         expect(listed, hasLength(SmsTemplateCatalog.definitions.length));
+        expect({
+          for (final item in listed) item.definition.key,
+        }, SmsTemplateKeys.defaults.keys.toSet());
         expect(
           listed
               .firstWhere(
@@ -512,7 +531,86 @@ void main() {
       },
     );
   });
+
+  group('SmsBroadcastService', () {
+    test(
+      'deduplicates parents, groups siblings, and skips invalid contacts',
+      () async {
+        await h.db.batch((batch) {
+          batch.insertAll(h.db.students, [
+            _student('s1', 'سمير', 'بن علي', '0550123456'),
+            _student('s2', 'نور', 'بن علي', '+213550123456'),
+            _student('s3', 'أمين', 'بن علي', '021123456'),
+            _student('s4', 'محذوف', 'بن علي', '0550123457', deletedAt: 10),
+          ]);
+        });
+        final service = SmsBroadcastService(
+          h.db,
+          h.queue,
+          SmsTemplateService(h.db, h.writer),
+        );
+
+        final result = await service.preview(SmsBroadcastAudience.parents);
+
+        expect(result.recipients, hasLength(1));
+        expect(result.recipients.single.phone, '+213550123456');
+        expect(result.recipients.single.name, 'سمير بن علي، نور بن علي');
+        expect(result.invalidContacts, 1);
+      },
+    );
+
+    test('renders personalized broadcast messages before queueing', () async {
+      await h.db
+          .into(h.db.teachers)
+          .insert(
+            TeachersCompanion.insert(
+              id: 't1',
+              createdAt: 1,
+              updatedAt: 1,
+              name: 'الأستاذة ليلى',
+              phone: '0660123456',
+              email: 'laila@school.local',
+              qrCode: 'T1',
+            ),
+          );
+      final templates = SmsTemplateService(h.db, h.writer);
+      await templates.save(
+        SmsTemplateKeys.broadcast,
+        '{school}: مرحباً {name}',
+      );
+      final service = SmsBroadcastService(h.db, h.queue, templates);
+
+      final result = await service.enqueue(
+        audience: SmsBroadcastAudience.teachers,
+        schoolName: 'مدرسة النجاح',
+      );
+      final queued = await h.db.select(h.db.smsQueue).getSingle();
+
+      expect(result.queued, 1);
+      expect(result.failed, 0);
+      expect(queued.phone, '+213660123456');
+      expect(queued.kind, SmsTemplateKeys.broadcast);
+      expect(queued.message, 'مدرسة النجاح: مرحباً الأستاذة ليلى');
+    });
+  });
 }
+
+StudentsCompanion _student(
+  String id,
+  String firstName,
+  String lastName,
+  String phone, {
+  int? deletedAt,
+}) => StudentsCompanion.insert(
+  id: id,
+  createdAt: 1,
+  updatedAt: 1,
+  firstName: firstName,
+  lastName: lastName,
+  parentPhone: phone,
+  qrCode: 'QR-$id',
+  deletedAt: Value(deletedAt),
+);
 
 class _Harness {
   _Harness(this.now) : db = AppDatabase(NativeDatabase.memory()) {
