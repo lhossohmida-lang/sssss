@@ -4,6 +4,7 @@ import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
 import 'catalog_service.dart';
 import 'enums.dart';
+import 'sms_event_service.dart';
 
 /// قائمة انتظار (مادة + مستوى) بعدد منتظريها وحدّها.
 class WaitingListItem {
@@ -56,10 +57,12 @@ class WaitingStudent {
 /// قوائم الانتظار: عرضها، ضبط حدّها، إخراج منتظر، وتنبيه المدير عند بلوغ
 /// الحد (مرة واحدة حتى ينزل العدد دونه).
 class WaitingService {
-  WaitingService(this.db, this.writer);
+  WaitingService(this.db, this.writer, {SmsEventService? sms})
+    : sms = sms ?? SmsEventService(db, writer);
 
   final AppDatabase db;
   final SyncWriter writer;
+  final SmsEventService sms;
 
   /// نوع إشعار بلوغ الحد.
   static const String notifyThreshold = 'waiting_threshold';
@@ -244,11 +247,13 @@ class WaitingService {
       }
       if (list.thresholdNotifiedAt != null) return false;
 
+      final reachedAt = writer.now();
       await writer.patch(
         db.waitingLists,
         key: {'id': listId},
-        values: {'threshold_notified_at': writer.now()},
+        values: {'threshold_notified_at': reachedAt},
       );
+      await sms.waitingThreshold(listId: listId, reachedAt: reachedAt);
       final title = await _title(list);
       final owners =
           await (db.select(db.userAccounts)..where(

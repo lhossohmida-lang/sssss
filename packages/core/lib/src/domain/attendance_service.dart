@@ -8,6 +8,8 @@ import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
 import 'payout_service.dart';
+import 'settings_service.dart';
+import 'sms_event_service.dart';
 import 'stable_id.dart';
 
 /// حصة في قائمة يوم، مع عدّادات حضورها.
@@ -91,12 +93,19 @@ class SessionRoster {
 /// «غائب برخصة» يمنحها المدير أو العامل المخوَّل فقط (قرار 44)؛ الخدمة
 /// تشترط ذلك صراحةً بوسيط `canExcuse` حتى لا يتجاوزه تطبيق الأستاذ.
 class AttendanceService {
-  AttendanceService(this.db, this.writer, this.cycles, this.dues);
+  AttendanceService(
+    this.db,
+    this.writer,
+    this.cycles,
+    this.dues, {
+    SmsEventService? sms,
+  }) : sms = sms ?? SmsEventService(db, writer);
 
   final AppDatabase db;
   final SyncWriter writer;
   final CycleService cycles;
   final DuesService dues;
+  final SmsEventService sms;
 
   late final PayoutService _payouts = PayoutService(db, writer, dues);
 
@@ -291,6 +300,12 @@ class AttendanceService {
         );
       }
       await _write(session, studentId, status);
+      if (status != AttendanceStatus.absent) {
+        await sms.cancelPendingAbsence(
+          sessionId: sessionId,
+          studentId: studentId,
+        );
+      }
     });
   }
 
@@ -360,10 +375,12 @@ class AttendanceService {
             session.status == SessionStatus.cancelled.code) {
           return false;
         }
-        for (final studentId in await _unmarked(session)) {
+        final newlyAbsent = await _unmarked(session);
+        for (final studentId in newlyAbsent) {
           await _write(session, studentId, AttendanceStatus.absent);
         }
         await cycles.closeSession(id);
+        await sms.attendanceAbsent(sessionId: id, studentIds: newlyAbsent);
         await _alertIfTeacherAbsent(session);
         final finished = await cycles.completeCycleIfDone(
           session.groupId,
@@ -371,7 +388,28 @@ class AttendanceService {
         );
         // اكتمال الدورة يُنشئ خلاص الأستاذ عنها بما دُفع حتى الآن.
         if (finished != null) {
+          await sms.cycleCompleted(
+            groupId: session.groupId,
+            cycleNumber: finished,
+          );
           await _payouts.createCyclePayout(session.groupId, finished);
+        } else {
+          final threshold = (await SettingsService(
+            db,
+            writer,
+          ).load()).duesSessionThreshold;
+          if (threshold > 0 &&
+              await cycles.countedSessions(
+                    session.groupId,
+                    session.cycleNumber,
+                    closedOnly: true,
+                  ) >=
+                  threshold) {
+            await sms.paymentReminders(
+              groupId: session.groupId,
+              cycleNumber: session.cycleNumber,
+            );
+          }
         }
         return true;
       });

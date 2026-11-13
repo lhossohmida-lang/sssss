@@ -10,6 +10,7 @@ import 'dues_service.dart';
 import 'enums.dart';
 import 'money.dart';
 import 'payout_service.dart';
+import 'sms_event_service.dart';
 
 /// بيانات هذا الجهاز التي لا تُزامَن: بادئة أرقام الوصولات.
 class DeviceInfoStore {
@@ -154,12 +155,19 @@ class PaymentPage {
 /// المنطق المالي نفسه في [DuesService]؛ هذه الخدمة تضيف رقم الوصل التسلسلي
 /// لهذا الجهاز، والمستلِم من الجلسة، والتحقق بالعربية، وما يمكن دفعه الآن.
 class PaymentService {
-  PaymentService(this.db, this.writer, this.dues, this.device);
+  PaymentService(
+    this.db,
+    this.writer,
+    this.dues,
+    this.device, {
+    SmsEventService? sms,
+  }) : sms = sms ?? SmsEventService(db, writer);
 
   final AppDatabase db;
   final SyncWriter writer;
   final DuesService dues;
   final DeviceInfoStore device;
+  final SmsEventService sms;
 
   late final PayoutService _payouts = PayoutService(db, writer, dues);
 
@@ -298,7 +306,7 @@ class PaymentService {
       }
       final receivedBy = writer.actor().userId;
       final receipt = await nextReceiptNumber();
-      return switch (type) {
+      final payment = await switch (type) {
         PaymentType.month => _recordMonth(
           studentId: studentId,
           groupId: groupId!,
@@ -323,6 +331,8 @@ class PaymentService {
           receiptNumber: receipt,
         ),
       };
+      await sms.paymentReceipt(payment);
+      return payment;
     });
   }
 

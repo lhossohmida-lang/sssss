@@ -132,6 +132,27 @@ void main() {
           .toSet();
       expect(tables, containsAll(['groups', 'group_slots', 'sessions']));
     });
+
+    test('إنشاء مجموعة يخبر أولياء منتظري المادة بموعدها', () async {
+      await env.student();
+      final enrolments = EnrolmentService(
+        env.db,
+        env.writer,
+        DuesService(env.db, env.writer),
+        cycles,
+      );
+      await enrolments.addToWaiting(studentId: 's1', subjectId: 'sub');
+
+      final group = await create();
+
+      final sms = await env.db.select(env.db.smsQueue).get();
+      expect(sms, hasLength(1));
+      expect(sms.single.kind, SmsTemplateKeys.groupCreated);
+      expect(sms.single.phone, '+213550123456');
+      expect(sms.single.message, contains('تلميذ s1'));
+      expect(sms.single.message, contains('السبت 10:00–11:30'));
+      expect(sms.single.eventKey, 'group_created:${group.id}:+213550123456');
+    });
   });
 
   group('التحقق', () {

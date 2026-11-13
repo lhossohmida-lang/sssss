@@ -145,10 +145,16 @@ void main() {
     expect(sent.single.body, contains('رياضيات'));
     expect(sent.single.body, contains('3'));
     expect((await waiting.lists()).single.reachedThreshold, isTrue);
+    final sms = await env.db.select(env.db.smsQueue).get();
+    expect(sms, hasLength(1), reason: 'رسالة واحدة للرقم حتى مع عدة منتظرين');
+    expect(sms.single.kind, SmsTemplateKeys.waitingThreshold);
+    expect(sms.single.message, contains('تلميذ s1، تلميذ s2، تلميذ s3'));
+    expect(sms.single.eventKey, startsWith('waiting_threshold:$id:'));
 
     // منتظر رابع فوق الحد لا يكرر التنبيه.
     await wait('s4');
     expect(await notifications(), hasLength(1));
+    expect(await env.db.select(env.db.smsQueue).get(), hasLength(1));
   });
 
   test('نزول العدد دون الحد ثم بلوغه ثانية ينبّه من جديد', () async {
@@ -166,6 +172,12 @@ void main() {
     );
     await wait('s2');
     expect(await notifications(), hasLength(2));
+    expect(
+      (await env.db.select(env.db.smsQueue).get()).where(
+        (row) => row.kind == SmsTemplateKeys.waitingThreshold,
+      ),
+      hasLength(2),
+    );
   });
 
   test(

@@ -5,8 +5,8 @@ import '../data/local/sync_writer.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
 import 'enums.dart';
-import 'phone.dart';
 import 'schedule_service.dart';
+import 'sms_event_service.dart';
 
 /// الموعد المطلوب يتعارض مع قاعة أو أستاذ.
 class ScheduleConflictException implements Exception {
@@ -91,18 +91,24 @@ class RequestItem {
 ///
 /// لا يتغير أي موعد دون موافقة المدير.
 class RequestService {
-  RequestService(this.db, this.writer, this.schedule, this.cycles);
+  RequestService(
+    this.db,
+    this.writer,
+    this.schedule,
+    this.cycles, {
+    SmsEventService? sms,
+  }) : sms = sms ?? SmsEventService(db, writer);
 
   final AppDatabase db;
   final SyncWriter writer;
   final ScheduleService schedule;
   final CycleService cycles;
+  final SmsEventService sms;
 
   static const String notifyPending = 'request_pending';
   static const String notifyApproved = 'request_approved';
   static const String notifyRejected = 'request_rejected';
   static const String notifyScheduleChange = 'schedule_change';
-  static const String smsKind = 'schedule_change';
 
   /// الأستاذ يرسل طلباً. يُفحص التعارض فوراً:
   /// - تعارض الأستاذ يرفض الطلب.
@@ -457,7 +463,12 @@ class RequestService {
         db.subjects,
       )..where((s) => s.id.equals(group.subjectId))).getSingle();
       final message = '${subject.name} (المجموعة ${group.number}): $summary';
-      final smsQueued = await _informParents(group.id, message, updated.id);
+      final smsQueued = await _informParents(
+        group.id,
+        message,
+        updated.id,
+        summary: summary,
+      );
 
       final teacherAccount = await _account(
         UserRole.teacher,
@@ -492,6 +503,12 @@ class RequestService {
         adminNote: note.trim(),
       );
       await writer.save(db.sessionRequests, updated, key: {'id': updated.id});
+      await sms.requestRejected(
+        requestId: updated.id,
+        teacherId: request.teacherId,
+        request: type.label,
+        note: note,
+      );
 
       final teacherAccount = await _account(
         UserRole.teacher,
@@ -516,8 +533,9 @@ class RequestService {
   Future<int> _informParents(
     String groupId,
     String message,
-    String requestId,
-  ) async {
+    String requestId, {
+    required String summary,
+  }) async {
     final rows = await db
         .customSelect(
           'SELECT DISTINCT s.parent_phone, s.parent_account_id '
@@ -529,32 +547,17 @@ class RequestService {
         )
         .get();
 
-    final phones = <String>{};
     final parentIds = <String>{};
     for (final row in rows) {
-      final phone = row.read<String>('parent_phone');
-      if (PhoneNumbers.isValid(phone)) {
-        phones.add(PhoneNumbers.toInternational(phone));
-      }
       final parentId = row.read<String?>('parent_account_id');
       if (parentId != null) parentIds.add(parentId);
     }
 
-    for (final phone in phones) {
-      final stamp = writer.now();
-      final sms = SmsQueueRow(
-        id: writer.newId(),
-        createdAt: stamp,
-        updatedAt: stamp,
-        phone: phone,
-        message: message,
-        status: SmsStatus.pending.code,
-        kind: smsKind,
-        attempts: 0,
-        createdBy: writer.actor().userId,
-      );
-      await writer.save(db.smsQueue, sms, key: {'id': sms.id});
-    }
+    final smsQueued = await sms.requestApproved(
+      requestId: requestId,
+      groupId: groupId,
+      summary: summary,
+    );
     for (final parentId in parentIds) {
       final account = await _account(UserRole.parent, parentId);
       if (account == null) continue;
@@ -566,7 +569,7 @@ class RequestService {
         entityId: requestId,
       );
     }
-    return phones.length;
+    return smsQueued;
   }
 
   Future<String?> _resolveRoom({

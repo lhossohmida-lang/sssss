@@ -261,12 +261,13 @@ void main() {
         '+213661112233',
       });
       expect(sms.first.status, 'pending');
-      expect(sms.first.kind, RequestService.smsKind);
-      expect(
-        sms.first.message,
-        'رياضيات (المجموعة 1): حصة 2026-11-14 نُقلت إلى الاثنين 2026-11-16 '
-        'من 15:00 إلى 16:30',
+      final parentMessage = sms.firstWhere(
+        (message) => message.phone == '+213550123456',
       );
+      expect(parentMessage.kind, SmsTemplateKeys.requestApproved);
+      expect(parentMessage.message, contains('المجموعة 1'));
+      expect(parentMessage.message, contains('تلميذ s1، تلميذ s2'));
+      expect(parentMessage.message, contains('نُقلت إلى الاثنين 2026-11-16'));
 
       expect(
         (await notifications('acc-p1')).single.kind,
@@ -328,6 +329,7 @@ void main() {
       expect(await cycles.countedSessions('g1', 1), 5);
       final sms = await env.db.select(env.db.smsQueue).get();
       expect(sms.first.message, contains('حصة إضافية يوم الاثنين 2026-11-16'));
+      expect(sms.first.kind, SmsTemplateKeys.requestApproved);
       expect(result.smsQueued, 2);
     });
 
@@ -428,7 +430,11 @@ void main() {
       expect(rejected.status, 'rejected');
       expect(rejected.adminNote, 'القاعات كلها محجوزة');
       expect((await firstSession()).date, saturday);
-      expect(await env.db.select(env.db.smsQueue).get(), isEmpty);
+      final sms = await env.db.select(env.db.smsQueue).get();
+      expect(sms, hasLength(1));
+      expect(sms.single.kind, SmsTemplateKeys.requestRejected);
+      expect(sms.single.phone, '+213770000000');
+      expect(sms.single.message, contains('القاعات كلها محجوزة'));
       expect(await notifications('acc-p1'), isEmpty);
 
       final teacherInbox = await notifications('acc-t1');

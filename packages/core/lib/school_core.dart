@@ -63,6 +63,7 @@ export 'src/domain/schedule_service.dart';
 export 'src/domain/school_settings.dart';
 export 'src/domain/setting_keys.dart';
 export 'src/domain/settings_service.dart';
+export 'src/domain/sms_event_service.dart';
 export 'src/domain/sms_templates.dart';
 export 'src/domain/stable_id.dart';
 export 'src/domain/student_card.dart';

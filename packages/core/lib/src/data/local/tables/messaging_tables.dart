@@ -9,6 +9,7 @@ import 'teaching_tables.dart';
 @TableIndex(name: 'idx_sms_queue_status', columns: {#status, #createdAt})
 @TableIndex(name: 'idx_sms_queue_sent', columns: {#sentAt})
 @TableIndex(name: 'idx_sms_queue_updated', columns: {#updatedAt})
+@TableIndex(name: 'idx_sms_queue_event_key', columns: {#eventKey}, unique: true)
 class SmsQueue extends Table with SyncColumns {
   TextColumn get phone => text()();
 
@@ -31,6 +32,9 @@ class SmsQueue extends Table with SyncColumns {
 
   /// حساب من وضع الرسالة في الطابور (يحق له متابعتها).
   TextColumn get createdBy => text().nullable()();
+
+  /// معرّف الحدث المصدر لمنع التكرار وإلغاء التنبيهات المؤجلة عند التصحيح.
+  TextColumn get eventKey => text().nullable()();
 }
 
 /// قوالب الرسائل القابلة للتعديل.

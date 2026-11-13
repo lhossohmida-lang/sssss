@@ -16252,6 +16252,17 @@ class $SmsQueueTable extends SmsQueue
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _eventKeyMeta = const VerificationMeta(
+    'eventKey',
+  );
+  @override
+  late final GeneratedColumn<String> eventKey = GeneratedColumn<String>(
+    'event_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -16267,6 +16278,7 @@ class $SmsQueueTable extends SmsQueue
     notBefore,
     sentAt,
     createdBy,
+    eventKey,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -16365,6 +16377,12 @@ class $SmsQueueTable extends SmsQueue
         createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
       );
     }
+    if (data.containsKey('event_key')) {
+      context.handle(
+        _eventKeyMeta,
+        eventKey.isAcceptableOrUnknown(data['event_key']!, _eventKeyMeta),
+      );
+    }
     return context;
   }
 
@@ -16426,6 +16444,10 @@ class $SmsQueueTable extends SmsQueue
         DriftSqlType.string,
         data['${effectivePrefix}created_by'],
       ),
+      eventKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_key'],
+      ),
     );
   }
 
@@ -16460,6 +16482,9 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
 
   /// حساب من وضع الرسالة في الطابور (يحق له متابعتها).
   final String? createdBy;
+
+  /// معرّف الحدث المصدر لمنع التكرار وإلغاء التنبيهات المؤجلة عند التصحيح.
+  final String? eventKey;
   const SmsQueueRow({
     required this.id,
     required this.createdAt,
@@ -16474,6 +16499,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     this.notBefore,
     this.sentAt,
     this.createdBy,
+    this.eventKey,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -16500,6 +16526,9 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     }
     if (!nullToAbsent || createdBy != null) {
       map['created_by'] = Variable<String>(createdBy);
+    }
+    if (!nullToAbsent || eventKey != null) {
+      map['event_key'] = Variable<String>(eventKey);
     }
     return map;
   }
@@ -16529,6 +16558,9 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       createdBy: createdBy == null && nullToAbsent
           ? const Value.absent()
           : Value(createdBy),
+      eventKey: eventKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eventKey),
     );
   }
 
@@ -16551,6 +16583,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       notBefore: serializer.fromJson<int?>(json['notBefore']),
       sentAt: serializer.fromJson<int?>(json['sentAt']),
       createdBy: serializer.fromJson<String?>(json['createdBy']),
+      eventKey: serializer.fromJson<String?>(json['eventKey']),
     );
   }
   @override
@@ -16570,6 +16603,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       'notBefore': serializer.toJson<int?>(notBefore),
       'sentAt': serializer.toJson<int?>(sentAt),
       'createdBy': serializer.toJson<String?>(createdBy),
+      'eventKey': serializer.toJson<String?>(eventKey),
     };
   }
 
@@ -16587,6 +16621,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     Value<int?> notBefore = const Value.absent(),
     Value<int?> sentAt = const Value.absent(),
     Value<String?> createdBy = const Value.absent(),
+    Value<String?> eventKey = const Value.absent(),
   }) => SmsQueueRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -16601,6 +16636,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     notBefore: notBefore.present ? notBefore.value : this.notBefore,
     sentAt: sentAt.present ? sentAt.value : this.sentAt,
     createdBy: createdBy.present ? createdBy.value : this.createdBy,
+    eventKey: eventKey.present ? eventKey.value : this.eventKey,
   );
   SmsQueueRow copyWithCompanion(SmsQueueCompanion data) {
     return SmsQueueRow(
@@ -16617,6 +16653,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
       notBefore: data.notBefore.present ? data.notBefore.value : this.notBefore,
       sentAt: data.sentAt.present ? data.sentAt.value : this.sentAt,
       createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      eventKey: data.eventKey.present ? data.eventKey.value : this.eventKey,
     );
   }
 
@@ -16635,7 +16672,8 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
           ..write('lastError: $lastError, ')
           ..write('notBefore: $notBefore, ')
           ..write('sentAt: $sentAt, ')
-          ..write('createdBy: $createdBy')
+          ..write('createdBy: $createdBy, ')
+          ..write('eventKey: $eventKey')
           ..write(')'))
         .toString();
   }
@@ -16655,6 +16693,7 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
     notBefore,
     sentAt,
     createdBy,
+    eventKey,
   );
   @override
   bool operator ==(Object other) =>
@@ -16672,7 +16711,8 @@ class SmsQueueRow extends DataClass implements Insertable<SmsQueueRow> {
           other.lastError == this.lastError &&
           other.notBefore == this.notBefore &&
           other.sentAt == this.sentAt &&
-          other.createdBy == this.createdBy);
+          other.createdBy == this.createdBy &&
+          other.eventKey == this.eventKey);
 }
 
 class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
@@ -16689,6 +16729,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
   final Value<int?> notBefore;
   final Value<int?> sentAt;
   final Value<String?> createdBy;
+  final Value<String?> eventKey;
   final Value<int> rowid;
   const SmsQueueCompanion({
     this.id = const Value.absent(),
@@ -16704,6 +16745,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     this.notBefore = const Value.absent(),
     this.sentAt = const Value.absent(),
     this.createdBy = const Value.absent(),
+    this.eventKey = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SmsQueueCompanion.insert({
@@ -16720,6 +16762,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     this.notBefore = const Value.absent(),
     this.sentAt = const Value.absent(),
     this.createdBy = const Value.absent(),
+    this.eventKey = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -16740,6 +16783,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     Expression<int>? notBefore,
     Expression<int>? sentAt,
     Expression<String>? createdBy,
+    Expression<String>? eventKey,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -16756,6 +16800,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
       if (notBefore != null) 'not_before': notBefore,
       if (sentAt != null) 'sent_at': sentAt,
       if (createdBy != null) 'created_by': createdBy,
+      if (eventKey != null) 'event_key': eventKey,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -16774,6 +16819,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     Value<int?>? notBefore,
     Value<int?>? sentAt,
     Value<String?>? createdBy,
+    Value<String?>? eventKey,
     Value<int>? rowid,
   }) {
     return SmsQueueCompanion(
@@ -16790,6 +16836,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
       notBefore: notBefore ?? this.notBefore,
       sentAt: sentAt ?? this.sentAt,
       createdBy: createdBy ?? this.createdBy,
+      eventKey: eventKey ?? this.eventKey,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -16836,6 +16883,9 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
     if (createdBy.present) {
       map['created_by'] = Variable<String>(createdBy.value);
     }
+    if (eventKey.present) {
+      map['event_key'] = Variable<String>(eventKey.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -16858,6 +16908,7 @@ class SmsQueueCompanion extends UpdateCompanion<SmsQueueRow> {
           ..write('notBefore: $notBefore, ')
           ..write('sentAt: $sentAt, ')
           ..write('createdBy: $createdBy, ')
+          ..write('eventKey: $eventKey, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -25428,6 +25479,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_sms_queue_updated',
     'CREATE INDEX idx_sms_queue_updated ON sms_queue (updated_at)',
   );
+  late final Index idxSmsQueueEventKey = Index(
+    'idx_sms_queue_event_key',
+    'CREATE UNIQUE INDEX idx_sms_queue_event_key ON sms_queue (event_key)',
+  );
   late final Index idxSmsTemplatesUpdated = Index(
     'idx_sms_templates_updated',
     'CREATE INDEX idx_sms_templates_updated ON sms_templates (updated_at)',
@@ -25670,6 +25725,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxSmsQueueStatus,
     idxSmsQueueSent,
     idxSmsQueueUpdated,
+    idxSmsQueueEventKey,
     idxSmsTemplatesUpdated,
     idxChatRoomsGroup,
     idxChatRoomsLast,
@@ -41492,6 +41548,7 @@ typedef $$SmsQueueTableCreateCompanionBuilder = SmsQueueCompanion Function({
   Value<int?> notBefore,
   Value<int?> sentAt,
   Value<String?> createdBy,
+  Value<String?> eventKey,
   Value<int> rowid,
 });
 typedef $$SmsQueueTableUpdateCompanionBuilder = SmsQueueCompanion Function({
@@ -41508,6 +41565,7 @@ typedef $$SmsQueueTableUpdateCompanionBuilder = SmsQueueCompanion Function({
   Value<int?> notBefore,
   Value<int?> sentAt,
   Value<String?> createdBy,
+  Value<String?> eventKey,
   Value<int> rowid,
 });
 
@@ -41582,6 +41640,11 @@ class $$SmsQueueTableFilterComposer
 
   ColumnFilters<String> get createdBy => $composableBuilder(
     column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventKey => $composableBuilder(
+    column: $table.eventKey,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -41659,6 +41722,11 @@ class $$SmsQueueTableOrderingComposer
     column: $table.createdBy,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get eventKey => $composableBuilder(
+    column: $table.eventKey,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SmsQueueTableAnnotationComposer
@@ -41708,6 +41776,9 @@ class $$SmsQueueTableAnnotationComposer
 
   GeneratedColumn<String> get createdBy =>
       $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get eventKey =>
+      $composableBuilder(column: $table.eventKey, builder: (column) => column);
 }
 
 class $$SmsQueueTableTableManager
@@ -41754,6 +41825,7 @@ class $$SmsQueueTableTableManager
                 Value<int?> notBefore = const Value.absent(),
                 Value<int?> sentAt = const Value.absent(),
                 Value<String?> createdBy = const Value.absent(),
+                Value<String?> eventKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SmsQueueCompanion(
                 id: id,
@@ -41769,6 +41841,7 @@ class $$SmsQueueTableTableManager
                 notBefore: notBefore,
                 sentAt: sentAt,
                 createdBy: createdBy,
+                eventKey: eventKey,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -41786,6 +41859,7 @@ class $$SmsQueueTableTableManager
                 Value<int?> notBefore = const Value.absent(),
                 Value<int?> sentAt = const Value.absent(),
                 Value<String?> createdBy = const Value.absent(),
+                Value<String?> eventKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SmsQueueCompanion.insert(
                 id: id,
@@ -41801,6 +41875,7 @@ class $$SmsQueueTableTableManager
                 notBefore: notBefore,
                 sentAt: sentAt,
                 createdBy: createdBy,
+                eventKey: eventKey,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

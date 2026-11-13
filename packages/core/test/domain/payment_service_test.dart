@@ -176,6 +176,12 @@ void main() {
       expect(first.receivedBy, 'u1');
       expect(first.type, 'month');
       expect(first.amount, 500);
+      final sms = await env.db.select(env.db.smsQueue).get();
+      expect(sms, hasLength(2));
+      expect(sms.first.kind, SmsTemplateKeys.paymentReceipt);
+      expect(sms.first.message, contains(first.receiptNumber));
+      expect(sms.first.message, contains('500 دج'));
+      expect(sms.first.eventKey, 'payment_receipt:${first.id}');
       expect(await payments.nextReceiptNumber(), '$prefix-000003');
     });
 

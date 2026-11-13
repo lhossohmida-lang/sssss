@@ -6,6 +6,7 @@ import 'catalog_service.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
 import 'schedule_service.dart';
+import 'sms_event_service.dart';
 
 /// خانة أسبوعية في جدول المجموعة. [weekday] بترقيم `DateTime.weekday`
 /// (1 = الاثنين … 7 = الأحد).
@@ -69,12 +70,19 @@ class GroupItem {
 /// المجموعات: إنشاؤها بجدول أسبوعي دون تعارض، وتوليد حصص دورتها الأولى،
 /// وتعديلها وأرشفتها.
 class GroupService {
-  GroupService(this.db, this.writer, this.schedule, this.cycles);
+  GroupService(
+    this.db,
+    this.writer,
+    this.schedule,
+    this.cycles, {
+    SmsEventService? sms,
+  }) : sms = sms ?? SmsEventService(db, writer);
 
   final AppDatabase db;
   final SyncWriter writer;
   final ScheduleService schedule;
   final CycleService cycles;
+  final SmsEventService sms;
 
   static const String fieldSubject = 'subject';
   static const String fieldTeacher = 'teacher';
@@ -307,6 +315,7 @@ class GroupService {
         await _saveSlot(id, slot);
       }
       await cycles.topUp(id, fromDate: startDate);
+      await sms.groupCreated(id);
       return (db.select(db.groups)..where((g) => g.id.equals(id))).getSingle();
     });
   }

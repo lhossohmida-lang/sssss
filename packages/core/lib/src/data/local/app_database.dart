@@ -59,7 +59,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -67,6 +67,11 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       // 2: بيانات الجهاز المحلية (بادئة الوصولات).
       if (from < 2) await m.createTable(deviceInfo);
+      // 3: ربط رسائل الأحداث بمصدرها لمنع التكرار وإلغاء المؤجل منها.
+      if (from < 3) {
+        await m.addColumn(smsQueue, smsQueue.eventKey);
+        await m.createIndex(idxSmsQueueEventKey);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

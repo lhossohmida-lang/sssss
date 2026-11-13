@@ -495,9 +495,11 @@ create table if not exists public."sms_queue" (
   "not_before" bigint,
   "sent_at" bigint,
   "created_by" text,
+  "event_key" text,
   "synced_at" bigint not null default 0,
   primary key ("id")
 );
+create unique index if not exists "idx_sms_queue_event_key" on public."sms_queue" (event_key);
 create index if not exists "idx_sms_queue_sent" on public."sms_queue" (sent_at);
 create index if not exists "idx_sms_queue_status" on public."sms_queue" (status, created_at);
 create index if not exists "idx_sms_queue_updated" on public."sms_queue" (updated_at);

@@ -236,7 +236,8 @@ enum SmsStatus {
   pending('pending', 'في الانتظار'),
   sending('sending', 'جارٍ الإرسال'),
   sent('sent', 'أُرسلت'),
-  failed('failed', 'فشلت');
+  failed('failed', 'فشلت'),
+  cancelled('cancelled', 'أُلغيت');
 
   const SmsStatus(this.code, this.label);
 

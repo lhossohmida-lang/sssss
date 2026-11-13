@@ -12,6 +12,8 @@ abstract final class SmsTemplateKeys {
   static const String groupCreated = 'group_created';
   static const String cycleCompleted = 'cycle_completed';
   static const String scheduleChange = 'schedule_change';
+  static const String requestApproved = 'request_approved';
+  static const String requestRejected = 'request_rejected';
   static const String paymentReceipt = 'payment_receipt';
   static const String paymentReminder = 'payment_reminder';
 
@@ -34,7 +36,14 @@ abstract final class SmsTemplateKeys {
     cycleCompleted:
         '{school}: اكتملت دورة {subject} لـ {name}. المستحقات: {amount} دج.',
     scheduleChange: '{school}: تغيّر موعد {subject} لـ {name} إلى {date}، {time}، القاعة {room}.',
-    paymentReceipt: '{school}: وصل {receipt} بقيمة {amount} دج للتلميذ {name}.',
+    requestApproved:
+        '{school}: وافقت الإدارة على طلب الأستاذ بشأن {subject} '
+        '(المجموعة {group})؛ {summary}. التلاميذ: {name}.',
+    requestRejected:
+        '{school}: رُفض طلب الأستاذ {name}: {request}. '
+        'ملاحظة الإدارة: {note}.',
+    paymentReceipt:
+        '{school}: وصل {receipt} بقيمة {amount} للتلميذ {name} عن {item}.',
     paymentReminder:
         '{school}: يرجى تسديد مستحقات {name} في {subject}: {amount} دج.',
   };

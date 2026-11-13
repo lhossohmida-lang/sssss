@@ -304,6 +304,14 @@ void main() {
       final sat = await sessionOn(saturday);
       await attendance.closeDueSessions(DateTime(2026, 11, 14, 12));
       expect(await statuses(sat.id), {'s1': 'absent', 's2': 'absent'});
+      final absentSms = (await env.db.select(env.db.smsQueue).get())
+          .where((row) => row.kind == SmsTemplateKeys.attendanceAbsent)
+          .toList();
+      expect(absentSms, hasLength(2));
+      final intendedSendAt = DateKey.parse(saturday)
+          .add(const Duration(minutes: 11 * 60 + 45))
+          .millisecondsSinceEpoch;
+      expect(absentSms.every((row) => row.notBefore == intendedSendAt), isTrue);
       await attendance.mark(
         sessionId: sat.id,
         studentId: 's1',
@@ -312,6 +320,11 @@ void main() {
       );
       expect((await statuses(sat.id))['s1'], 'excused');
       expect(await credits(), hasLength(1));
+      final corrected = (await env.db.select(env.db.smsQueue).get())
+          .where((row) => row.kind == SmsTemplateKeys.attendanceAbsent)
+          .firstWhere((row) => row.eventKey!.endsWith(':s1'));
+      expect(corrected.status, SmsStatus.cancelled.code);
+      expect(corrected.lastError, SmsEventService.correctedAbsenceMessage);
     });
 
     test('تسجيل الكل حاضراً لا يمس من سُجّل غائباً', () async {
@@ -415,6 +428,53 @@ void main() {
         expect(s.closedAt, isNotNull);
         expect(await statuses(s.id), {'s1': 'absent', 's2': 'absent'});
       }
+      final cycleMessages = (await env.db.select(env.db.smsQueue).get())
+          .where((row) => row.kind == SmsTemplateKeys.cycleCompleted)
+          .toList();
+      expect(cycleMessages, hasLength(1));
+      expect(cycleMessages.single.message, contains('4 000 دج'));
+    });
+
+    test('بعد بلوغ حد الحصص المضبوط يرسل تذكيراً واحداً بالمستحقات', () async {
+      final settings = SettingsService(env.db, env.writer);
+      await settings.save(
+        (await settings.load()).copyWith(duesSessionThreshold: 3),
+      );
+      await env.group(id: 'g2', number: 2, sessionsPerCycle: 4);
+      await env.slot(id: 'sl-g2-sat', groupId: 'g2', weekday: 6);
+      await env.slot(id: 'sl-g2-tue', groupId: 'g2', weekday: 2);
+      await env.enroll(id: 'e-g2', groupId: 'g2', studentId: 's1');
+      await cycles.topUp('g2', fromDate: saturday);
+
+      await attendance.closeDueSessions(DateTime(2026, 11, 14, 12));
+      expect(
+        (await env.db.select(env.db.smsQueue).get()).where(
+          (row) => row.kind == SmsTemplateKeys.paymentReminder,
+        ),
+        isEmpty,
+      );
+      await attendance.closeDueSessions(DateTime(2026, 11, 17, 12));
+      expect(
+        (await env.db.select(env.db.smsQueue).get()).where(
+          (row) => row.kind == SmsTemplateKeys.paymentReminder,
+        ),
+        isEmpty,
+      );
+      await attendance.closeDueSessions(DateTime(2026, 11, 21, 12));
+
+      final reminders = (await env.db.select(env.db.smsQueue).get())
+          .where((row) => row.kind == SmsTemplateKeys.paymentReminder)
+          .toList();
+      expect(reminders, hasLength(1));
+      expect(reminders.single.message, contains('2 000 دج'));
+      expect(reminders.single.eventKey, 'payment_reminder:g2:1:+213550123456');
+      await attendance.closeDueSessions(DateTime(2026, 11, 25, 12));
+      expect(
+        (await env.db.select(env.db.smsQueue).get()).where(
+          (row) => row.kind == SmsTemplateKeys.paymentReminder,
+        ),
+        hasLength(1),
+      );
     });
   });
 }
