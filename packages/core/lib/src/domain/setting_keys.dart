@@ -26,4 +26,7 @@ abstract final class SettingKeys {
 
   /// عدد الحصص المنعقدة قبل أن يصير عدم دفع الدورة الحالية «مستحقات».
   static const String duesSessionThreshold = 'dues_session_threshold';
+
+  /// الحد الاختياري لرسائل SMS المرسلة خلال شهر تقويمي؛ صفر يعني بلا حد.
+  static const String smsMonthlyLimit = 'sms_monthly_limit';
 }

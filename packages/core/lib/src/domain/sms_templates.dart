@@ -7,6 +7,13 @@ import '../data/local/app_database.dart';
 abstract final class SmsTemplateKeys {
   static const String accountCreated = 'account_created';
   static const String passwordReset = 'password_reset';
+  static const String attendanceAbsent = 'attendance_absent';
+  static const String waitingThreshold = 'waiting_threshold';
+  static const String groupCreated = 'group_created';
+  static const String cycleCompleted = 'cycle_completed';
+  static const String scheduleChange = 'schedule_change';
+  static const String paymentReceipt = 'payment_receipt';
+  static const String paymentReminder = 'payment_reminder';
 
   /// القوالب الافتراضية.
   static const Map<String, String> defaults = {
@@ -20,6 +27,16 @@ abstract final class SmsTemplateKeys {
         'البريد: {email}\n'
         'كلمة السر: {password}\n'
         'غيّرها عند الدخول.',
+    attendanceAbsent: '{school}: لم يحضر {name} حصة {subject} يوم {date}.',
+    waitingThreshold: '{school}: وصل {name} إلى حد الانتظار في {subject}. سنخبركم عند توفر مكان.',
+    groupCreated:
+        '{school}: أُنشئت مجموعة {subject} لـ {name}. موعدها: {schedule}.',
+    cycleCompleted:
+        '{school}: اكتملت دورة {subject} لـ {name}. المستحقات: {amount} دج.',
+    scheduleChange: '{school}: تغيّر موعد {subject} لـ {name} إلى {date}، {time}، القاعة {room}.',
+    paymentReceipt: '{school}: وصل {receipt} بقيمة {amount} دج للتلميذ {name}.',
+    paymentReminder:
+        '{school}: يرجى تسديد مستحقات {name} في {subject}: {amount} دج.',
   };
 }
 
