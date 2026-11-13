@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,27 @@ class _FailingService extends AttendanceService {
   @override
   Future<int> closeDueSessions(DateTime now) =>
       Future<int>.error(StateError('فشل مقصود'));
+}
+
+class _RecordingService extends AttendanceService {
+  _RecordingService(super.db, super.writer, super.cycles, super.dues);
+
+  final calls = <DateTime>[];
+  final firstCallStarted = Completer<void>();
+  final releaseFirstCall = Completer<void>();
+  final secondCallStarted = Completer<void>();
+
+  @override
+  Future<int> closeDueSessions(DateTime now) async {
+    calls.add(now);
+    if (calls.length == 1) {
+      firstCallStarted.complete();
+      await releaseFirstCall.future;
+    } else if (calls.length == 2) {
+      secondCallStarted.complete();
+    }
+    return 0;
+  }
 }
 
 void main() {
@@ -121,22 +144,33 @@ void main() {
 
   test('start يشغّل فوراً ثم دورياً حتى dispose', () async {
     var now = DateTime(2026, 11, 7, 10, 30);
+    final db = runtime.db;
+    final recording = _RecordingService(
+      db,
+      runtime.writer,
+      CycleService(db, runtime.writer),
+      DuesService(db, runtime.writer),
+    );
     final closer = SessionCloser(
-      service,
+      recording,
       period: const Duration(milliseconds: 20),
       clock: () => now,
     );
     closer.start();
-    await Future<void>.delayed(const Duration(milliseconds: 60));
-    final session = (await runtime.db.select(runtime.db.sessions).get()).single;
-    expect(session.closedAt, isNull, reason: 'لم تنتهِ الحصة بعد');
+    await recording.firstCallStarted.future;
+    expect(recording.calls, [DateTime(2026, 11, 7, 10, 30)]);
+    recording.releaseFirstCall.complete();
 
     now = DateTime(2026, 11, 7, 12);
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-    final closed = (await runtime.db.select(runtime.db.sessions).get()).single;
-    expect(closed.closedAt, isNotNull, reason: 'أغلقته الدورة التالية');
+    await recording.secondCallStarted.future.timeout(
+      const Duration(seconds: 5),
+    );
+    expect(recording.calls[1], DateTime(2026, 11, 7, 12));
 
     closer.dispose();
+    final callCountAfterDispose = recording.calls.length;
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(recording.calls, hasLength(callCountAfterDispose));
     expect(await closer.runOnce(), 0, reason: 'بعد dispose لا عمل');
   });
 

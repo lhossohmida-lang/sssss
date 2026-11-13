@@ -84,7 +84,7 @@ values ('w1', 1, 1, 'سمير', '0660000001', 'w1@school.local', 'W-AAAAAAAAAA',
         480, 1020, 2000, 1200, '{}',
         '{"students": ["view", "add"], "scanner": ["use"], "receive_money": ["use"]}'),
        ('w2', 1, 1, 'نادية', '0660000002', 'w2@school.local', 'W-BBBBBBBBBB',
-        480, 1020, 2000, 1200, '{}', '{}');
+        480, 1020, 2000, 1200, '{}', '{"chat":["edit"]}');
 
 insert into parents (id, created_at, updated_at, phone, email, name)
 values ('p1', 1, 1, '0550000001', 'p1@school.local', 'وليّ 1'),
@@ -493,6 +493,54 @@ select test.allowed(
 select test.denied(
   $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
       sender_role, content)
+    values ('msg-spoof-parent', 1, 1, 'room1', 'acc-p1', 'owner', 'انتحال الدور')$$,
+  'العضو لا ينتحل دوراً آخر في الرسالة');
+select test.denied(
+  $$insert into chat_rooms (id, created_at, updated_at, type, group_id, title,
+      created_by, is_closed)
+    values ('room-parent-group', 1, 1, 'group', 'g1', 'غير مسموح',
+      'acc-p1', false)$$,
+  'الوليّ لا ينشئ غرفة مجموعة');
+select test.allowed(
+  $$insert into chat_rooms (id, created_at, updated_at, type, group_id, title,
+      created_by, is_closed)
+    values ('room-parent-private', 1, 1, 'private', null, '',
+      'acc-p1', false)$$,
+  'الوليّ ينشئ غرفة خاصة');
+select test.denied(
+  $$insert into chat_members (id, created_at, updated_at, room_id, user_id,
+      user_role, last_read_at, muted)
+    values ('cm-outsider', 1, 1, 'room-parent-private', 'acc-p2', 'parent', 0, false)$$,
+  'الوليّ لا يضيف وليّاً من خارج مجموعته');
+select test.logout();
+
+select test.login('acc-t1');
+select test.allowed(
+  $$insert into chat_rooms (id, created_at, updated_at, type, group_id, title,
+      created_by, is_closed)
+    values ('room-teacher-group', 1, 1, 'group', 'g1', 'مجموعة الأستاذ',
+      'acc-t1', false)$$,
+  'أستاذ المجموعة ينشئ غرفتها');
+select test.allowed(
+  $$insert into chat_members (id, created_at, updated_at, room_id, user_id,
+      user_role, last_read_at, muted)
+    values ('tm-t1', 1, 1, 'room-teacher-group', 'acc-t1', 'teacher', 0, false),
+           ('tm-p1', 1, 1, 'room-teacher-group', 'acc-p1', 'parent', 0, false)$$,
+  'أستاذ المجموعة يضيف نفسه والوليّ النشط');
+select test.denied(
+  $$insert into chat_members (id, created_at, updated_at, room_id, user_id,
+      user_role, last_read_at, muted)
+    values ('tm-p2', 1, 1, 'room-teacher-group', 'acc-p2', 'parent', 0, false)$$,
+  'أستاذ المجموعة لا يضيف وليّاً من مجموعة أخرى');
+select test.denied(
+  $$insert into chat_rooms (id, created_at, updated_at, type, group_id, title,
+      created_by, is_closed)
+    values ('room-teacher-other-group', 1, 1, 'group', 'g2', 'مجموعة أخرى',
+      'acc-t1', false)$$,
+  'الأستاذ لا ينشئ غرفة مجموعة أستاذ آخر');
+select test.denied(
+  $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
+      sender_role, content)
     values ('msg2', 1, 1, 'room1', 'acc-t1', 'teacher', 'انتحال')$$,
   'الوليّ يرسل رسالة باسم الأستاذ');
 select test.logout();
@@ -504,6 +552,12 @@ select test.allowed(
       sender_role, content)
     values ('msg3', 2, 2, 'room1', 'acc-t1', 'teacher', 'وعليكم السلام')$$,
   'الأستاذ العضو يرد');
+select test.allowed(
+  $$update chat_rooms set last_message_at = 2, updated_at = 2 where id = 'room1'$$,
+  'العضو يحدّث وقت آخر رسالة');
+select test.denied(
+  $$update chat_rooms set is_closed = true, updated_at = 2 where id = 'room1'$$,
+  'العضو لا يغلق الغرفة بنفسه');
 select test.allowed(
   $$update chat_members set last_read_at = 5, muted = true, updated_at = 5
      where id = 'cm2'$$, 'العضو يحدّث «مقروء» والكتم');
@@ -531,6 +585,31 @@ select test.logout();
 select test.login('acc-owner');
 select test.sees('select 1 from chat_messages', 2, 'المالك يرى كل الرسائل');
 select test.allowed(
+  $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
+      sender_role, content)
+    values ('msg-owner', 3, 3, 'room1', 'acc-owner', 'owner', 'رسالة من الإدارة')$$,
+  'المالك يكتب في غرفة يراقبها');
+select test.logout();
+
+select test.login('acc-w2');
+select test.sees('select 1 from chat_rooms where id = ''room1''', 1,
+  'العامل المراقب يرى الغرفة');
+select test.sees('select 1 from chat_messages where room_id = ''room1''', 3,
+  'العامل المراقب يرى الرسائل السابقة');
+select test.allowed(
+  $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
+      sender_role, content)
+    values ('msg-worker', 4, 4, 'room1', 'acc-w2', 'worker', 'رسالة من العامل')$$,
+  'العامل المراقب يكتب وهو غير عضو');
+select test.denied(
+  $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
+      sender_role, content)
+    values ('msg-spoof-role', 5, 5, 'room1', 'acc-w2', 'owner', 'انتحال الدور')$$,
+  'العامل لا ينتحل دوراً آخر في الرسالة');
+select test.logout();
+
+select test.login('acc-owner');
+select test.allowed(
   $$update chat_messages set deleted_at = 9, updated_at = 9 where id = 'msg3'$$,
   'المالك يحذف رسالة');
 select test.allowed(
@@ -552,4 +631,75 @@ select test.logout();
 select test.login('acc-p1');
 select test.sees('select 1 from chat_messages', 0,
   'العضو المُزال لا يقرأ الرسائل');
+select test.logout();
+
+-- وليّ غادر مجموعة لا يرى غرفتها حتى لو لم يصل تحديث عضويته في المحادثة بعد.
+select test.login('acc-owner');
+select test.allowed(
+  $$insert into chat_rooms (id, created_at, updated_at, type, group_id, title,
+      created_by, is_closed)
+    values ('room-group', 10, 10, 'group', 'g1', 'المجموعة 1',
+      'acc-owner', false)$$,
+  'المالك ينشئ غرفة مجموعة');
+select test.allowed(
+  $$insert into chat_members (id, created_at, updated_at, room_id, user_id,
+      user_role, last_read_at, muted)
+    values ('gm-p1', 10, 10, 'room-group', 'acc-p1', 'parent', 0, false),
+           ('gm-t1', 10, 10, 'room-group', 'acc-t1', 'teacher', 0, false)$$,
+  'المالك يضيف أعضاء غرفة المجموعة');
+select test.allowed(
+  $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
+      sender_role, content)
+    values ('gm-msg', 10, 10, 'room-group', 'acc-owner', 'owner', 'رسالة المجموعة')$$,
+  'المالك يكتب في غرفة المجموعة');
+select test.logout();
+
+select test.login('acc-p1');
+select test.allowed(
+  $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
+      sender_role, content)
+    values ('gm-p-msg', 11, 11, 'room-group', 'acc-p1', 'parent', 'ردّ الولي')$$,
+  'الوليّ النشط يرد في غرفة المجموعة');
+select test.logout();
+
+select test.login('acc-t1');
+select test.denied(
+  $$update chat_members set deleted_at = 12, updated_at = 12 where id = 'gm-p1'$$,
+  'أستاذ المجموعة لا يزيل وليّاً ما زال منتسباً');
+select test.logout();
+
+select test.login('acc-owner');
+select test.allowed(
+  $$update group_students set left_at = 12, updated_at = 12 where id = 'gs1'$$,
+  'المالك يحدّث خروج التلميذ من المجموعة');
+select test.logout();
+
+select test.login('acc-t1');
+select test.allowed(
+  $$update chat_members set deleted_at = 13, updated_at = 13 where id = 'gm-p1'$$,
+  'أستاذ المجموعة يزامن إزالة الوليّ بعد مغادرته');
+select test.logout();
+
+select test.login('acc-p1');
+select test.sees('select 1 from chat_rooms where id = ''room-group''', 0,
+  'وليّ غادر المجموعة لا يرى غرفتها');
+select test.sees('select 1 from chat_messages where room_id = ''room-group''', 0,
+  'وليّ غادر المجموعة لا يقرأ رسائلها');
+select test.denied(
+  $$insert into chat_messages (id, created_at, updated_at, room_id, sender_id,
+      sender_role, content)
+    values ('gm-msg-p1', 13, 13, 'room-group', 'acc-p1', 'parent', 'بعد المغادرة')$$,
+  'وليّ غادر المجموعة لا يرسل إلى غرفتها');
+select test.denied(
+  $$update chat_messages set deleted_at = 14, updated_at = 14
+     where id = 'gm-p-msg'$$,
+  'وليّ غادر المجموعة لا يعدّل رسائله القديمة');
+select test.denied(
+  $$update chat_members set muted = true, updated_at = 15 where id = 'gm-p1'$$,
+  'وليّ غادر المجموعة لا يحدّث كتم الغرفة');
+select test.logout();
+
+select test.login('acc-t1');
+select test.sees('select 1 from chat_messages where room_id = ''room-group''', 1,
+  'أستاذ المجموعة النشط يقرأ رسائلها');
 select test.logout();

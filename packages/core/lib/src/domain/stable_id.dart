@@ -56,6 +56,16 @@ abstract final class StableId {
   static String chatMember(String roomId, String userId) =>
       _of('chat_member', [roomId, userId]);
 
+  /// غرفة خاصة واحدة بين حسابين، بصرف النظر عن أيّهما بدأ المحادثة.
+  static String chatPrivateRoom(String firstUserId, String secondUserId) {
+    final participants = [firstUserId, secondUserId]..sort();
+    return _of('chat_private_room', participants);
+  }
+
+  /// غرفة المجموعة الوحيدة.
+  static String chatGroupRoom(String groupId) =>
+      _of('chat_group_room', [groupId]);
+
   /// مستوى دراسي افتراضي (طور ورقم)، فيتطابق على كل الأجهزة عند الإعداد الأول.
   static String defaultLevel(String stage, int grade) =>
       _of('default_level', [stage, grade]);

@@ -9,6 +9,7 @@ environment:
   flutter: ">=3.47.0"
 
 dependencies:
+  drift: ^2.35.4
   flutter:
     sdk: flutter
   school_core:

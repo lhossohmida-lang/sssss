@@ -84,19 +84,189 @@ language sql stable security definer set search_path = public as $$
   select s.group_id from sessions s where s.id = sid
 $$;
 
+create or replace function app.active_chat_group(gid text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case app.role()
+    when 'teacher' then exists (
+      select 1 from groups g
+       where g.id = gid and g.teacher_id = app.entity_id()
+         and g.deleted_at is null and g.archived_at is null)
+    when 'parent' then exists (
+      select 1 from groups g
+      join group_students gs on gs.group_id = g.id and gs.deleted_at is null
+      join students s on s.id = gs.student_id and s.deleted_at is null
+       where g.id = gid and g.deleted_at is null and g.archived_at is null
+         and gs.left_at is null
+         and s.parent_account_id = app.entity_id())
+    else true
+  end
+$$;
+
+create or replace function app.chat_room_group(rid text) returns text
+language sql stable security definer set search_path = public as $$
+  select r.group_id from chat_rooms r where r.id = rid and r.type = 'group'
+$$;
+
+create or replace function app.group_chat_participant(
+  gid text, target_uid text, target_role text
+) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from groups g join user_accounts target
+      on target.id = target_uid and target.role = target_role
+      and target.deleted_at is null
+    where g.id = gid and g.deleted_at is null and g.archived_at is null
+      and ((target.role = 'teacher' and target.entity_id = g.teacher_id)
+        or (target.role = 'parent' and exists (
+          select 1 from group_students gs
+          join students s on s.id = gs.student_id and s.deleted_at is null
+          where gs.group_id = g.id and gs.deleted_at is null
+            and gs.left_at is null
+            and s.parent_account_id = target.entity_id)))
+  )
+$$;
+
+-- لا يبدأ الأستاذ والوليّ محادثة خاصة إلا مع مجموعة نشطة مشتركة.
+create or replace function app.can_message_account(target_uid text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case
+    when app.can('chat', 'add') or app.can('chat', 'edit') then true
+    when app.role() not in ('teacher', 'parent') then false
+    else exists (
+      select 1 from user_accounts target
+      join groups g on g.deleted_at is null and g.archived_at is null
+      join group_students gs on gs.group_id = g.id
+        and gs.deleted_at is null and gs.left_at is null
+      join students s on s.id = gs.student_id and s.deleted_at is null
+      where target.id = target_uid and target.deleted_at is null
+        and ((app.role() = 'teacher' and target.role = 'parent'
+              and g.teacher_id = app.entity_id()
+              and s.parent_account_id = target.entity_id)
+          or (app.role() = 'parent' and target.role = 'teacher'
+              and g.teacher_id = target.entity_id
+              and s.parent_account_id = app.entity_id()))
+    )
+  end
+$$;
+
+create or replace function app.can_create_chat_room(room_type text, gid text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select case
+    when room_type is null then false
+    when room_type = 'private' and gid is not null then false
+    when room_type = 'group' and gid is null then false
+    when room_type not in ('private', 'group') then false
+    when app.can('chat', 'add') or app.can('chat', 'edit') then true
+    when room_type = 'private' then gid is null
+      and app.role() in ('teacher', 'parent')
+    when room_type = 'group' then app.active_chat_group(gid)
+    else false
+  end
+$$;
+
 create or replace function app.is_room_member(rid text) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
-    select 1 from chat_members m
-     where m.room_id = rid and m.user_id = app.uid() and m.deleted_at is null)
+    select 1 from chat_members m join chat_rooms r on r.id = m.room_id
+       where m.room_id = rid and m.user_id = app.uid() and m.deleted_at is null
+       and (r.type <> 'group' or app.active_chat_group(r.group_id)))
 $$;
 
 create or replace function app.created_room(rid text) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from chat_rooms r
-     where r.id = rid and r.created_by = app.uid())
+     where r.id = rid and r.created_by = app.uid()
+       and (r.type <> 'group' or app.active_chat_group(r.group_id)))
 $$;
+
+create or replace function app.can_add_chat_member(
+  rid text, target_uid text, target_role text
+) returns boolean
+language sql stable security definer set search_path = public as $$
+  select case
+    when app.can('chat', 'add') or app.can('chat', 'edit') then true
+    when not app.created_room(rid) then false
+    when target_uid = app.uid() then target_role = app.role()
+    else exists (
+      select 1 from chat_rooms r join user_accounts target
+        on target.id = target_uid and target.role = target_role
+        and target.deleted_at is null
+      where r.id = rid and r.deleted_at is null and (
+        (r.type = 'private' and app.can_message_account(target_uid))
+        or (r.type = 'group' and app.active_chat_group(r.group_id)
+          and app.group_chat_participant(r.group_id, target_uid, target.role))
+      )
+    )
+  end
+$$;
+
+-- الغرفة المحدّثة من عضو عادي لا تغيّر حالة الإغلاق أو أعضاءها أو تعريفها.
+-- يسمح للعضو بتحديث آخر رسالة، ولأستاذ المجموعة بتعديل عنوان مجموعته.
+create or replace function app.guard_chat_room_update() returns trigger
+language plpgsql set search_path = public as $$
+declare
+  allowed_columns text[] := array['updated_at', 'synced_at', 'last_message_at'];
+begin
+  if current_user <> 'authenticated' or app.can('chat', 'edit') then
+    return new;
+  end if;
+  if old.type = 'group' and app.teaches_group(old.group_id) then
+    allowed_columns := array_append(allowed_columns, 'title');
+  end if;
+  if not app.is_room_member(old.id)
+     or (to_jsonb(new) - allowed_columns) <> (to_jsonb(old) - allowed_columns) then
+    raise exception 'لا صلاحية لتعديل هذه الغرفة'
+      using errcode = '42501';
+  end if;
+  return new;
+end
+$$;
+
+create or replace function app.guard_chat_member_update() returns trigger
+language plpgsql set search_path = public as $$
+declare
+  allowed_columns text[];
+  gid text := app.chat_room_group(old.room_id);
+begin
+  if current_user <> 'authenticated' or app.can('chat', 'edit') then
+    return new;
+  end if;
+  if old.user_id = app.uid() and old.user_role = app.role()
+     and app.is_room_member(old.room_id) then
+    allowed_columns := array['updated_at', 'synced_at', 'last_read_at', 'muted'];
+  elsif app.teaches_group(gid) and app.active_chat_group(gid)
+      and old.user_role in ('teacher', 'parent') then
+    allowed_columns := array['updated_at', 'synced_at', 'deleted_at'];
+    if old.deleted_at is null and new.deleted_at is not null
+       and app.group_chat_participant(gid, old.user_id, old.user_role) then
+      raise exception 'لا يمكن إزالة عضو نشط من الغرفة الجماعية'
+        using errcode = '42501';
+    end if;
+    if new.deleted_at is null
+       and not app.group_chat_participant(gid, new.user_id, new.user_role) then
+      raise exception 'لا يمكن إضافة عضو غير نشط إلى الغرفة الجماعية'
+        using errcode = '42501';
+    end if;
+  else
+    raise exception 'لا صلاحية لتعديل عضو المحادثة'
+      using errcode = '42501';
+  end if;
+  if (to_jsonb(new) - allowed_columns) <> (to_jsonb(old) - allowed_columns) then
+    raise exception 'لا صلاحية لتغيير بيانات عضو المحادثة'
+      using errcode = '42501';
+  end if;
+  return new;
+end
+$$;
+
+drop trigger if exists trg_chat_member_update_guard on public.chat_members;
+create trigger trg_chat_member_update_guard before update on public.chat_members
+  for each row execute function app.guard_chat_member_update();
+
+drop trigger if exists trg_chat_room_update_guard on public.chat_rooms;
+create trigger trg_chat_room_update_guard before update on public.chat_rooms
+  for each row execute function app.guard_chat_room_update();
 
 create or replace function app.room_open(rid text) returns boolean
 language sql stable security definer set search_path = public as $$
@@ -346,23 +516,44 @@ select app.set_rules('sms_queue',
 select app.staff_rules('sms_templates', 'sms', 'app.is_staff()');
 
 -- المحادثات: الأعضاء فقط، وصاحب المدرسة (أو من له صلاحية المراقبة) يرى
--- الكل ويغلق الغرف ويحذف الرسائل ويزيل الأعضاء.
+-- الكل ويكتب ويدير الغرف، مع تحقق العلاقة النشطة لمجموعات الأستاذ والوليّ.
 select app.set_rules('chat_rooms',
-  $$app.can('chat', 'view') or app.is_room_member(id) or created_by = app.uid()$$,
-  $$created_by = app.uid()$$,
-  $$app.can('chat', 'edit') or created_by = app.uid()$$);
+  $$app.can('chat', 'view') or app.can('chat', 'edit')
+    or app.is_room_member(id) or created_by = app.uid()$$,
+  $$created_by = app.uid() and app.can_create_chat_room(type, group_id)$$,
+  $$app.can('chat', 'edit') or app.is_room_member(id)$$,
+  $$
+    (deleted_at is null and
+      (app.can('chat', 'edit') or app.is_room_member(id)))
+    or (deleted_at is not null and app.can('chat', 'edit'))
+  $$);
 
 select app.set_rules('chat_members',
-  $$app.can('chat', 'view') or app.is_room_member(room_id)$$,
-  $$app.can('chat', 'edit') or app.created_room(room_id)$$,
-  $$app.can('chat', 'edit') or user_id = app.uid()
-    or app.created_room(room_id)$$);
+  $$app.can('chat', 'view') or app.can('chat', 'edit')
+    or app.is_room_member(room_id)$$,
+  $$app.can('chat', 'add') or app.can('chat', 'edit')
+    or app.can_add_chat_member(room_id, user_id, user_role)$$,
+  $$app.can('chat', 'edit')
+    or (user_id = app.uid() and app.is_room_member(room_id))
+    or (app.teaches_group(app.chat_room_group(room_id))
+      and app.active_chat_group(app.chat_room_group(room_id)))$$,
+  $$app.can('chat', 'edit')
+    or (user_id = app.uid() and user_role = app.role()
+      and app.is_room_member(room_id))
+    or (app.teaches_group(app.chat_room_group(room_id))
+      and app.active_chat_group(app.chat_room_group(room_id))
+      and (deleted_at is not null or app.group_chat_participant(
+        app.chat_room_group(room_id), user_id, user_role)))$$);
 
 select app.set_rules('chat_messages',
-  $$app.can('chat', 'view') or app.is_room_member(room_id)$$,
-  $$sender_id = app.uid() and app.is_room_member(room_id)
+  $$app.can('chat', 'view') or app.can('chat', 'edit')
+    or app.is_room_member(room_id)$$,
+  $$sender_id = app.uid() and sender_role = app.role()
+    and (app.is_room_member(room_id)
+    or app.can('chat', 'edit'))
     and app.room_open(room_id)$$,
-  $$app.can('chat', 'delete') or sender_id = app.uid()$$);
+  $$app.can('chat', 'edit') or app.can('chat', 'delete') or
+    (sender_id = app.uid() and app.is_room_member(room_id))$$);
 
 -- النتائج والملفات: يكتبها أستاذ المجموعة، ويقرؤها الوليّ.
 select app.set_rules('grades',
