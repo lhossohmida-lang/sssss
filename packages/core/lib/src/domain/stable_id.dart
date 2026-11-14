@@ -77,4 +77,11 @@ abstract final class StableId {
   /// نوع المصروف الذي له اسم طبيعي.
   static String expenseCategory(String normalizedName) =>
       _of('expense_category', [normalizedName]);
+
+  /// نوع أجور العمال المحجوز لكل الأجهزة.
+  static String workerWagesCategory() => _of('worker_wages_category', const []);
+
+  /// مصروف أجر عامل لشهر؛ إعادة تسجيله تحدّث السجل نفسه.
+  static String workerWageExpense(String workerId, String month) =>
+      _of('worker_wage_expense', [workerId, month]);
 }

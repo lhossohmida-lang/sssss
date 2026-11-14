@@ -43,7 +43,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => _CategoryManagerDialog(
-        categories: categories,
+        categories: categories.where((category) => !category.isWages).toList(),
         canAdd: ref.can(PermissionModule.expenses, PermissionAction.add),
         canEdit: ref.can(PermissionModule.expenses, PermissionAction.edit),
         canDelete: ref.can(PermissionModule.expenses, PermissionAction.delete),
@@ -66,7 +66,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     final value = await showDialog<_ExpenseFormValue>(
       context: context,
       builder: (context) => _ExpenseFormDialog(
-        categories: categories,
+        categories: categories.where((category) => !category.isWages).toList(),
         initial: existing,
         canAddCategory: canAddCategory,
         askCategoryName: canAddCategory ? _askCategoryName : null,

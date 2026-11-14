@@ -18,10 +18,49 @@ class WorkerSheetScreen extends ConsumerStatefulWidget {
 class _WorkerSheetScreenState extends ConsumerState<WorkerSheetScreen> {
   String _month = currentMonthKey();
 
+  Future<void> _recordAsExpense(WorkerMonthSummary worker) async {
+    final wasRecorded = worker.wageExpenseId != null;
+    try {
+      await ref
+          .read(wageServiceProvider)
+          .recordAsExpense(workerId: worker.workerId, month: _month);
+      if (!mounted) return;
+      ref.invalidate(workerSheetProvider(_month));
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              wasRecorded
+                  ? 'حُدّث مصروف أجر العامل'
+                  : 'سُجّل أجر العامل كمصروف',
+            ),
+          ),
+        );
+    } on Object catch (error) {
+      if (!mounted) return;
+      final message = error is StateError
+          ? error.message.toString()
+          : 'تعذّر تسجيل الأجر كمصروف: $error';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final today = DateKey.of(DateTime.now());
+    final canRecordExpense = ref.can(
+      PermissionModule.expenses,
+      PermissionAction.add,
+    );
     final sheet = ref.watch(workerSheetProvider(_month));
     return Scaffold(
       appBar: const ClayAppBar(title: 'حضور العمال', showBack: true),
@@ -80,6 +119,8 @@ class _WorkerSheetScreenState extends ConsumerState<WorkerSheetScreen> {
                   itemBuilder: (context, i) {
                     final w = items[i];
                     final m = w.month;
+                    final needsUpdate =
+                        w.wageExpenseId != null && !w.wageExpenseIsCurrent;
                     return ClayListTile(
                       leading: ClayAvatar(name: w.name),
                       title: w.name,
@@ -93,6 +134,24 @@ class _WorkerSheetScreenState extends ConsumerState<WorkerSheetScreen> {
                       ),
                       trailing: [
                         Text(Money.format(m.total), style: text.titleSmall),
+                        if (canRecordExpense)
+                          IconButton(
+                            tooltip: w.wageExpenseId == null
+                                ? 'تسجيل الأجر كمصروف'
+                                : needsUpdate
+                                ? 'تحديث مصروف الأجر'
+                                : 'الأجر مسجّل كمصروف',
+                            onPressed: m.total <= 0 || w.wageExpenseIsCurrent
+                                ? null
+                                : () => _recordAsExpense(w),
+                            icon: Icon(
+                              w.wageExpenseId == null
+                                  ? Icons.add_card_outlined
+                                  : needsUpdate
+                                  ? Icons.sync_rounded
+                                  : Icons.check_circle_outline_rounded,
+                            ),
+                          ),
                       ],
                     );
                   },

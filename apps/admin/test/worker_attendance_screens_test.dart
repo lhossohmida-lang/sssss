@@ -26,6 +26,16 @@ const _viewer = TestAccount(
   permissions: '{"workers":["view"]}',
 );
 
+const _expenseRecorder = TestAccount(
+  id: 'u-expense-recorder',
+  email: 'expense-recorder@school.local',
+  password: 'expense-recorder-pass-1',
+  role: UserRole.worker,
+  entityId: 'w9',
+  displayName: 'مسجّل الأجور',
+  permissions: '{"workers":["view"],"expenses":["add"]}',
+);
+
 /// كل أيام الأسبوع يوم كامل: أجر الشهر يتبع الحضور وتعديلاته فقط.
 const _allDays =
     '{"1":"full","2":"full","3":"full","4":"full","5":"full",'
@@ -134,6 +144,48 @@ void main() {
     expect(find.text(Money.format(1000)), findsNWidgets(2));
   });
 
+  appTest('صلاحية إضافة المصاريف تسجل أجر العامل كمصروف', (tester) async {
+    final runtime = await openSheet(tester, account: _expenseRecorder);
+    final workerRow = find.ancestor(
+      of: find.text('سمير').first,
+      matching: find.byType(ClayListTile),
+    );
+    await tester.tap(
+      find.descendant(
+        of: workerRow,
+        matching: find.byTooltip('تسجيل الأجر كمصروف'),
+      ),
+    );
+    await settleDb(tester);
+
+    final rows = await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.expenses).get(),
+    );
+    final categories = await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.expenseCategories).get(),
+    );
+    final now = DateTime.now();
+    final monthEnd = DateTime(now.year, now.month + 1, 0).day;
+    expect(rows, hasLength(1));
+    expect(rows.single.amount, 1000);
+    expect(rows.single.workerId, 'w1');
+    expect(
+      rows.single.date,
+      '${currentMonthKey()}-${monthEnd.toString().padLeft(2, '0')}',
+    );
+    expect(rows.single.createdBy, _expenseRecorder.id);
+    expect(categories.single.isWages, isTrue);
+    expect(
+      find.descendant(
+        of: workerRow,
+        matching: find.byTooltip('الأجر مسجّل كمصروف'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   appTest('كشف العامل اليومي: يوم الحضور بساعاته وتأخره وأجره', (tester) async {
     await openSheet(tester);
     await openWorker(tester);
@@ -224,6 +276,7 @@ void main() {
 
   appTest('صلاحية العرض فقط: الأيام بلا نافذة تعديل', (tester) async {
     await openSheet(tester, account: _viewer);
+    expect(find.byTooltip('تسجيل الأجر كمصروف'), findsNothing);
     await openWorker(tester);
     await tester.tap(find.textContaining('حضر 08:10'));
     await tester.pumpAndSettle();

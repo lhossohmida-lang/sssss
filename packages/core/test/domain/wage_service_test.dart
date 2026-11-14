@@ -253,6 +253,81 @@ void main() {
     });
   });
 
+  group('تسجيل الأجور كمصروفات', () {
+    test('مصروف ثابت للعامل والشهر، ويتحدث بعد تصحيح الحضور', () async {
+      await scan('2026-11-02');
+      await scan('2026-11-07');
+      final id = await wages.recordAsExpense(workerId: 'w1', month: '2026-11');
+      final categoryId = StableId.workerWagesCategory();
+      final firstExpense = await env.db.select(env.db.expenses).getSingle();
+      final category = await (env.db.select(
+        env.db.expenseCategories,
+      )..where((row) => row.id.equals(categoryId))).getSingle();
+
+      expect(id, StableId.workerWageExpense('w1', '2026-11'));
+      expect(firstExpense.id, id);
+      expect(firstExpense.workerId, 'w1');
+      expect(firstExpense.categoryId, categoryId);
+      expect(firstExpense.amount, 3200);
+      expect(firstExpense.date, '2026-11-30');
+      expect(firstExpense.note, 'أجر شهر 2026-11');
+      expect(firstExpense.createdBy, 'u1');
+      expect(category.name, 'أجور العمال');
+      expect(category.isWages, isTrue);
+
+      final auditCount = await env.db.select(env.db.auditLog).get();
+      expect(await wages.recordAsExpense(workerId: 'w1', month: '2026-11'), id);
+      expect(await env.db.select(env.db.expenses).get(), hasLength(1));
+      expect(
+        await env.db.select(env.db.auditLog).get(),
+        hasLength(auditCount.length),
+      );
+
+      await wages.setOverride(
+        workerId: 'w1',
+        date: '2026-11-07',
+        kind: WorkDayKind.off,
+      );
+      await wages.recordAsExpense(workerId: 'w1', month: '2026-11');
+
+      final updated = await env.db.select(env.db.expenses).getSingle();
+      expect(updated.id, id);
+      expect(updated.amount, 2000);
+      expect(await env.db.select(env.db.expenses).get(), hasLength(1));
+      final summary = (await wages.sheet('2026-11')).single;
+      expect(summary.wageExpenseId, id);
+      expect(summary.wageExpenseAmount, 2000);
+      expect(summary.wageExpenseIsCurrent, isTrue);
+    });
+
+    test('الأجر الصفري والشهر غير الصحيح لا ينشئان مصروفاً', () async {
+      await expectLater(
+        wages.recordAsExpense(workerId: 'w1', month: '2026-11'),
+        throwsStateError,
+      );
+      await expectLater(
+        wages.recordAsExpense(workerId: 'w1', month: '2026-13'),
+        throwsFormatException,
+      );
+      expect(await env.db.select(env.db.expenses).get(), isEmpty);
+      expect(await env.db.select(env.db.expenseCategories).get(), isEmpty);
+    });
+
+    test('مصروف الأجر لا يمكن حذفه من شاشة المصاريف', () async {
+      await scan('2026-11-02');
+      final id = await wages.recordAsExpense(workerId: 'w1', month: '2026-11');
+
+      await expectLater(
+        ExpenseService(env.db, env.writer).deleteExpense(id),
+        throwsStateError,
+      );
+      expect(
+        (await env.db.select(env.db.expenses).getSingle()).deletedAt,
+        isNull,
+      );
+    });
+  });
+
   test('أسماء الأشهر والتنقل بينها', () {
     expect(DateKey.monthName(1), 'جانفي');
     expect(DateKey.monthName(12), 'ديسمبر');

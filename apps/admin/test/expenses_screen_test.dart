@@ -1,7 +1,9 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_core/testing.dart';
+import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 
 import 'catalog_screens_test.dart' show openSection, owner;
@@ -102,5 +104,65 @@ void main() {
     expect(find.textContaining('مجموع سنة'), findsNothing);
     expect(find.text(Money.format(4200)), findsNothing);
     expect(find.text('صيانة'), findsNothing);
+  });
+
+  appTest('نوع أجور العمال يظهر في السجل ولا يظهر كنوع عام', (tester) async {
+    final runtime = await openSection(tester, owner, 'المصاريف');
+    final today = DateTime.now();
+    final date = DateKey.of(today);
+    await runDb(tester, () async {
+      await runtime.db
+          .into(runtime.db.workers)
+          .insert(
+            WorkersCompanion.insert(
+              id: 'w1',
+              createdAt: 1,
+              updatedAt: 1,
+              name: 'سمير',
+              phone: '0660000000',
+              email: '0660000000@school.local',
+              qrCode: 'W-AAAAAAAAAA',
+              fullDayWage: const Value(1000),
+              weeklySchedule: Value('{"${today.weekday}":"full"}'),
+            ),
+          );
+      await runtime.db
+          .into(runtime.db.workerAttendance)
+          .insert(
+            WorkerAttendanceCompanion.insert(
+              id: StableId.workerAttendance('w1', date),
+              createdAt: 1,
+              updatedAt: 1,
+              workerId: 'w1',
+              date: date,
+              checkIn: const Value(100),
+              lateMinutes: const Value(0),
+            ),
+          );
+      await WageService(
+        runtime.db,
+        runtime.writer,
+      ).recordAsExpense(workerId: 'w1', month: currentMonthKey());
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('أجور العمال'), findsOneWidget);
+
+    await tester.tap(find.text('أنواع المصاريف'));
+    await tester.pumpAndSettle();
+    final categoryDialog = find.byType(AlertDialog).last;
+    expect(
+      find.descendant(of: categoryDialog, matching: find.text('أجور العمال')),
+      findsNothing,
+    );
+    await tester.tap(find.widgetWithText(TextButton, 'إغلاق'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'إضافة مصروف'));
+    await tester.pumpAndSettle();
+    final expenseDialog = find.byType(AlertDialog).last;
+    expect(
+      find.descendant(of: expenseDialog, matching: find.text('أجور العمال')),
+      findsNothing,
+    );
   });
 }
