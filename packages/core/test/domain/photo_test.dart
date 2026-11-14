@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:school_core/school_core.dart';
 
 import '../support/fixtures.dart';
+import '../support/remote_files.dart';
 
 /// صورة اختبار بحجم معيّن بألوان متدرجة (فلا تُضغط إلى لا شيء).
 Uint8List testImage(int width, int height, {bool png = true}) {
@@ -169,6 +170,82 @@ void main() {
       expect(queue.targetTable, 'teachers');
       expect(queue.remotePath, startsWith('teachers/t1-'));
     });
+
+    test('صورة الفاتورة تحفظ بدقة أعلى وترتبط بسجل المصروف', () async {
+      final expenses = ExpenseService(env.db, env.writer);
+      final category = await expenses.addCategory('صيانة');
+      final expenseId = await expenses.addExpense(
+        categoryId: category,
+        amount: 1250,
+        date: '2026-05-04',
+      );
+      final path = await service.attach(
+        PhotoOwner.expenseInvoice,
+        expenseId,
+        testImage(2400, 1800),
+      );
+      final photo = decode(await File(path).readAsBytes());
+      expect(photo.width, 1800);
+      expect(photo.height, 1350);
+      final row = await env.db
+          .customSelect(
+            'SELECT invoice_photo_local_path AS p FROM expenses WHERE id = ?',
+            variables: [Variable<String>(expenseId)],
+          )
+          .getSingle();
+      expect(row.read<String?>('p'), path);
+      final queue = await env.db.select(env.db.uploadQueue).getSingle();
+      expect(queue.bucket, 'photos');
+      expect(queue.remotePath, startsWith('expenses/$expenseId-'));
+      expect(queue.targetTable, 'expenses');
+      expect(queue.targetRowId, expenseId);
+      expect(queue.targetColumn, 'invoice_photo_url');
+    });
+
+    test(
+      'صورة فاتورة رفعها جهاز آخر تُنزّل وتُخزّن محلياً مرة واحدة',
+      () async {
+        final expenses = ExpenseService(env.db, env.writer);
+        final category = await expenses.addCategory('صيانة');
+        final expenseId = await expenses.addExpense(
+          categoryId: category,
+          amount: 1250,
+          date: '2026-05-04',
+        );
+        final remotePath = 'expenses/$expenseId-remote.jpg';
+        final remote = RecordingFileStore()
+          ..stored['photos/$remotePath'] = testImage(800, 600, png: false);
+        await env.writer.patch(
+          env.db.expenses,
+          key: {'id': expenseId},
+          values: {
+            'invoice_photo_local_path': '${dir.path}/another-device.jpg',
+            'invoice_photo_url': 'photos/$remotePath',
+          },
+        );
+        final photos = PhotoService(
+          env.db,
+          env.writer,
+          directory: dir,
+          files: remote,
+        );
+
+        final resolved = await photos.resolve(
+          PhotoOwner.expenseInvoice,
+          expenseId,
+        );
+        expect(resolved, isNotNull);
+        expect(decode(await resolved!.readAsBytes()).width, 800);
+        expect(remote.downloads, ['photos/$remotePath']);
+
+        final cached = await photos.resolve(
+          PhotoOwner.expenseInvoice,
+          expenseId,
+        );
+        expect(cached?.path, resolved.path);
+        expect(remote.downloads, hasLength(1));
+      },
+    );
 
     test('الكتابة عبر SyncWriter (سجل عمليات وطابور مزامنة)', () async {
       await service.attach(PhotoOwner.student, 's1', testImage(300, 300));

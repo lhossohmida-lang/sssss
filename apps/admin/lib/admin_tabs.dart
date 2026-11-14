@@ -7,6 +7,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/drive_screen.dart';
 import 'screens/dues_screen.dart';
 import 'screens/entrance_screen.dart';
+import 'screens/expenses_screen.dart';
 import 'screens/fees_screen.dart';
 import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
@@ -160,6 +161,17 @@ final List<AppPage> adminPages = [
     path: '/dues',
     requires: PermissionModule.payments,
     builder: (context, state) => const DuesScreen(),
+  ),
+  AppPage(
+    path: '/expenses',
+    requires: PermissionModule.expenses,
+    anyActions: {
+      PermissionAction.view,
+      PermissionAction.add,
+      PermissionAction.edit,
+      PermissionAction.delete,
+    },
+    builder: (context, state) => const ExpensesScreen(),
   ),
   AppPage(
     path: '/payments/new',

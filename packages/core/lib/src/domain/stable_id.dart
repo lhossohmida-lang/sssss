@@ -73,4 +73,8 @@ abstract final class StableId {
   /// قائمة انتظار مادة في مستوى ([levelId] فارغ = كل المستويات).
   static String waitingList(String subjectId, String? levelId) =>
       _of('waiting_list', [subjectId, levelId ?? '']);
+
+  /// نوع المصروف الذي له اسم طبيعي.
+  static String expenseCategory(String normalizedName) =>
+      _of('expense_category', [normalizedName]);
 }

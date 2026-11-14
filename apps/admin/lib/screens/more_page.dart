@@ -99,6 +99,19 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.payments,
   ),
   MoreEntry(
+    label: 'المصاريف',
+    icon: ClayIcons.expenses,
+    path: '/expenses',
+    section: MoreSection.finance,
+    requires: PermissionModule.expenses,
+    anyActions: {
+      PermissionAction.view,
+      PermissionAction.add,
+      PermissionAction.edit,
+      PermissionAction.delete,
+    },
+  ),
+  MoreEntry(
     label: 'خلاص الأساتذة',
     icon: ClayIcons.payments,
     path: '/payouts',

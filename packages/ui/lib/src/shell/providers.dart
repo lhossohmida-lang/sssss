@@ -269,8 +269,37 @@ final Provider<PhotoService> photoServiceProvider = Provider<PhotoService>((
     runtime.db,
     runtime.writer,
     directory: runtime.photosDirectory,
+    files: runtime.fileStore,
   );
 });
+
+/// المصاريف وأنواعها ومجاميعها.
+final Provider<ExpenseService> expenseServiceProvider =
+    Provider<ExpenseService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return ExpenseService(runtime.db, runtime.writer);
+    });
+
+final StreamProvider<List<ExpenseCategory>> expenseCategoriesProvider =
+    StreamProvider<List<ExpenseCategory>>(
+      (ref) => ref.watch(expenseServiceProvider).watchCategories(),
+    );
+
+typedef ExpenseMonthKey = ({int year, int month});
+
+final expenseMonthProvider = StreamProvider.autoDispose
+    .family<List<ExpenseItem>, ExpenseMonthKey>(
+      (ref, key) => ref
+          .watch(expenseServiceProvider)
+          .watchMonth(year: key.year, month: key.month),
+    );
+
+final expenseTotalsProvider = StreamProvider.autoDispose
+    .family<ExpenseTotals, ExpenseMonthKey>(
+      (ref, key) => ref
+          .watch(expenseServiceProvider)
+          .watchTotals(year: key.year, month: key.month),
+    );
 
 /// ملفات المجموعات (نسخة محلية، سجل مزامَن، رفع لاحق). تُحفظ في مجلد
 /// فرعي من مجلد صور التطبيق.
