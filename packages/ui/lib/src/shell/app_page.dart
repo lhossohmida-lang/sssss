@@ -11,6 +11,7 @@ class AppPage {
     this.requires,
     this.action,
     this.anyActions,
+    this.requiredPermissions = const {},
     this.ownerOnly = false,
   });
 
@@ -28,6 +29,9 @@ class AppPage {
   /// أحد هذه الأفعال يكفي للوصول إلى الصفحة.
   final Set<PermissionAction>? anyActions;
 
+  /// صلاحيات إضافية مطلوبة مع [requires] عند جمع الصفحة لعدة وحدات حساسة.
+  final Map<PermissionModule, PermissionAction> requiredPermissions;
+
   /// يقصر الصفحة على صاحب المدرسة حتى لو منح العامل صلاحية الوحدة.
   final bool ownerOnly;
 
@@ -44,6 +48,11 @@ class AppPage {
 
   bool visibleTo(AccessPolicy policy) {
     if (ownerOnly && policy.role != UserRole.owner) return false;
+    if (!requiredPermissions.entries.every(
+      (entry) => policy.can(entry.key, entry.value),
+    )) {
+      return false;
+    }
     final module = requires;
     if (module == null) return true;
     final alternatives = anyActions;

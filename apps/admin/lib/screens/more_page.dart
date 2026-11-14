@@ -25,6 +25,7 @@ class MoreEntry {
     required this.section,
     this.requires,
     this.anyActions,
+    this.requiredPermissions = const {},
     this.ownerOnly = false,
   });
 
@@ -42,6 +43,9 @@ class MoreEntry {
 
   /// أحد هذه الأفعال يكفي لإظهار هذا القسم.
   final Set<PermissionAction>? anyActions;
+
+  /// صلاحيات إضافية مطلوبة لإظهار القسم عند جمعه بين وحدات.
+  final Map<PermissionModule, PermissionAction> requiredPermissions;
 
   /// الأقسام السحابية الحساسة لصاحب المدرسة وحده.
   final bool ownerOnly;
@@ -109,6 +113,18 @@ const List<MoreEntry> moreEntries = [
       PermissionAction.add,
       PermissionAction.edit,
       PermissionAction.delete,
+    },
+  ),
+  MoreEntry(
+    label: 'التقرير الشهري',
+    icon: ClayIcons.payments,
+    path: '/monthly-report',
+    section: MoreSection.finance,
+    requires: PermissionModule.payments,
+    anyActions: {PermissionAction.view},
+    requiredPermissions: {
+      PermissionModule.expenses: PermissionAction.view,
+      PermissionModule.payouts: PermissionAction.view,
     },
   ),
   MoreEntry(
@@ -235,6 +251,10 @@ class MorePage extends ConsumerWidget {
           if (entry.section == section &&
               session != null &&
               (!entry.ownerOnly || session.role == UserRole.owner) &&
+              entry.requiredPermissions.entries.every(
+                (requirement) =>
+                    session.can(requirement.key, requirement.value),
+              ) &&
               (entry.requires == null ||
                   (entry.anyActions?.any(
                         (action) => session.can(entry.requires!, action),

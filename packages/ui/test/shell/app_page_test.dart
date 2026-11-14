@@ -91,6 +91,42 @@ void main() {
     });
   });
 
+  test('يشترط الصلاحيات الإضافية لكل الوحدات المالية', () {
+    final report = AppPage(
+      path: '/monthly-report',
+      requires: PermissionModule.payments,
+      action: PermissionAction.view,
+      requiredPermissions: const {
+        PermissionModule.expenses: PermissionAction.view,
+        PermissionModule.payouts: PermissionAction.view,
+      },
+      builder: (_, _) => const SizedBox(),
+    );
+    AccessPolicy worker({required bool payouts}) => AccessPolicy(
+      role: UserRole.worker,
+      permissions: WorkerPermissions.none
+          .withAction(
+            PermissionModule.payments,
+            PermissionAction.view,
+            allowed: true,
+          )
+          .withAction(
+            PermissionModule.expenses,
+            PermissionAction.view,
+            allowed: true,
+          )
+          .withAction(
+            PermissionModule.payouts,
+            PermissionAction.view,
+            allowed: payouts,
+          ),
+    );
+
+    expect(report.visibleTo(worker(payouts: false)), isFalse);
+    expect(report.visibleTo(worker(payouts: true)), isTrue);
+    expect(report.visibleTo(const AccessPolicy(role: UserRole.owner)), isTrue);
+  });
+
   group('AppTab.visibleTo', () {
     AppTab tab({PermissionModule? requires, Set<UserRole>? roles}) => AppTab(
       path: '/t',

@@ -280,6 +280,18 @@ final Provider<ExpenseService> expenseServiceProvider =
       return ExpenseService(runtime.db, runtime.writer);
     });
 
+/// استعلامات التقرير المالي الشهري.
+final Provider<MonthlyFinanceReports> monthlyFinanceReportsProvider =
+    Provider<MonthlyFinanceReports>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return MonthlyFinanceReports(runtime.db);
+    });
+
+final monthlyFinanceReportProvider = StreamProvider.autoDispose
+    .family<MonthlyFinanceReport, String>(
+      (ref, month) => ref.watch(monthlyFinanceReportsProvider).watch(month),
+    );
+
 final StreamProvider<List<ExpenseCategory>> expenseCategoriesProvider =
     StreamProvider<List<ExpenseCategory>>(
       (ref) => ref.watch(expenseServiceProvider).watchCategories(),

@@ -11,6 +11,7 @@ import 'screens/expenses_screen.dart';
 import 'screens/fees_screen.dart';
 import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
+import 'screens/monthly_report_screen.dart';
 import 'screens/more_page.dart';
 import 'screens/payments_screens.dart';
 import 'screens/payouts_screens.dart';
@@ -172,6 +173,16 @@ final List<AppPage> adminPages = [
       PermissionAction.delete,
     },
     builder: (context, state) => const ExpensesScreen(),
+  ),
+  AppPage(
+    path: '/monthly-report',
+    requires: PermissionModule.payments,
+    action: PermissionAction.view,
+    requiredPermissions: {
+      PermissionModule.expenses: PermissionAction.view,
+      PermissionModule.payouts: PermissionAction.view,
+    },
+    builder: (context, state) => const MonthlyReportScreen(),
   ),
   AppPage(
     path: '/payments/new',

@@ -54,12 +54,22 @@ void main() {
     });
 
     for (final page in adminPages) {
-      test('${page.path}: المالك وحده أو من فعّل له صلاحيتها', () {
+      test('${page.path}: المالك أو من فعّل كل صلاحياتها', () {
         final module = page.requires!;
         final action = neededOf(page);
-        final granted = worker(
-          WorkerPermissions.none.withAction(module, action, allowed: true),
+        var permissions = WorkerPermissions.none.withAction(
+          module,
+          action,
+          allowed: true,
         );
+        for (final requirement in page.requiredPermissions.entries) {
+          permissions = permissions.withAction(
+            requirement.key,
+            requirement.value,
+            allowed: true,
+          );
+        }
+        final granted = worker(permissions);
         final other = PermissionModule.values.firstWhere((m) => m != module);
         final foreign = worker(
           WorkerPermissions.none.withModule(other, allowed: true),
@@ -129,6 +139,11 @@ void main() {
         expect(entry.requires, isNotNull, reason: entry.label);
         expect(page!.requires, entry.requires, reason: entry.label);
         expect(page.ownerOnly, entry.ownerOnly, reason: entry.label);
+        expect(
+          page.requiredPermissions,
+          entry.requiredPermissions,
+          reason: entry.label,
+        );
       }
     });
 
