@@ -152,7 +152,9 @@ class SyncCoordinator {
         );
         return;
       }
-      await uploads?.processPending();
+      // هذا المنسّق يرفع مخازن Supabase فقط. طابور Drive له اعتماد OAuth
+      // ومخزن مستقل، ويعالجه تطبيق الإدارة بعد التحقق من حساب المالك.
+      await uploads?.processPending(buckets: const {'photos', 'files'});
       _emit(
         SyncStatus(
           pending: report.pending,

@@ -4,6 +4,7 @@ import 'package:school_ui/school_ui.dart';
 import 'screens/attendance_screens.dart';
 import 'screens/catalog_screens.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/drive_screen.dart';
 import 'screens/dues_screen.dart';
 import 'screens/entrance_screen.dart';
 import 'screens/fees_screen.dart';
@@ -298,5 +299,11 @@ final List<AppPage> adminPages = [
     path: '/settings',
     requires: PermissionModule.settings,
     builder: (context, state) => const SettingsScreen(),
+  ),
+  AppPage(
+    path: '/drive',
+    requires: PermissionModule.settings,
+    ownerOnly: true,
+    builder: (context, state) => const DriveScreen(),
   ),
 ];

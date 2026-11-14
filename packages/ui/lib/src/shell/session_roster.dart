@@ -93,7 +93,7 @@ class _SessionRosterScreenState extends ConsumerState<SessionRosterScreen> {
         AttendanceExcelData.fromRoster(roster),
       );
       if (!mounted) return;
-      final savedPath = await FilePicker.platform.saveFile(
+      final savedPath = await FilePicker.saveFile(
         dialogTitle: 'حفظ كشف الحضور',
         fileName: fileName,
         type: FileType.custom,

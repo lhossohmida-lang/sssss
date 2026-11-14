@@ -169,11 +169,20 @@ class UploadWorker {
   }
 
   /// يعيد الملفات الفاشلة إلى الانتظار (زر «إعادة المحاولة»).
-  Future<void> retryFailed() => db.customUpdate(
-    "UPDATE upload_queue SET status = 'pending', attempts = 0, "
-    "next_attempt_at = 0 WHERE status = 'failed'",
-    updates: {db.uploadQueue},
-  );
+  Future<void> retryFailed({Set<String>? buckets}) async {
+    final query = db.update(db.uploadQueue)
+      ..where((u) {
+        final failed = u.status.equals(statusFailed);
+        return buckets == null ? failed : failed & u.bucket.isIn(buckets);
+      });
+    await query.write(
+      const UploadQueueCompanion(
+        status: Value(statusPending),
+        attempts: Value(0),
+        nextAttemptAt: Value(0),
+      ),
+    );
+  }
 
   Future<void> _writeTarget(UploadQueueRow item, String stored) async {
     final tableName = item.targetTable;

@@ -56,6 +56,17 @@ void main() {
         isFalse,
       );
     });
+
+    test('ownerOnly لا يتجاوزه عامل حتى لو كانت لديه صلاحية الوحدة', () {
+      final drive = AppPage(
+        path: '/drive',
+        builder: (_, _) => const SizedBox(),
+        requires: PermissionModule.settings,
+        ownerOnly: true,
+      );
+      expect(drive.visibleTo(worker), isFalse);
+      expect(drive.visibleTo(owner), isTrue);
+    });
   });
 
   group('AppPage بفعل محدد', () {

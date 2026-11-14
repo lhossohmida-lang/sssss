@@ -35,14 +35,13 @@ class PlatformFileSource implements FileSource {
     BuildContext context, {
     required List<String> extensions,
   }) async {
-    final result = await FilePicker.platform.pickFiles(
+    final files = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: extensions,
-      withData: true,
     );
-    final file = result?.files.single;
-    if (file == null) return null;
-    final bytes = file.bytes ?? await File(file.path!).readAsBytes();
+    if (files.isEmpty) return null;
+    final file = files.first;
+    final bytes = await file.readAsBytes();
     return PickedFile(name: file.name, bytes: bytes);
   }
 }

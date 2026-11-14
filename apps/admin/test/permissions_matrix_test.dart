@@ -66,11 +66,15 @@ void main() {
         );
 
         expect(page.visibleTo(owner), isTrue, reason: 'المالك');
-        expect(page.visibleTo(granted), isTrue, reason: 'عامل بصلاحيتها');
-        expect(page.visibleTo(nobody), isFalse, reason: 'عامل بلا صلاحيات');
-        expect(page.visibleTo(foreign), isFalse, reason: 'صلاحية وحدة أخرى');
-        expect(page.visibleTo(teacher), isFalse, reason: 'الأستاذ');
-        expect(page.visibleTo(parent), isFalse, reason: 'الوليّ');
+        if (page.ownerOnly) {
+          expect(page.visibleTo(granted), isFalse, reason: 'المالك فقط');
+        } else {
+          expect(page.visibleTo(granted), isTrue, reason: 'عامل بصلاحيتها');
+          expect(page.visibleTo(nobody), isFalse, reason: 'عامل بلا صلاحيات');
+          expect(page.visibleTo(foreign), isFalse, reason: 'صلاحية وحدة أخرى');
+          expect(page.visibleTo(teacher), isFalse, reason: 'الأستاذ');
+          expect(page.visibleTo(parent), isFalse, reason: 'الوليّ');
+        }
       });
     }
 
@@ -124,12 +128,19 @@ void main() {
         expect(page, isNotNull, reason: '${entry.label} بلا صفحة');
         expect(entry.requires, isNotNull, reason: entry.label);
         expect(page!.requires, entry.requires, reason: entry.label);
+        expect(page.ownerOnly, entry.ownerOnly, reason: entry.label);
       }
     });
 
     test('أقسام «المزيد» بلا تكرار في المسار', () {
       final paths = moreEntries.map((e) => e.path).toList();
       expect(paths.toSet(), hasLength(paths.length));
+    });
+
+    test('Google Drive لا يظهر لعامل حتى إن فُعّلت له الإعدادات', () {
+      final drive = moreEntries.singleWhere((entry) => entry.path == '/drive');
+      expect(drive.ownerOnly, isTrue);
+      expect(drive.requires, PermissionModule.settings);
     });
   });
 

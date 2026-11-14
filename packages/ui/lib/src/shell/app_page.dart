@@ -11,6 +11,7 @@ class AppPage {
     this.requires,
     this.action,
     this.anyActions,
+    this.ownerOnly = false,
   });
 
   /// مسار الصفحة، ويقبل معاملات مثل `/students/:id`.
@@ -27,6 +28,9 @@ class AppPage {
   /// أحد هذه الأفعال يكفي للوصول إلى الصفحة.
   final Set<PermissionAction>? anyActions;
 
+  /// يقصر الصفحة على صاحب المدرسة حتى لو منح العامل صلاحية الوحدة.
+  final bool ownerOnly;
+
   /// هل تنطبق هذه الصفحة على [location]؟ (للتحقق من الصلاحية)
   bool matches(String location) {
     final pattern = path.split('/');
@@ -39,6 +43,7 @@ class AppPage {
   }
 
   bool visibleTo(AccessPolicy policy) {
+    if (ownerOnly && policy.role != UserRole.owner) return false;
     final module = requires;
     if (module == null) return true;
     final alternatives = anyActions;

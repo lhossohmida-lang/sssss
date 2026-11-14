@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
@@ -14,6 +16,26 @@ class FakeRealtime implements RealtimeSource {
   Stream<RemoteChange> changes() => controller.stream;
 
   Future<void> close() => controller.close();
+}
+
+class _CountingFileStore implements FileStore {
+  int uploads = 0;
+
+  @override
+  Future<String> upload({
+    required String bucket,
+    required String remotePath,
+    required String localPath,
+  }) async {
+    uploads++;
+    return remotePath;
+  }
+
+  @override
+  Future<Uint8List> download({
+    required String bucket,
+    required String remotePath,
+  }) async => Uint8List(0);
 }
 
 void main() {
@@ -234,6 +256,39 @@ void main() {
     coordinator = SyncCoordinator(
       env.db,
       SyncEngine(env.db, remote, tables: SyncProfile.forRole(UserRole.owner)),
+    );
+  });
+
+  test('منسّق Supabase يترك عناصر Google Drive لطابورها المستقل', () async {
+    await coordinator.stop();
+    final directory = await Directory.systemTemp.createTemp('sync_drive_test');
+    addTearDown(() => directory.delete(recursive: true));
+    final source = File('${directory.path}/report.xlsx')
+      ..writeAsBytesSync([1, 2, 3]);
+    final queue = DriveQueueService(
+      env.db,
+      env.writer,
+      stagingDirectory: Directory('${directory.path}/queue'),
+      clock: () => env.time,
+    );
+    await queue.enqueueFile(
+      sourcePath: source.path,
+      fileName: 'report.xlsx',
+      kind: DriveUploadKind.attendanceExcel,
+    );
+    final files = _CountingFileStore();
+    coordinator = SyncCoordinator(
+      env.db,
+      SyncEngine(env.db, remote, tables: SyncProfile.forRole(UserRole.owner)),
+      uploads: UploadWorker(env.db, env.writer, files, clock: () => env.time),
+    );
+
+    await coordinator.syncNow();
+
+    expect(files.uploads, 0);
+    expect(
+      (await env.db.select(env.db.uploadQueue).getSingle()).status,
+      UploadWorker.statusPending,
     );
   });
 }

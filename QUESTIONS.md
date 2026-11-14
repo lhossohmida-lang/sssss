@@ -57,6 +57,8 @@
     - النوع **Desktop app** (لنسخة Windows): اكتب لي Client ID، وضع Client secret في السر `GOOGLE_DESKTOP_CLIENT_SECRET`.
 13. اكتب لي بريد حساب Google الخاص بصاحب المدرسة.
 
+عند تجهيز المرحلة 8: خزّن Client ID الخاص بـ Windows في متغير Actions `GOOGLE_DRIVE_WINDOWS_CLIENT_ID`، وبريد المالك في المتغير `GOOGLE_DRIVE_OWNER_EMAIL` (Settings ← Secrets and variables ← Actions ← Variables). يبقى `GOOGLE_DESKTOP_CLIENT_SECRET` في Secrets. تطبيق Android يأخذ إعداد OAuth من ملف Firebase `google-services.json` المذكور في 15.
+
 ### أ4. Firebase (إشعارات push)
 إشعارات push على Android تحتاج Firebase (مجاني).
 14. افتح `console.firebase.google.com` ← Add project ← اختر نفس مشروع Google Cloud أعلاه.

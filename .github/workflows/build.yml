@@ -48,7 +48,13 @@ jobs:
           SCHOOL_KEYSTORE_PASSWORD: ${{ secrets.SCHOOL_KEYSTORE_PASSWORD }}
           SCHOOL_KEY_ALIAS: ${{ secrets.SCHOOL_KEY_ALIAS }}
           SCHOOL_KEY_PASSWORD: ${{ secrets.SCHOOL_KEY_PASSWORD }}
-        run: flutter build apk --release
+          GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL }}
+        run: |
+          if [ "${{ matrix.app }}" = "admin" ]; then
+            flutter build apk --release --dart-define=GOOGLE_DRIVE_OWNER_EMAIL="$GOOGLE_DRIVE_OWNER_EMAIL"
+          else
+            flutter build apk --release
+          fi
       - name: Rename APK
         run: |
           mkdir -p dist
@@ -73,7 +79,15 @@ jobs:
         run: flutter pub get
       - name: Build Windows
         working-directory: apps/admin
-        run: flutter build windows --release
+        env:
+          GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL }}
+          GOOGLE_DRIVE_WINDOWS_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_WINDOWS_CLIENT_ID }}
+          GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
+        run: >-
+          flutter build windows --release
+          --dart-define=GOOGLE_DRIVE_OWNER_EMAIL="$env:GOOGLE_DRIVE_OWNER_EMAIL"
+          --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_ID="$env:GOOGLE_DRIVE_WINDOWS_CLIENT_ID"
+          --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET="$env:GOOGLE_DESKTOP_CLIENT_SECRET"
       - name: Zip
         shell: pwsh
         run: |

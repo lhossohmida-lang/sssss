@@ -25,6 +25,7 @@ class MoreEntry {
     required this.section,
     this.requires,
     this.anyActions,
+    this.ownerOnly = false,
   });
 
   final String label;
@@ -41,6 +42,9 @@ class MoreEntry {
 
   /// أحد هذه الأفعال يكفي لإظهار هذا القسم.
   final Set<PermissionAction>? anyActions;
+
+  /// الأقسام السحابية الحساسة لصاحب المدرسة وحده.
+  final bool ownerOnly;
 }
 
 /// أقسام «المزيد» مجمّعة؛ كل مهمة لاحقة تضيف قسمها مع صفحته في `adminPages`.
@@ -172,6 +176,14 @@ const List<MoreEntry> moreEntries = [
     section: MoreSection.system,
     requires: PermissionModule.settings,
   ),
+  MoreEntry(
+    label: 'Google Drive',
+    icon: Icons.cloud_upload_outlined,
+    path: '/drive',
+    section: MoreSection.system,
+    requires: PermissionModule.settings,
+    ownerOnly: true,
+  ),
 ];
 
 /// عنصر في عرض «المزيد»: عنوان مجموعة أو قسم.
@@ -209,6 +221,7 @@ class MorePage extends ConsumerWidget {
         for (final entry in moreEntries)
           if (entry.section == section &&
               session != null &&
+              (!entry.ownerOnly || session.role == UserRole.owner) &&
               (entry.requires == null ||
                   (entry.anyActions?.any(
                         (action) => session.can(entry.requires!, action),

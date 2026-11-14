@@ -136,7 +136,7 @@ void main() {
     tester.view.physicalSize = const Size(420, 3000);
     await tester.pumpAndSettle();
     expect(find.textContaining('السبت 10:00–11:30'), findsOneWidget);
-    expect(find.textContaining('الاثنين'), findsNothing);
+    expect(find.textContaining('14:00 - 15:30'), findsNothing);
     expect(find.textContaining('فيزياء'), findsNothing);
   });
 
