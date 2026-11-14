@@ -172,7 +172,7 @@ export function toAnthropicMessages(input: unknown[]): Anthropic.MessageParam[] 
       if (!Array.isArray(toolCalls) || toolCalls.length === 0 || toolCalls.length > 16) {
         throw new TypeError("Invalid assistant tool calls");
       }
-      const content: Exclude<Anthropic.MessageParam["content"], string> = [];
+      const content: Anthropic.ContentBlockParam[] = [];
       if (typeof raw.content === "string" && raw.content.length > 0) {
         content.push({
           type: "text",
