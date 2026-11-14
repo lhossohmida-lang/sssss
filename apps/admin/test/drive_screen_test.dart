@@ -10,6 +10,9 @@ class _FakeDriveController implements DriveController {
   bool isConfigured = false;
 
   @override
+  bool get canCreateBackup => false;
+
+  @override
   String get configurationMessage => 'تُضبط بيانات الحساب لاحقاً';
 
   @override
@@ -17,6 +20,9 @@ class _FakeDriveController implements DriveController {
 
   @override
   Stream<List<UploadQueueRow>> get queueChanges => Stream.value([]);
+
+  @override
+  Stream<String?> get backupStatusChanges => Stream.value(null);
 
   @override
   Future<void> initialize() async {}
@@ -38,6 +44,15 @@ class _FakeDriveController implements DriveController {
   Future<int> retryFailed() async => 0;
 
   @override
+  Future<bool> createBackup() async => false;
+
+  @override
+  Future<List<DriveFileInfo>> listBackups() async => const [];
+
+  @override
+  Future<void> restoreBackup(DriveFileInfo backup) async {}
+
+  @override
   Future<void> dispose() async {}
 }
 
@@ -55,6 +70,9 @@ void main() {
     expect(find.text('تُضبط بيانات الحساب لاحقاً'), findsOneWidget);
     expect(find.text('تسجيل الدخول'), findsOneWidget);
     expect(find.text('اختيار ملفات'), findsOneWidget);
+    expect(find.text('النسخ الاحتياطية'), findsOneWidget);
+    expect(find.text('عرض النسخ للاستعادة'), findsOneWidget);
+    expect(find.text('إنشاء نسخة اليوم'), findsOneWidget);
     final signIn = tester.widget<FilledButton>(
       find.ancestor(
         of: find.text('تسجيل الدخول'),

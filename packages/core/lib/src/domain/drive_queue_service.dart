@@ -92,6 +92,52 @@ class DriveQueueService {
             ..limit(200))
           .watch();
 
+  /// يمنع إنشاء نسخة يومية مكررة إذا كانت في الطابور أو رُفعت من قبل.
+  Future<bool> hasQueuedRemotePath(String remotePath) async =>
+      (await (db.select(db.uploadQueue)
+                ..where(
+                  (u) =>
+                      u.bucket.equals(bucket) & u.remotePath.equals(remotePath),
+                )
+                ..limit(1))
+              .get())
+          .isNotEmpty;
+
+  /// يحذف الملفات المحلية لنسخ احتياطية رُفعت بنجاح، وتبقى صفوف الطابور
+  /// لمنع تكرار نسخة اليوم بعد إعادة تشغيل التطبيق.
+  Future<void> cleanupUploadedBackupFiles() async {
+    final rows =
+        await (db.select(db.uploadQueue)..where(
+              (u) =>
+                  u.bucket.equals(bucket) &
+                  u.kind.equals(DriveUploadKind.backup.code) &
+                  u.status.equals(UploadWorker.statusDone),
+            ))
+            .get();
+    for (final row in rows) {
+      final file = File(row.localPath);
+      if (await file.exists()) await file.delete();
+    }
+  }
+
+  /// يزيل سجلّ النسخة المنتهية من الطابور بعد حذفها من Drive للاحتفاظ.
+  Future<void> discardUploadedBackup(String remotePath) async {
+    final rows =
+        await (db.select(db.uploadQueue)..where(
+              (u) =>
+                  u.bucket.equals(bucket) &
+                  u.kind.equals(DriveUploadKind.backup.code) &
+                  u.status.equals(UploadWorker.statusDone) &
+                  u.remotePath.equals(remotePath),
+            ))
+            .get();
+    for (final row in rows) {
+      final file = File(row.localPath);
+      if (await file.exists()) await file.delete();
+      await (db.delete(db.uploadQueue)..where((u) => u.id.equals(row.id))).go();
+    }
+  }
+
   /// يعيد العناصر الفاشلة في مخزن Drive فقط إلى الانتظار.
   Future<int> retryFailed() async =>
       (db.update(db.uploadQueue)

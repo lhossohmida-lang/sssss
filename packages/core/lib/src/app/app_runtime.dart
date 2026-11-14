@@ -80,6 +80,7 @@ class AppRuntime {
     required this.app,
     required this.config,
     required this.db,
+    required this.databaseFile,
     required this.auth,
     required this.writer,
     required this.localGateway,
@@ -94,6 +95,9 @@ class AppRuntime {
   final AppIdentity app;
   final AppConfig config;
   final AppDatabase db;
+
+  /// ملف SQLite المحلي؛ يكون null عندما يمرر الاختبار قاعدة ذاكرة جاهزة.
+  final File? databaseFile;
   final AuthService auth;
 
   /// نقطة الكتابة الموحّدة، منسوبة إلى المستخدم المسجَّل.
@@ -130,6 +134,7 @@ class AppRuntime {
     required AppIdentity app,
     AppConfig? config,
     AppDatabase? database,
+    File? databaseFile,
     AuthGateway? gateway,
     SyncFactory? syncFactory,
     AccountProvisioner? provisioner,
@@ -138,7 +143,9 @@ class AppRuntime {
     int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
     final settings = config ?? AppConfig.fromEnvironment();
-    final db = database ?? await _openDatabase(app);
+    final resolvedDatabaseFile =
+        databaseFile ?? (database == null ? await _databaseFile(app) : null);
+    final db = database ?? openAppDatabase(resolvedDatabaseFile!);
 
     SupabaseClient? client;
     if (gateway == null && settings.isConfigured) {
@@ -197,6 +204,7 @@ class AppRuntime {
       app: app,
       config: settings,
       db: db,
+      databaseFile: resolvedDatabaseFile,
       auth: auth,
       writer: writer,
       localGateway: local,
@@ -239,10 +247,10 @@ class AppRuntime {
     return Directory(p.join(dir.path, 'photos_${app.name}'));
   }
 
-  static Future<AppDatabase> _openDatabase(AppIdentity app) async {
+  static Future<File> _databaseFile(AppIdentity app) async {
     final dir = await getApplicationSupportDirectory();
     await dir.create(recursive: true);
-    return openAppDatabase(File(p.join(dir.path, 'school_${app.name}.sqlite')));
+    return File(p.join(dir.path, 'school_${app.name}.sqlite'));
   }
 
   static RemoteRowQuery _remoteQuery(SupabaseClient client) =>

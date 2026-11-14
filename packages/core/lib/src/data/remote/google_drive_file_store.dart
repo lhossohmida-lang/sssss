@@ -9,6 +9,21 @@ import 'package:http/http.dart' as http;
 import 'file_store.dart';
 import 'remote_store.dart';
 
+/// ملف أنشأه التطبيق في Google Drive، لاستعادة النسخ أو تطبيق الاحتفاظ.
+class DriveFileInfo {
+  const DriveFileInfo({
+    required this.id,
+    required this.name,
+    this.size,
+    this.modifiedTime,
+  });
+
+  final String id;
+  final String name;
+  final int? size;
+  final DateTime? modifiedTime;
+}
+
 /// مخزن Google Drive لملفات تطبيق الإدارة.
 ///
 /// لا يحتفظ برمز OAuth؛ يطلب رمزاً صالحاً عند كل عملية كي يستطيع مزوّد
@@ -118,6 +133,95 @@ class GoogleDriveFileStore implements FileStore {
     return response.bodyBytes;
   }
 
+  /// يعرض ملفات مجلد أنشأه هذا التطبيق، مع متابعة صفحات Drive كلها.
+  Future<List<DriveFileInfo>> listDirectory(String remoteDirectory) async {
+    final parts = _pathParts(remoteDirectory);
+    if (parts.isEmpty) {
+      throw const RemoteException('مجلد Drive غير صالح', permanent: true);
+    }
+    final token = await _requiredToken();
+    final parentId = await _ensureParent(parts, token);
+    final files = await _listFiles(
+      "'$parentId' in parents and trashed=false",
+      token,
+    );
+    return [
+      for (final file in files)
+        if (file['id'] is String && file['name'] is String)
+          DriveFileInfo(
+            id: file['id']! as String,
+            name: file['name']! as String,
+            size: int.tryParse('${file['size'] ?? ''}'),
+            modifiedTime: DateTime.tryParse('${file['modifiedTime'] ?? ''}'),
+          ),
+    ];
+  }
+
+  /// ينزّل ملفاً بمعرّف Drive، لا بمساره المنطقي.
+  Future<void> downloadFileTo({
+    required String fileId,
+    required File destination,
+  }) async {
+    if (fileId.trim().isEmpty) {
+      throw const RemoteException('معرّف ملف Drive غير صالح', permanent: true);
+    }
+    final token = await _requiredToken();
+    final response = await _request(
+      () => _client.send(
+        http.Request(
+          'GET',
+          Uri.https(_api, '/drive/v3/files/${Uri.encodeComponent(fileId)}', {
+            'alt': 'media',
+          }),
+        )..headers.addAll(_authHeaders(token)),
+      ),
+      requestTimeout: const Duration(minutes: 2),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _check(
+        http.Response(
+          await response.stream.bytesToString(),
+          response.statusCode,
+          headers: response.headers,
+        ),
+      );
+    }
+    await destination.parent.create(recursive: true);
+    final sink = destination.openWrite();
+    try {
+      await sink.addStream(response.stream);
+      await sink.flush();
+    } finally {
+      await sink.close();
+    }
+  }
+
+  /// يحذف ملفاً محدداً من Drive بعد التحقق من معرّفه.
+  Future<void> deleteFile(String fileId) async {
+    if (fileId.trim().isEmpty) {
+      throw const RemoteException('معرّف ملف Drive غير صالح', permanent: true);
+    }
+    final token = await _requiredToken();
+    final response = await _request(
+      () => _client.delete(
+        Uri.https(_api, '/drive/v3/files/${Uri.encodeComponent(fileId)}'),
+        headers: _authHeaders(token),
+      ),
+    );
+    _check(response);
+  }
+
+  Future<String> _requiredToken() async {
+    final token = await accessToken();
+    if (token == null || token.isEmpty) {
+      throw const RemoteException(
+        'سجّل الدخول إلى حساب Google المالك',
+        permanent: false,
+      );
+    }
+    return token;
+  }
+
   Future<String> _ensureParent(Iterable<String> folders, String token) async {
     var parent = await _ensureFolder(
       name: rootFolderName,
@@ -188,24 +292,35 @@ class GoogleDriveFileStore implements FileStore {
     String query,
     String token,
   ) async {
-    final response = await _request(
-      () => _client.get(
-        Uri.https(_api, '/drive/v3/files', {
-          'q': query,
-          'spaces': 'drive',
-          'pageSize': '100',
-          'fields': 'files(id,name,mimeType,parents)',
-        }),
-        headers: _authHeaders(token),
-      ),
-    );
-    _check(response);
-    final files = _decodeMap(response.body)['files'];
-    if (files is! List) return const [];
-    return files
-        .whereType<Map<String, dynamic>>()
-        .map(Map<String, Object?>.from)
-        .toList();
+    final result = <Map<String, Object?>>[];
+    String? pageToken;
+    do {
+      final response = await _request(
+        () => _client.get(
+          Uri.https(_api, '/drive/v3/files', {
+            'q': query,
+            'spaces': 'drive',
+            'pageSize': '100',
+            'fields': 'nextPageToken,files(id,name,mimeType,parents,size,modifiedTime)',
+            'pageToken': ?pageToken,
+          }),
+          headers: _authHeaders(token),
+        ),
+      );
+      _check(response);
+      final body = _decodeMap(response.body);
+      final files = body['files'] as List<dynamic>?;
+      result.addAll(
+        files?.whereType<Map<String, dynamic>>().map(
+              Map<String, Object?>.from,
+            ) ??
+            const [],
+      );
+      pageToken = body['nextPageToken'] is String
+          ? body['nextPageToken']! as String
+          : null;
+    } while (pageToken != null && pageToken.isNotEmpty);
+    return result;
   }
 
   Future<String> _createFile({

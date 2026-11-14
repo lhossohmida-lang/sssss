@@ -71,6 +71,11 @@ void main() {
     expect(rows.single.localPath, isNot(source.path));
     expect(File(rows.single.localPath).readAsBytesSync(), [8, 9, 10]);
     expect(source.existsSync(), isTrue);
+    expect(
+      await queue.hasQueuedRemotePath('Excel/الحضور/كشف الحضور.xlsx'),
+      isTrue,
+    );
+    expect(await queue.hasQueuedRemotePath('مسار غير موجود'), isFalse);
   });
 
   test('اسم الملف لا يستطيع الخروج من مجلد Drive المحدد', () async {
@@ -122,4 +127,29 @@ void main() {
     expect(photoRow.status, UploadWorker.statusFailed);
     expect(photoRow.attempts, 3);
   });
+
+  test(
+    'ينظف الملف المحلي بعد الرفع ويحذف صف النسخة عند انتهاء الاحتفاظ',
+    () async {
+      final source = File('${directory.path}/school_admin_2026-11-14.sqlite')
+        ..writeAsStringSync('backup');
+      const remotePath = 'النسخ الاحتياطية/school_admin_2026-11-14.sqlite';
+      await queue.enqueueFile(
+        sourcePath: source.path,
+        fileName: 'school_admin_2026-11-14.sqlite',
+        kind: DriveUploadKind.backup,
+      );
+      final row = await env.db.select(env.db.uploadQueue).getSingle();
+      await (env.db.update(env.db.uploadQueue)
+            ..where((u) => u.id.equals(row.id)))
+          .write(const UploadQueueCompanion(status: Value('done')));
+
+      await queue.cleanupUploadedBackupFiles();
+      expect(File(row.localPath).existsSync(), isFalse);
+      expect(await queue.hasQueuedRemotePath(remotePath), isTrue);
+
+      await queue.discardUploadedBackup(remotePath);
+      expect(await env.db.select(env.db.uploadQueue).get(), isEmpty);
+    },
+  );
 }

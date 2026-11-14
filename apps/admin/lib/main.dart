@@ -5,6 +5,7 @@ import 'package:school_ui/school_ui.dart';
 
 import 'admin_tabs.dart';
 import 'mobile_scanner_source.dart';
+import 'screens/drive_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +18,9 @@ Future<void> main() async {
         if (cameraScanningSupported)
           qrCameraFactoryProvider.overrideWithValue(MobileScannerSource.new),
       ],
-      child: SchoolApp(tabs: adminTabs, pages: adminPages),
+      child: DriveBackupLifecycle(
+        child: SchoolApp(tabs: adminTabs, pages: adminPages),
+      ),
     ),
   );
 }

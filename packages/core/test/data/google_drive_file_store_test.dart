@@ -234,4 +234,90 @@ void main() {
       ),
     );
   });
+
+  test('يعرض نسخ المجلد مع الصفحات وينزّل ويحذف ملفاً بمعرّفه', () async {
+    final requestedTokens = <String?>[];
+    final deleted = <String>[];
+    final client = MockClient((request) async {
+      if (request.method == 'GET' && request.url.path == '/drive/v3/files') {
+        final query = request.url.queryParameters['q']!;
+        if (query.contains('appProperties')) {
+          final folderId = query.contains("value='root'")
+              ? 'school-root'
+              : 'backup-folder';
+          return http.Response(
+            jsonEncode({
+              'files': [
+                {
+                  'id': folderId,
+                  'name': 'folder',
+                  'parents': ['root'],
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        expect(query, "'backup-folder' in parents and trashed=false");
+        requestedTokens.add(request.url.queryParameters['pageToken']);
+        if (request.url.queryParameters['pageToken'] == null) {
+          return http.Response(
+            jsonEncode({
+              'nextPageToken': 'next',
+              'files': [
+                {
+                  'id': 'backup-1',
+                  'name': 'school_admin_2026-11-14.sqlite',
+                  'size': '4096',
+                  'modifiedTime': '2026-11-14T10:00:00Z',
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'files': [
+              {
+                'id': 'backup-2',
+                'name': 'school_admin_2026-11-13.sqlite',
+                'size': '2048',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.method == 'GET' &&
+          request.url.path == '/drive/v3/files/backup-1') {
+        expect(request.url.queryParameters['alt'], 'media');
+        return http.Response.bytes([4, 5, 6], 200);
+      }
+      if (request.method == 'DELETE' &&
+          request.url.path == '/drive/v3/files/backup-2') {
+        deleted.add('backup-2');
+        return http.Response('', 204);
+      }
+      fail('طلب غير متوقع: ${request.method} ${request.url}');
+    });
+    final store = GoogleDriveFileStore(
+      accessToken: () async => 'access-token',
+      client: client,
+    );
+    addTearDown(store.dispose);
+
+    final files = await store.listDirectory('النسخ الاحتياطية');
+    expect(files, hasLength(2));
+    expect(files.first.id, 'backup-1');
+    expect(files.first.size, 4096);
+    expect(files.first.modifiedTime, DateTime.utc(2026, 11, 14, 10));
+    expect(requestedTokens, [null, 'next']);
+
+    final downloaded = File('${directory.path}/download.sqlite');
+    await store.downloadFileTo(fileId: 'backup-1', destination: downloaded);
+    expect(downloaded.readAsBytesSync(), [4, 5, 6]);
+    await store.deleteFile('backup-2');
+    expect(deleted, ['backup-2']);
+  });
 }

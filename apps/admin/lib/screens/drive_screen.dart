@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -32,15 +33,20 @@ class DriveAccount {
 /// العقد الذي تستعمله الشاشة، ويمكن استبداله في اختبارات الواجهة.
 abstract interface class DriveController {
   bool get isConfigured;
+  bool get canCreateBackup;
   String get configurationMessage;
   Stream<DriveAccount?> get accountChanges;
   Stream<List<UploadQueueRow>> get queueChanges;
+  Stream<String?> get backupStatusChanges;
   Future<void> initialize();
   Future<void> signIn();
   Future<void> signOut();
   Future<int> addFiles(List<PlatformFile> files, DriveUploadKind kind);
   Future<int> uploadPending();
   Future<int> retryFailed();
+  Future<bool> createBackup();
+  Future<List<DriveFileInfo>> listBackups();
+  Future<void> restoreBackup(DriveFileInfo backup);
   Future<void> dispose();
 }
 
@@ -60,6 +66,35 @@ final StreamProvider<List<UploadQueueRow>> driveQueueProvider =
     StreamProvider<List<UploadQueueRow>>((ref) {
       return ref.watch(driveControllerProvider).queueChanges;
     });
+
+final StreamProvider<String?> driveBackupStatusProvider =
+    StreamProvider<String?>((ref) {
+      return ref.watch(driveControllerProvider).backupStatusChanges;
+    });
+
+/// يهيّئ النسخ اليومية مرة عند بدء تطبيق الإدارة، حتى إن لم تُفتح شاشة Drive.
+class DriveBackupLifecycle extends ConsumerStatefulWidget {
+  const DriveBackupLifecycle({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  ConsumerState<DriveBackupLifecycle> createState() =>
+      _DriveBackupLifecycleState();
+}
+
+class _DriveBackupLifecycleState extends ConsumerState<DriveBackupLifecycle> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      ref.read(driveControllerProvider).initialize().catchError((Object _) {}),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
 
 /// ربط Google Sign-In على Android وتدفق PKCE ذي loopback على Windows.
 /// رموز سطح المكتب تبقى في التخزين الآمن للنظام، ورمز Drive قصير العمر لا
@@ -83,6 +118,13 @@ class GoogleDriveController implements DriveController {
     );
     _store = GoogleDriveFileStore(accessToken: _accessToken);
     _worker = UploadWorker(runtime.db, runtime.writer, _store);
+    final databaseFile = runtime.databaseFile;
+    _backup = databaseFile == null
+        ? null
+        : DatabaseBackupService(
+            databaseFile: databaseFile,
+            schemaVersion: runtime.db.schemaVersion,
+          );
   }
 
   final AppRuntime runtime;
@@ -95,14 +137,20 @@ class GoogleDriveController implements DriveController {
   late final DriveQueueService _queue;
   late final GoogleDriveFileStore _store;
   late final UploadWorker _worker;
+  final StreamController<String?> _backupStatusController =
+      StreamController<String?>.broadcast();
+  late final DatabaseBackupService? _backup;
   StreamSubscription<GoogleSignInAuthenticationEvent>? _authSubscription;
   Timer? _uploadTimer;
+  Timer? _dailyBackupTimer;
   GoogleSignInAccount? _googleAccount;
   DriveAccount? _account;
   Future<void>? _initializing;
   Future<int>? _uploading;
   bool _initialized = false;
   bool _closed = false;
+  bool _creatingBackup = false;
+  String? _backupStatus;
 
   @override
   bool get isConfigured =>
@@ -111,6 +159,9 @@ class GoogleDriveController implements DriveController {
           (Platform.isWindows &&
               _windowsClientId.trim().isNotEmpty &&
               _windowsClientSecret.trim().isNotEmpty));
+
+  @override
+  bool get canCreateBackup => _backup != null;
 
   @override
   String get configurationMessage {
@@ -138,13 +189,27 @@ class GoogleDriveController implements DriveController {
   Stream<List<UploadQueueRow>> get queueChanges => _queue.watchQueue();
 
   @override
+  Stream<String?> get backupStatusChanges async* {
+    yield _backupStatus;
+    yield* _backupStatusController.stream;
+  }
+
+  @override
   Future<void> initialize() {
-    if (!isConfigured) return Future.value();
     return _initializing ??= _initialize();
   }
 
   Future<void> _initialize() async {
     if (_initialized) return;
+    await _maybeCreateDailyBackup();
+    _dailyBackupTimer ??= Timer.periodic(
+      const Duration(hours: 1),
+      (_) => unawaited(_maybeCreateDailyBackup()),
+    );
+    if (!isConfigured) {
+      _initialized = true;
+      return;
+    }
     final google = GoogleSignIn.instance;
     if (Platform.isWindows) {
       final platform = GoogleSignInPlatform.instance;
@@ -228,9 +293,7 @@ class GoogleDriveController implements DriveController {
     if (_account?.isOwner != true) return Future.value(0);
     final running = _uploading;
     if (running != null) return running;
-    final upload = _worker
-        .processPending(buckets: const {DriveQueueService.bucket})
-        .whenComplete(() => _uploading = null);
+    final upload = _uploadAndRetain().whenComplete(() => _uploading = null);
     _uploading = upload;
     return upload;
   }
@@ -240,6 +303,145 @@ class GoogleDriveController implements DriveController {
     final count = await _queue.retryFailed();
     if (_account?.isOwner == true) await uploadPending();
     return count;
+  }
+
+  @override
+  Future<bool> createBackup() async {
+    if (_backup == null) {
+      throw StateError('لا يتوفر ملف قاعدة بيانات محلي لإنشاء نسخة.');
+    }
+    final created = await _enqueueDailyBackup();
+    _setBackupStatus(
+      created
+          ? 'أُضيفت نسخة اليوم إلى طابور Drive.'
+          : 'نسخة اليوم موجودة مسبقاً.',
+    );
+    if (_account?.isOwner == true) unawaited(uploadPending());
+    return created;
+  }
+
+  @override
+  Future<List<DriveFileInfo>> listBackups() async {
+    _requireOwner();
+    final files = await _store.listDirectory(DriveUploadKind.backup.folder);
+    return files.where(_isDatedBackup).toList()
+      ..sort((a, b) => b.name.compareTo(a.name));
+  }
+
+  @override
+  Future<void> restoreBackup(DriveFileInfo backup) async {
+    _requireOwner();
+    final service = _backup;
+    if (service == null) {
+      throw StateError('لا يتوفر ملف قاعدة بيانات محلي للاستعادة إليه.');
+    }
+    if (!_isDatedBackup(backup)) {
+      throw StateError('ملف النسخة الاحتياطية غير معتمد.');
+    }
+    final available = await listBackups();
+    if (!available.any((file) => file.id == backup.id)) {
+      throw StateError('النسخة لم تعد موجودة في مجلد النسخ الاحتياطية.');
+    }
+    final temporary = File(
+      '${_queue.stagingDirectory.path}${Platform.pathSeparator}'
+      'restore-${runtime.writer.newId()}.sqlite',
+    );
+    try {
+      await _store.downloadFileTo(fileId: backup.id, destination: temporary);
+      await service.restoreFrom(temporary);
+      _setBackupStatus('تمت الاستعادة؛ أغلق التطبيق وأعد فتحه للمتابعة.');
+    } finally {
+      if (await temporary.exists()) await temporary.delete();
+    }
+  }
+
+  Future<bool> _enqueueDailyBackup() async {
+    final backup = _backup;
+    if (backup == null || _creatingBackup) return false;
+    _creatingBackup = true;
+    File? temporary;
+    try {
+      final now = DateTime.now();
+      final date =
+          '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+      final fileName = 'school_admin_$date.sqlite';
+      final remotePath = '${DriveUploadKind.backup.folder}/$fileName';
+      if (await _queue.hasQueuedRemotePath(remotePath)) return false;
+
+      temporary = File(
+        '${_queue.stagingDirectory.path}${Platform.pathSeparator}'
+        'snapshot-${runtime.writer.newId()}.sqlite',
+      );
+      await backup.createSnapshot(temporary);
+      return await _queue.enqueueFile(
+        sourcePath: temporary.path,
+        fileName: fileName,
+        kind: DriveUploadKind.backup,
+      );
+    } finally {
+      _creatingBackup = false;
+      if (temporary != null && await temporary.exists()) {
+        await temporary.delete();
+      }
+    }
+  }
+
+  Future<void> _maybeCreateDailyBackup() async {
+    if (_backup == null || _closed) return;
+    try {
+      final created = await _enqueueDailyBackup();
+      if (created) {
+        _setBackupStatus('أُنشئت نسخة اليوم وتنتظر الرفع إلى Drive.');
+      }
+    } on Object catch (error) {
+      _setBackupStatus('تعذّر إنشاء النسخة اليومية: $error');
+    }
+  }
+
+  Future<int> _uploadAndRetain() async {
+    final uploaded = await _worker.processPending(
+      buckets: const {DriveQueueService.bucket},
+    );
+    if (_account?.isOwner == true) {
+      try {
+        await _queue.cleanupUploadedBackupFiles();
+        if (uploaded > 0) await _pruneBackups();
+      } on Object catch (error) {
+        _setBackupStatus('رُفعت الملفات، وتعذّر تطبيق الاحتفاظ: $error');
+      }
+    }
+    return uploaded;
+  }
+
+  Future<void> _pruneBackups() async {
+    final backups = (await _store.listDirectory(
+      DriveUploadKind.backup.folder,
+    )).where(_isDatedBackup).toList()..sort((a, b) => b.name.compareTo(a.name));
+    for (final old in backups.skip(30)) {
+      await _store.deleteFile(old.id);
+      await _queue.discardUploadedBackup(
+        '${DriveUploadKind.backup.folder}/${old.name}',
+      );
+    }
+  }
+
+  bool _isDatedBackup(DriveFileInfo file) {
+    final match = RegExp(r'^school_admin_(\d{4}-\d{2}-\d{2})\.sqlite$')
+        .firstMatch(file.name);
+    return match != null && DateTime.tryParse(match.group(1)!) != null;
+  }
+
+  void _requireOwner() {
+    if (_account?.isOwner != true) {
+      throw StateError('سجّل الدخول إلى حساب Google المالك أولاً.');
+    }
+  }
+
+  void _setBackupStatus(String? value) {
+    _backupStatus = value;
+    if (!_backupStatusController.isClosed) _backupStatusController.add(value);
   }
 
   Future<String?> _accessToken() async {
@@ -286,10 +488,12 @@ class GoogleDriveController implements DriveController {
     if (_closed) return;
     _closed = true;
     _uploadTimer?.cancel();
+    _dailyBackupTimer?.cancel();
     await _authSubscription?.cancel();
     await _uploading;
     _store.dispose();
     await _accountController.close();
+    await _backupStatusController.close();
   }
 }
 
@@ -330,6 +534,8 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
   DriveUploadKind _kind = DriveUploadKind.file;
   bool _busy = false;
   String? _message;
+  List<DriveFileInfo> _backups = const [];
+  bool _loadedBackups = false;
   late final DriveController _controller;
 
   @override
@@ -381,10 +587,92 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
     });
   }
 
+  Future<void> _createBackup() async {
+    await _run(() async {
+      final created = await _controller.createBackup();
+      if (mounted) {
+        setState(() {
+          _message = created
+              ? 'أُنشئت نسخة اليوم وأُضيفت إلى طابور الرفع.'
+              : 'نسخة اليوم موجودة في الطابور مسبقاً.';
+        });
+      }
+    });
+  }
+
+  Future<void> _loadBackups() async {
+    await _run(() async {
+      final backups = await _controller.listBackups();
+      if (mounted) {
+        setState(() {
+          _backups = backups;
+          _loadedBackups = true;
+          _message = 'عدد النسخ المتاحة: ${backups.length}';
+        });
+      }
+    });
+  }
+
+  Future<void> _restoreBackup(DriveFileInfo backup) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('استعادة نسخة احتياطية'),
+        content: Text(
+          'سيُستبدل محتوى هذا الجهاز بنسخة ${backup.name} '
+          '(${_formatBytes(backup.size)}). يلزم إغلاق التطبيق وإعادة فتحه بعد ذلك.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('استعادة'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _run(() async {
+      await _controller.restoreBackup(backup);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('اكتملت الاستعادة'),
+          content: const Text('أغلق التطبيق وأعد فتحه قبل استخدام البيانات.'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق التطبيق'),
+            ),
+          ],
+        ),
+      );
+      if (Platform.isAndroid) {
+        await SystemNavigator.pop();
+      } else if (Platform.isWindows) {
+        exit(0);
+      }
+    });
+  }
+
+  String _formatBytes(int? bytes) {
+    if (bytes == null || bytes <= 0) return 'حجم غير معروف';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(0)} كيلوبايت';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} ميغابايت';
+  }
+
   @override
   Widget build(BuildContext context) {
     final account = ref.watch(driveAccountProvider);
     final queue = ref.watch(driveQueueProvider);
+    final backupStatus = ref.watch(driveBackupStatusProvider);
     final current = account.value;
     final rows = queue.value ?? const <UploadQueueRow>[];
     final failed = rows
@@ -503,6 +791,68 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
                       'تُحفظ الملفات محلياً أولاً، ثم تُرفع عند اتصال حساب المالك بالإنترنت.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'النسخ الاحتياطية',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'تُنشأ نسخة SQLite يومياً، ويحتفظ Drive بآخر 30 نسخة.',
+                    ),
+                    if (backupStatus.value != null) ...[
+                      const SizedBox(height: 6),
+                      Text(backupStatus.value!),
+                    ],
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _busy || !_controller.canCreateBackup
+                              ? null
+                              : _createBackup,
+                          icon: const Icon(Icons.backup_rounded),
+                          label: const Text('إنشاء نسخة اليوم'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _busy || current?.isOwner != true
+                              ? null
+                              : _loadBackups,
+                          icon: const Icon(Icons.restore_rounded),
+                          label: const Text('عرض النسخ للاستعادة'),
+                        ),
+                      ],
+                    ),
+                    if (_loadedBackups && _backups.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: Text('لا توجد نسخ احتياطية في Drive.'),
+                      ),
+                    for (final backup in _backups)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.storage_rounded),
+                        title: Text(backup.name),
+                        subtitle: Text(_formatBytes(backup.size)),
+                        trailing: TextButton(
+                          onPressed: _busy
+                              ? null
+                              : () => _restoreBackup(backup),
+                          child: const Text('استعادة'),
+                        ),
+                      ),
                   ],
                 ),
               ),
