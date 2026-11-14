@@ -293,7 +293,9 @@ void main() {
     expect(tester.widget<TextField>(field('اسم المدرسة')).enabled, isFalse);
   });
 
-  appTest('عامل بلا صلاحية الإعدادات: لا قسم في «المزيد»', (tester) async {
+  appTest('عامل بلا صلاحية الإعدادات يرى إحصائيات التلاميذ فقط', (
+    tester,
+  ) async {
     await bootApp(
       tester,
       adminTabs,
@@ -305,7 +307,11 @@ void main() {
     await tester.tap(find.text('المزيد').last);
     await tester.pumpAndSettle();
     expect(find.text('الإعدادات'), findsNothing);
-    expect(find.text('لا توجد أقسام متاحة'), findsOneWidget);
+    expect(find.text('الإحصائيات'), findsOneWidget);
+    await tester.tap(find.text('الإحصائيات'));
+    await tester.pumpAndSettle();
+    expect(find.text('التسجيلات الشهرية'), findsOneWidget);
+    expect(find.text('الحركة المالية الشهرية'), findsNothing);
   });
 
   appTest('الشعار: يُلتقط ويُحفظ فوراً ويُرفع ثم يُزال', (tester) async {

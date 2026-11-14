@@ -29,9 +29,13 @@ void main() {
   final nobody = worker(WorkerPermissions.none);
 
   group('صفحات الإدارة', () {
-    test('لا صفحة بلا شرط صلاحية', () {
+    test('كل صفحة تشترط إذناً أساسياً أو بديلاً', () {
       for (final page in adminPages) {
-        expect(page.requires, isNotNull, reason: page.path);
+        expect(
+          page.requires != null || page.anyPermissions?.isNotEmpty == true,
+          isTrue,
+          reason: page.path,
+        );
       }
     });
 
@@ -55,6 +59,20 @@ void main() {
 
     for (final page in adminPages) {
       test('${page.path}: المالك أو من فعّل كل صلاحياتها', () {
+        if (page.requires == null) {
+          final first = page.anyPermissions!.entries.first;
+          final granted = worker(
+            WorkerPermissions.none.withAction(
+              first.key,
+              first.value,
+              allowed: true,
+            ),
+          );
+          expect(page.visibleTo(owner), isTrue, reason: 'المالك');
+          expect(page.visibleTo(granted), isTrue, reason: 'إذن بديل واحد');
+          expect(page.visibleTo(nobody), isFalse, reason: 'دون أي إذن');
+          return;
+        }
         final module = page.requires!;
         final action = neededOf(page);
         var permissions = WorkerPermissions.none.withAction(
@@ -136,7 +154,11 @@ void main() {
       for (final entry in moreEntries) {
         final page = adminPages.where((p) => p.path == entry.path).firstOrNull;
         expect(page, isNotNull, reason: '${entry.label} بلا صفحة');
-        expect(entry.requires, isNotNull, reason: entry.label);
+        expect(
+          entry.requires != null || entry.anyPermissions?.isNotEmpty == true,
+          isTrue,
+          reason: entry.label,
+        );
         expect(page!.requires, entry.requires, reason: entry.label);
         expect(page.ownerOnly, entry.ownerOnly, reason: entry.label);
         expect(
@@ -144,7 +166,27 @@ void main() {
           entry.requiredPermissions,
           reason: entry.label,
         );
+        expect(page.anyPermissions, entry.anyPermissions, reason: entry.label);
       }
+    });
+
+    test('الإحصائيات تفتح لمن لديه عرض أي وحدة من وحداتها', () {
+      final entry = moreEntries.singleWhere(
+        (item) => item.path == '/statistics',
+      );
+      final page = adminPages.singleWhere((item) => item.path == '/statistics');
+      for (final permission in entry.anyPermissions!.entries) {
+        final account = worker(
+          WorkerPermissions.none.withAction(
+            permission.key,
+            permission.value,
+            allowed: true,
+          ),
+        );
+        expect(page.visibleTo(account), isTrue, reason: permission.key.code);
+      }
+      expect(entry.anyPermissions, page.anyPermissions);
+      expect(page.visibleTo(nobody), isFalse);
     });
 
     test('أقسام «المزيد» بلا تكرار في المسار', () {

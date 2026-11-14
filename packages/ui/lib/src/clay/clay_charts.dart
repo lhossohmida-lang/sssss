@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme/clay_colors.dart';
@@ -34,6 +36,203 @@ class ClayLegendItem {
 
   final String label;
   final Color color;
+}
+
+/// سلسلة أعمدة واحدة في [ClayBarChart].
+class ClayBarSeries {
+  const ClayBarSeries({
+    required this.label,
+    required this.color,
+    required this.values,
+  });
+
+  final String label;
+  final Color color;
+  final List<int> values;
+}
+
+/// أعمدة مجمّعة بفئات ثابتة؛ مفيد للمقارنة الشهرية وسهل القراءة على الهاتف.
+class ClayBarChart extends StatelessWidget {
+  ClayBarChart({
+    required this.categories,
+    required this.series,
+    this.valueLabel = _defaultValueLabel,
+    this.height = 180,
+    super.key,
+  }) : assert(series.isNotEmpty),
+       assert(series.every((item) => item.values.length == categories.length));
+
+  final List<String> categories;
+  final List<ClayBarSeries> series;
+  final String Function(int value) valueLabel;
+  final double height;
+
+  static String _defaultValueLabel(int value) => '$value';
+
+  @override
+  Widget build(BuildContext context) {
+    if (categories.isEmpty) return const SizedBox.shrink();
+    final text = Theme.of(context).textTheme;
+    final palette = context.palette;
+    final valuesDescription = [
+      for (final item in series)
+        '${item.label}: ${item.values.map(valueLabel).join('، ')}',
+    ].join('. ');
+    return Semantics(
+      label: 'مخطط بالأعمدة. $valuesDescription',
+      child: ExcludeSemantics(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // الشهر العربي الكامل يحتاج مساحة كافية كي لا يُقصّ اسم الفئة.
+            final width = math.max(
+              math.max(600.0, categories.length * 64.0 + 60),
+              constraints.maxWidth,
+            );
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: CustomPaint(
+                  painter: _ClayBarChartPainter(
+                    categories: categories,
+                    series: series,
+                    gridColor: ClayChartColors.grid(palette),
+                    labelStyle: text.labelSmall!.copyWith(
+                      color: palette.textMuted,
+                    ),
+                    valueLabel: valueLabel,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ClayBarChartPainter extends CustomPainter {
+  const _ClayBarChartPainter({
+    required this.categories,
+    required this.series,
+    required this.gridColor,
+    required this.labelStyle,
+    required this.valueLabel,
+  });
+
+  final List<String> categories;
+  final List<ClayBarSeries> series;
+  final Color gridColor;
+  final TextStyle labelStyle;
+  final String Function(int value) valueLabel;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const right = 6.0;
+    const top = 8.0;
+    const bottom = 28.0;
+    final maxValue = series
+        .expand((item) => item.values)
+        .fold<int>(0, (max, value) => value > max ? value : max);
+    final scale = maxValue == 0 ? 1 : maxValue;
+    var left = 54.0;
+    for (var tick = 0; tick <= 4; tick++) {
+      final label = TextPainter(
+        text: TextSpan(
+          text: valueLabel((scale * tick / 4).round()),
+          style: labelStyle,
+        ),
+        textDirection: TextDirection.rtl,
+        maxLines: 1,
+      )..layout();
+      left = math.max(left, label.width + 12);
+    }
+    final plot = Rect.fromLTRB(
+      left,
+      top,
+      size.width - right,
+      size.height - bottom,
+    );
+    if (plot.width <= 0 || plot.height <= 0) return;
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var tick = 0; tick <= 4; tick++) {
+      final fraction = tick / 4;
+      final y = plot.bottom - plot.height * fraction;
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), gridPaint);
+      _drawLabel(
+        canvas,
+        valueLabel((scale * fraction).round()),
+        Offset(0, y - 7),
+        width: left - 8,
+        align: TextAlign.end,
+      );
+    }
+
+    final categoryWidth = plot.width / categories.length;
+    final clusterWidth = categoryWidth * 0.74;
+    final gap = series.length > 1 ? 3.0 : 0.0;
+    final barWidth = math.max(
+      2.0,
+      (clusterWidth - gap * (series.length - 1)) / series.length,
+    );
+    for (var category = 0; category < categories.length; category++) {
+      final clusterLeft =
+          plot.left +
+          category * categoryWidth +
+          (categoryWidth - clusterWidth) / 2;
+      for (var index = 0; index < series.length; index++) {
+        final item = series[index];
+        final value = item.values[category];
+        final barHeight = plot.height * value / scale;
+        final rect = Rect.fromLTWH(
+          clusterLeft + index * (barWidth + gap),
+          plot.bottom - barHeight,
+          barWidth,
+          math.max(0, barHeight),
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+          Paint()..color = item.color,
+        );
+      }
+      _drawLabel(
+        canvas,
+        categories[category],
+        Offset(plot.left + category * categoryWidth, plot.bottom + 5),
+        width: categoryWidth,
+        align: TextAlign.center,
+      );
+    }
+  }
+
+  void _drawLabel(
+    Canvas canvas,
+    String value,
+    Offset position, {
+    required double width,
+    required TextAlign align,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: value, style: labelStyle),
+      textDirection: TextDirection.rtl,
+      textAlign: align,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: width);
+    painter.paint(canvas, position);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClayBarChartPainter oldDelegate) =>
+      oldDelegate.categories != categories ||
+      oldDelegate.series != series ||
+      oldDelegate.gridColor != gridColor ||
+      oldDelegate.labelStyle != labelStyle ||
+      oldDelegate.valueLabel != valueLabel;
 }
 
 /// دليل الرسم: نقطة ملوّنة واسم لكل سلسلة.

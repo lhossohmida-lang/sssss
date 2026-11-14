@@ -414,6 +414,35 @@ final transportOtherStudentsProvider = StreamProvider.autoDispose
           .watchOtherStudents(key.lineId, query: key.query),
     );
 
+/// إحصائيات سنة واحدة، والاستعلامات محصورة بالوحدات التي يراها المستخدم.
+typedef StatisticsKey = ({
+  int year,
+  bool payments,
+  bool expenses,
+  bool payouts,
+  bool attendance,
+  bool students,
+  bool groups,
+});
+
+final Provider<StatisticsService> statisticsServiceProvider =
+    Provider<StatisticsService>(
+      (ref) => StatisticsService(ref.watch(runtimeProvider).db),
+    );
+
+final statisticsProvider = StreamProvider.autoDispose
+    .family<StatisticsSnapshot, StatisticsKey>((ref, key) {
+      final scope = StatisticsScope(
+        payments: key.payments,
+        expenses: key.expenses,
+        payouts: key.payouts,
+        attendance: key.attendance,
+        students: key.students,
+        groups: key.groups,
+      );
+      return ref.watch(statisticsServiceProvider).watch(key.year, scope);
+    });
+
 /// خدمة ملف التلميذ.
 final Provider<StudentService> studentServiceProvider =
     Provider<StudentService>((ref) {

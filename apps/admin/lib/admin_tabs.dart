@@ -21,6 +21,7 @@ import 'screens/scanner_screen.dart';
 import 'screens/schedule_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/sms_screen.dart';
+import 'screens/statistics_screen.dart';
 import 'screens/student_profile_screen.dart';
 import 'screens/students_screen.dart';
 import 'screens/teacher_attendance_screens.dart';
@@ -277,6 +278,18 @@ final List<AppPage> adminPages = [
       initialSubjectId: state.uri.queryParameters['subject'],
       initialTeacherId: state.uri.queryParameters['teacher'],
     ),
+  ),
+  AppPage(
+    path: '/statistics',
+    anyPermissions: {
+      PermissionModule.payments: PermissionAction.view,
+      PermissionModule.expenses: PermissionAction.view,
+      PermissionModule.payouts: PermissionAction.view,
+      PermissionModule.attendance: PermissionAction.view,
+      PermissionModule.students: PermissionAction.view,
+      PermissionModule.groups: PermissionAction.view,
+    },
+    builder: (context, state) => const StatisticsScreen(),
   ),
   AppPage(
     path: '/groups/:id/edit',

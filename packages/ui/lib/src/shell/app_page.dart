@@ -12,6 +12,7 @@ class AppPage {
     this.action,
     this.anyActions,
     this.requiredPermissions = const {},
+    this.anyPermissions,
     this.ownerOnly = false,
   });
 
@@ -32,6 +33,9 @@ class AppPage {
   /// صلاحيات إضافية مطلوبة مع [requires] عند جمع الصفحة لعدة وحدات حساسة.
   final Map<PermissionModule, PermissionAction> requiredPermissions;
 
+  /// أحد هذه الأذونات يكفي لفتح صفحة تعرض أقساماً بحسب كل إذن.
+  final Map<PermissionModule, PermissionAction>? anyPermissions;
+
   /// يقصر الصفحة على صاحب المدرسة حتى لو منح العامل صلاحية الوحدة.
   final bool ownerOnly;
 
@@ -51,6 +55,13 @@ class AppPage {
     if (!requiredPermissions.entries.every(
       (entry) => policy.can(entry.key, entry.value),
     )) {
+      return false;
+    }
+    final permissionAlternatives = anyPermissions;
+    if (permissionAlternatives != null &&
+        !permissionAlternatives.entries.any(
+          (entry) => policy.can(entry.key, entry.value),
+        )) {
       return false;
     }
     final module = requires;

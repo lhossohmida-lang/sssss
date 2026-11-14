@@ -26,6 +26,7 @@ class MoreEntry {
     this.requires,
     this.anyActions,
     this.requiredPermissions = const {},
+    this.anyPermissions,
     this.ownerOnly = false,
   });
 
@@ -46,6 +47,9 @@ class MoreEntry {
 
   /// صلاحيات إضافية مطلوبة لإظهار القسم عند جمعه بين وحدات.
   final Map<PermissionModule, PermissionAction> requiredPermissions;
+
+  /// أحد هذه الأذونات يكفي لعرض قسم يجمع بيانات من وحدات متعددة.
+  final Map<PermissionModule, PermissionAction>? anyPermissions;
 
   /// الأقسام السحابية الحساسة لصاحب المدرسة وحده.
   final bool ownerOnly;
@@ -184,6 +188,20 @@ const List<MoreEntry> moreEntries = [
     },
   ),
   MoreEntry(
+    label: 'الإحصائيات',
+    icon: Icons.query_stats_rounded,
+    path: '/statistics',
+    section: MoreSection.finance,
+    anyPermissions: {
+      PermissionModule.payments: PermissionAction.view,
+      PermissionModule.expenses: PermissionAction.view,
+      PermissionModule.payouts: PermissionAction.view,
+      PermissionModule.attendance: PermissionAction.view,
+      PermissionModule.students: PermissionAction.view,
+      PermissionModule.groups: PermissionAction.view,
+    },
+  ),
+  MoreEntry(
     label: 'حضور العمال',
     icon: ClayIcons.attendance,
     path: '/worker-attendance',
@@ -268,6 +286,11 @@ class MorePage extends ConsumerWidget {
                 (requirement) =>
                     session.can(requirement.key, requirement.value),
               ) &&
+              (entry.anyPermissions?.entries.any(
+                    (requirement) =>
+                        session.can(requirement.key, requirement.value),
+                  ) ??
+                  true) &&
               (entry.requires == null ||
                   (entry.anyActions?.any(
                         (action) => session.can(entry.requires!, action),

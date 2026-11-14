@@ -72,6 +72,7 @@ export 'src/domain/settings_service.dart';
 export 'src/domain/sms_event_service.dart';
 export 'src/domain/sms_templates.dart';
 export 'src/domain/stable_id.dart';
+export 'src/domain/statistics_service.dart';
 export 'src/domain/student_card.dart';
 export 'src/domain/student_queries.dart';
 export 'src/domain/student_service.dart';

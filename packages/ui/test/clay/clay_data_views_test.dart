@@ -366,6 +366,72 @@ void main() {
     });
   });
 
+  group('ClayBarChart', () {
+    testWidgets('يعرض الأعمدة والوصف المقروء وقابل للتمرير على الهاتف', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          SizedBox(
+            height: 180,
+            child: ClayBarChart(
+              categories: const ['01', '02', '03'],
+              series: const [
+                ClayBarSeries(
+                  label: 'المقبوضات',
+                  color: Colors.green,
+                  values: [1000, 500, 0],
+                ),
+                ClayBarSeries(
+                  label: 'المصاريف',
+                  color: Colors.orange,
+                  values: [200, 300, 50],
+                ),
+              ],
+              valueLabel: (value) => '$value دج',
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.bySemanticsLabel(
+          RegExp('مخطط بالأعمدة. المقبوضات: 1000 دج، 500 دج، 0 دج'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint &&
+              widget.painter?.runtimeType.toString().contains('ClayBarChart') ==
+                  true,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SingleChildScrollView &&
+              widget.scrollDirection == Axis.horizontal,
+        ),
+        findsOneWidget,
+      );
+    });
+
+    test('يرفض أطوال سلاسل لا تطابق الفئات', () {
+      expect(
+        () => ClayBarChart(
+          categories: const ['01', '02'],
+          series: const [
+            ClayBarSeries(label: 'المقبوضات', color: Colors.green, values: [1]),
+          ],
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
   group('ClayChartColors', () {
     test('ألوان السلاسل مقروءة ومختلفة في الوضعين', () {
       for (final mode in Brightness.values) {
