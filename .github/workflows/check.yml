@@ -29,6 +29,14 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
       - name: Analyze
         run: flutter analyze --fatal-infos --fatal-warnings
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+      - name: Check and test the assistant function
+        run: |
+          deno check supabase/functions/assistant/index.ts
+          deno test supabase/functions/assistant/index_test.ts
       - name: Test
         shell: bash
         run: |

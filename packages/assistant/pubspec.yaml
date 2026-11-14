@@ -9,10 +9,12 @@ environment:
   flutter: ">=3.47.0"
 
 dependencies:
+  drift: ^2.35.4
   flutter:
     sdk: flutter
   school_core:
     path: ../core
+  supabase_flutter: ^2.18.3
 
 dev_dependencies:
   flutter_test:
