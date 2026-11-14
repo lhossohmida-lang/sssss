@@ -31,6 +31,7 @@ export 'src/data/remote/sync_profile.dart';
 export 'src/data/remote/upload_worker.dart';
 export 'src/domain/account_service.dart';
 export 'src/domain/attendance_service.dart';
+export 'src/domain/audit_log_service.dart';
 export 'src/domain/catalog_service.dart';
 export 'src/domain/child_attendance.dart';
 export 'src/domain/child_schedule.dart';

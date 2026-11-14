@@ -443,6 +443,25 @@ final statisticsProvider = StreamProvider.autoDispose
       return ref.watch(statisticsServiceProvider).watch(key.year, scope);
     });
 
+/// صفحة سجل العمليات المسموح بعرضها للمستخدم الحالي.
+typedef AuditLogQueryKey = ({String action, String query, int page});
+
+final Provider<AuditLogService> auditLogServiceProvider =
+    Provider<AuditLogService>(
+      (ref) => AuditLogService(ref.watch(runtimeProvider).db),
+    );
+
+final auditLogProvider = StreamProvider.autoDispose
+    .family<AuditLogPage, AuditLogQueryKey>((ref, key) {
+      final action = key.action.isEmpty ? null : key.action;
+      return ref
+          .watch(auditLogServiceProvider)
+          .watch(
+            filters: AuditLogFilters(action: action, query: key.query),
+            page: key.page,
+          );
+    });
+
 /// خدمة ملف التلميذ.
 final Provider<StudentService> studentServiceProvider =
     Provider<StudentService>((ref) {

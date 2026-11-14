@@ -230,6 +230,7 @@ void main() {
         '/workers',
         '/dues',
         '/settings',
+        '/audit',
         '/scanner',
         '/attendance',
       ]) {

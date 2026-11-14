@@ -237,6 +237,13 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.settings,
   ),
   MoreEntry(
+    label: 'سجل العمليات',
+    icon: ClayIcons.audit,
+    path: '/audit',
+    section: MoreSection.system,
+    requires: PermissionModule.audit,
+  ),
+  MoreEntry(
     label: 'Google Drive',
     icon: Icons.cloud_upload_outlined,
     path: '/drive',

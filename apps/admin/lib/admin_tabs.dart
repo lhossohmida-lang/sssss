@@ -2,6 +2,7 @@ import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
 import 'screens/attendance_screens.dart';
+import 'screens/audit_log_screen.dart';
 import 'screens/catalog_screens.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/drive_screen.dart';
@@ -290,6 +291,12 @@ final List<AppPage> adminPages = [
       PermissionModule.groups: PermissionAction.view,
     },
     builder: (context, state) => const StatisticsScreen(),
+  ),
+  AppPage(
+    path: '/audit',
+    requires: PermissionModule.audit,
+    action: PermissionAction.view,
+    builder: (context, state) => const AuditLogScreen(),
   ),
   AppPage(
     path: '/groups/:id/edit',
