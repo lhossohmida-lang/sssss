@@ -383,6 +383,37 @@ final StreamProvider<List<TransportLineRow>> transportLinesProvider =
       (ref) => ref.watch(runtimeProvider).db.watchTransportLines(),
     );
 
+/// إدارة خطوط النقل وربط التلاميذ.
+final Provider<TransportService> transportServiceProvider =
+    Provider<TransportService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return TransportService(runtime.db, runtime.writer);
+    });
+
+final transportLineSummariesProvider =
+    StreamProvider.autoDispose<List<TransportLineItem>>(
+      (ref) => ref.watch(transportServiceProvider).watchLines(),
+    );
+
+final transportLineProvider = StreamProvider.autoDispose
+    .family<TransportLineItem?, String>(
+      (ref, id) => ref.watch(transportServiceProvider).watchLine(id),
+    );
+
+final transportStudentsProvider = StreamProvider.autoDispose
+    .family<List<TransportStudentItem>, String>(
+      (ref, id) => ref.watch(transportServiceProvider).watchStudents(id),
+    );
+
+typedef TransportStudentSearchKey = ({String lineId, String query});
+
+final transportOtherStudentsProvider = StreamProvider.autoDispose
+    .family<List<TransportStudentItem>, TransportStudentSearchKey>(
+      (ref, key) => ref
+          .watch(transportServiceProvider)
+          .watchOtherStudents(key.lineId, query: key.query),
+    );
+
 /// خدمة ملف التلميذ.
 final Provider<StudentService> studentServiceProvider =
     Provider<StudentService>((ref) {

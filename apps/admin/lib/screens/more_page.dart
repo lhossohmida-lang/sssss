@@ -171,6 +171,19 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.workers,
   ),
   MoreEntry(
+    label: 'النقل',
+    icon: ClayIcons.transport,
+    path: '/transport',
+    section: MoreSection.team,
+    requires: PermissionModule.transport,
+    anyActions: {
+      PermissionAction.view,
+      PermissionAction.add,
+      PermissionAction.edit,
+      PermissionAction.delete,
+    },
+  ),
+  MoreEntry(
     label: 'حضور العمال',
     icon: ClayIcons.attendance,
     path: '/worker-attendance',

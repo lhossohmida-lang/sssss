@@ -25,6 +25,7 @@ import 'screens/student_profile_screen.dart';
 import 'screens/students_screen.dart';
 import 'screens/teacher_attendance_screens.dart';
 import 'screens/teachers_screens.dart';
+import 'screens/transport_screens.dart';
 import 'screens/waiting_screens.dart';
 import 'screens/worker_attendance_screens.dart';
 import 'screens/workers_screens.dart';
@@ -183,6 +184,37 @@ final List<AppPage> adminPages = [
       PermissionModule.payouts: PermissionAction.view,
     },
     builder: (context, state) => const MonthlyReportScreen(),
+  ),
+  AppPage(
+    path: '/transport',
+    requires: PermissionModule.transport,
+    anyActions: {
+      PermissionAction.view,
+      PermissionAction.add,
+      PermissionAction.edit,
+      PermissionAction.delete,
+    },
+    builder: (context, state) => const TransportScreen(),
+  ),
+  AppPage(
+    path: '/transport/new',
+    requires: PermissionModule.transport,
+    action: PermissionAction.add,
+    builder: (context, state) => const TransportLineFormScreen(),
+  ),
+  AppPage(
+    path: '/transport/:id/edit',
+    requires: PermissionModule.transport,
+    action: PermissionAction.edit,
+    builder: (context, state) =>
+        TransportLineFormScreen(lineId: state.pathParameters['id']),
+  ),
+  AppPage(
+    path: '/transport/:id',
+    requires: PermissionModule.transport,
+    action: PermissionAction.view,
+    builder: (context, state) =>
+        TransportLineDetailsScreen(lineId: state.pathParameters['id']!),
   ),
   AppPage(
     path: '/payments/new',

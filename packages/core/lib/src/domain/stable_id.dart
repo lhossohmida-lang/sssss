@@ -84,4 +84,8 @@ abstract final class StableId {
   /// مصروف أجر عامل لشهر؛ إعادة تسجيله تحدّث السجل نفسه.
   static String workerWageExpense(String workerId, String month) =>
       _of('worker_wage_expense', [workerId, month]);
+
+  /// خط نقل باسم طبيعي؛ يعيد الاسم نفسه معرّفاً على كل جهاز.
+  static String transportLine(String normalizedName) =>
+      _of('transport_line', [normalizedName]);
 }
