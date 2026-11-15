@@ -1,0 +1,72 @@
+name: perf
+
+# قياس زمن الإطارات على محاكي Android. يُشغَّل يدوياً، وعند تغيير اختبار
+# القياس أو سائقه أو هذا المسار. الأرقام لمحاكٍ (معالج برمجي ووضع debug)،
+# فلا تُقارن بهاتف حقيقي؛ انظر PERFORMANCE.md.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - apps/admin/integration_test/**
+      - apps/admin/test_driver/**
+      - tool/perf_report.py
+      - .github/workflows/perf.yml
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.47.9"
+
+jobs:
+  frame-timings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Measure frame timings on an Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            cd apps/admin
+            flutter drive --driver=test_driver/integration_test.dart --target=integration_test/frame_timings_test.dart 2>&1 | tee drive.log
+      - name: Report
+        if: always()
+        shell: bash
+        run: |
+          python3 tool/perf_report.py apps/admin/build/frame_timings.json || {
+            if [ -f apps/admin/drive.log ]; then
+              msg=$(tail -n 40 apps/admin/drive.log | sed 's/%/%25/g; s/\r//g' | awk '{printf "%s%%0A", substr($0,1,300)}')
+              echo "::error title=perf-drive-log::${msg}"
+            fi
+            exit 1
+          }
+      - name: Upload timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frame-timings
+          path: apps/admin/build/frame_timings.json
+          if-no-files-found: ignore

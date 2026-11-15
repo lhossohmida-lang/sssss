@@ -51,7 +51,8 @@ class _ClayButtonState extends State<ClayButton> {
   bool _pressed = false;
 
   void _setPressed(bool value) {
-    if (_pressed == value || !widget.enabled) return;
+    // الزر قد يُزال من الشجرة والإصبع عليه (انتقال صفحة أو إعادة بناء قائمة).
+    if (!mounted || _pressed == value || !widget.enabled) return;
     setState(() => _pressed = value);
   }
 
