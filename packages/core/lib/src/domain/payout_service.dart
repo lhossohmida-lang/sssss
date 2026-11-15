@@ -135,7 +135,18 @@ class PayoutService {
   static const String kindRelease = 'release';
 
   /// يحسب خلاص الدورة حسب الحضور والمدفوعات الحالية، دون أن يحفظ شيئاً.
-  Future<CyclePayout> compute(String groupId, int cycleNumber) async {
+  Future<CyclePayout> compute(String groupId, int cycleNumber) async =>
+      (await computeCycles(groupId, [cycleNumber]))[cycleNumber]!;
+
+  /// يحسب خلاص عدة دورات من مجموعة واحدة باستعلامات مجمّعة (الحضور لكل الدورات
+  /// في استعلام واحد، والمستحقات في استعلام واحد)، فلا يتضاعف عدد الاستعلامات
+  /// بعدد الدورات (ملخص الخلاصات يمرّ على كل دورة منتهية).
+  Future<Map<int, CyclePayout>> computeCycles(
+    String groupId,
+    Iterable<int> cycleNumbers,
+  ) async {
+    final wanted = cycleNumbers.toSet();
+    if (wanted.isEmpty) return const {};
     final group = await (db.select(
       db.groups,
     )..where((g) => g.id.equals(groupId))).getSingle();
@@ -146,50 +157,64 @@ class PayoutService {
 
     final attendedRows = await db
         .customSelect(
-          'SELECT a.student_id, COUNT(*) AS attended '
+          'SELECT a.student_id, s.cycle_number, COUNT(*) AS attended '
           'FROM attendance a JOIN sessions s ON s.id = a.session_id '
-          'WHERE s.group_id = ? AND s.cycle_number = ? '
+          'WHERE s.group_id = ? '
           "AND s.deleted_at IS NULL AND s.status <> 'cancelled' "
           "AND a.deleted_at IS NULL AND a.status = 'present' "
-          'GROUP BY a.student_id',
-          variables: [Variable<String>(groupId), Variable<int>(cycleNumber)],
+          'GROUP BY a.student_id, s.cycle_number',
+          variables: [Variable<String>(groupId)],
           readsFrom: {db.attendance, db.sessions},
         )
         .get();
-    final attended = {
-      for (final row in attendedRows)
-        row.read<String>('student_id'): row.read<int>('attended'),
-    };
+    // الحضور حسب الدورة ثم التلميذ.
+    final attended = <int, Map<String, int>>{};
+    for (final row in attendedRows) {
+      final cycle = row.read<int>('cycle_number');
+      if (!wanted.contains(cycle)) continue;
+      attended.putIfAbsent(cycle, () => {})[row.read<String>('student_id')] =
+          row.read<int>('attended');
+    }
 
-    final cycleDues = {
-      for (final due in await dues.cycleDues(
+    // دورة واحدة: مستحقاتها وحدها؛ عدة دورات: كل دورات المجموعة مرة واحدة.
+    final dueRows = await dues.cycleDues(
+      groupId: groupId,
+      cycleNumber: wanted.length == 1 ? wanted.single : null,
+    );
+    final duesByCycle = <int, Map<String, CycleDue>>{};
+    for (final due in dueRows) {
+      if (!wanted.contains(due.cycleNumber)) continue;
+      duesByCycle.putIfAbsent(due.cycleNumber, () => {})[due.studentId] = due;
+    }
+
+    final result = <int, CyclePayout>{};
+    for (final cycle in wanted) {
+      final cycleAttended = attended[cycle] ?? const <String, int>{};
+      final cycleDues = duesByCycle[cycle] ?? const <String, CycleDue>{};
+      final studentIds = {...cycleAttended.keys, ...cycleDues.keys}.toList()
+        ..sort();
+      final lines = <PayoutLine>[];
+      for (final studentId in studentIds) {
+        final due = cycleDues[studentId];
+        lines.add(
+          PayoutRules.line(
+            studentId: studentId,
+            ratePerStudent: rate,
+            attended: cycleAttended[studentId] ?? 0,
+            covered: due == null ? 0 : _covered(due, group.sessionsPerCycle),
+            sessionsPerCycle: group.sessionsPerCycle,
+          ),
+        );
+      }
+      result[cycle] = CyclePayout(
+        teacherId: group.teacherId,
         groupId: groupId,
-        cycleNumber: cycleNumber,
-      ))
-        due.studentId: due,
-    };
-
-    final studentIds = {...attended.keys, ...cycleDues.keys}.toList()..sort();
-    final lines = <PayoutLine>[];
-    for (final studentId in studentIds) {
-      final due = cycleDues[studentId];
-      lines.add(
-        PayoutRules.line(
-          studentId: studentId,
-          ratePerStudent: rate,
-          attended: attended[studentId] ?? 0,
-          covered: due == null ? 0 : _covered(due, group.sessionsPerCycle),
-          sessionsPerCycle: group.sessionsPerCycle,
-        ),
+        cycleNumber: cycle,
+        ratePerStudent: rate,
+        lines: lines,
       );
     }
-    return CyclePayout(
-      teacherId: group.teacherId,
-      groupId: groupId,
-      cycleNumber: cycleNumber,
-      ratePerStudent: rate,
-      lines: lines,
-    );
+    return result;
   }
 
   /// ينشئ خلاص اكتمال الدورة ويحفظ التفصيل لكل تلميذ. آمن عند التكرار:
@@ -226,10 +251,14 @@ class PayoutService {
                 ..orderBy([(p) => OrderingTerm(expression: p.cycleNumber)]))
               .get();
       final created = <TeacherPayoutRow>[];
+      // كل دورات المجموعة المنتهية تُحسب معاً باستعلامات مجمّعة.
+      final computed = await computeCycles(groupId, [
+        for (final p in cyclePayouts) p.cycleNumber,
+      ]);
       for (final cyclePayout in cyclePayouts) {
         final cycle = cyclePayout.cycleNumber;
         final alreadyPaid = await _paidOutPerStudent(groupId, cycle);
-        final current = await compute(groupId, cycle);
+        final current = computed[cycle]!;
         final released = <PayoutLine>[];
         for (final line in current.lines) {
           final delta = line.earned - (alreadyPaid[line.studentId] ?? 0);

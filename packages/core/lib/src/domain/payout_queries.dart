@@ -190,13 +190,19 @@ class PayoutQueries {
           readsFrom: {db.teacherPayouts},
         )
         .get();
-    var pending = 0;
+    // دورات كل مجموعة تُحسب معاً باستعلامات مجمّعة لا استعلامات لكل دورة.
+    final cyclesByGroup = <String, List<int>>{};
     for (final row in cycles) {
-      final current = await payouts.compute(
-        row.read<String>('group_id'),
-        row.read<int>('cycle_number'),
-      );
-      pending += current.pending;
+      cyclesByGroup
+          .putIfAbsent(row.read<String>('group_id'), () => [])
+          .add(row.read<int>('cycle_number'));
+    }
+    var pending = 0;
+    for (final entry in cyclesByGroup.entries) {
+      final computed = await payouts.computeCycles(entry.key, entry.value);
+      for (final payout in computed.values) {
+        pending += payout.pending;
+      }
     }
     return PayoutSummary(
       unpaid: totals.read<int>('unpaid'),

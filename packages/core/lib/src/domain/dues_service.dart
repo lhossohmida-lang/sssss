@@ -38,18 +38,43 @@ class DuesService {
     int? cycleNumber,
     bool unpaidOnly = false,
   }) async {
+    // المرشِّحات نفسها تُطبَّق على الدفعات والأرصدة المجمَّعة فلا تُجمَّع إلا
+    // صفوف التلميذ أو المجموعة المطلوبة (دون استعلام فرعي مترابط لكل صف).
     final filters = StringBuffer();
-    final variables = <Variable<Object>>[];
+    final creditFilters = StringBuffer();
+    final paymentFilters = StringBuffer();
+    final liabilityVars = <Variable<Object>>[];
+    final creditVars = <Variable<Object>>[];
+    final paymentVars = <Variable<Object>>[];
     if (studentId != null) {
       filters.write(' AND gs.student_id = ?');
-      variables.add(Variable<String>(studentId));
+      creditFilters.write(' AND student_id = ?');
+      paymentFilters.write(' AND student_id = ?');
+      liabilityVars.add(Variable<String>(studentId));
+      creditVars.add(Variable<String>(studentId));
+      paymentVars.add(Variable<String>(studentId));
     }
     if (groupId != null) {
       filters.write(' AND gs.group_id = ?');
-      variables.add(Variable<String>(groupId));
+      creditFilters.write(' AND group_id = ?');
+      paymentFilters.write(' AND group_id = ?');
+      liabilityVars.add(Variable<String>(groupId));
+      creditVars.add(Variable<String>(groupId));
+      paymentVars.add(Variable<String>(groupId));
     }
     final cycleFilter = cycleNumber == null ? '' : ' WHERE l.cycle = ?';
-    if (cycleNumber != null) variables.add(Variable<int>(cycleNumber));
+    if (cycleNumber != null) {
+      creditFilters.write(' AND target_cycle_number = ?');
+      paymentFilters.write(' AND cycle_number = ?');
+      creditVars.add(Variable<int>(cycleNumber));
+      paymentVars.add(Variable<int>(cycleNumber));
+    }
+    final variables = <Variable<Object>>[
+      ...liabilityVars,
+      ...creditVars,
+      ...paymentVars,
+      if (cycleNumber != null) Variable<int>(cycleNumber),
+    ];
 
     final rows = await db
         .customSelect(
@@ -80,18 +105,23 @@ WITH RECURSIVE liability(student_id, group_id, cycle, last_cycle, price,
 )
 SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
        l.discount_value,
-       COALESCE((SELECT SUM(c.amount) FROM student_credits c
-                  WHERE c.student_id = l.student_id
-                    AND c.group_id = l.group_id
-                    AND c.target_cycle_number = l.cycle
-                    AND c.deleted_at IS NULL), 0) AS credits,
-       COALESCE((SELECT SUM(p.amount) FROM payments p
-                  WHERE p.group_id = l.group_id
-                    AND p.cycle_number = l.cycle
-                    AND p.student_id = l.student_id
-                    AND p.type = 'month'
-                    AND p.deleted_at IS NULL), 0) AS paid
-  FROM liability l$cycleFilter
+       COALESCE(c.total, 0) AS credits,
+       COALESCE(p.total, 0) AS paid
+  FROM liability l
+  LEFT JOIN (SELECT student_id, group_id, target_cycle_number AS cycle,
+                    SUM(amount) AS total
+               FROM student_credits
+              WHERE deleted_at IS NULL$creditFilters
+              GROUP BY student_id, group_id, target_cycle_number) c
+    ON c.student_id = l.student_id AND c.group_id = l.group_id
+   AND c.cycle = l.cycle
+  LEFT JOIN (SELECT student_id, group_id, cycle_number AS cycle,
+                    SUM(amount) AS total
+               FROM payments
+              WHERE type = 'month' AND deleted_at IS NULL$paymentFilters
+              GROUP BY student_id, group_id, cycle_number) p
+    ON p.student_id = l.student_id AND p.group_id = l.group_id
+   AND p.cycle = l.cycle$cycleFilter
  ORDER BY l.student_id, l.group_id, l.cycle
 ''',
           variables: variables,
