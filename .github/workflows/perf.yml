@@ -49,9 +49,8 @@ jobs:
           target: google_apis
           profile: pixel_6
           disable-animations: true
-          script: |
-            cd apps/admin
-            flutter drive --driver=test_driver/integration_test.dart --target=integration_test/frame_timings_test.dart 2>&1 | tee drive.log
+          # كل سطر من script يُنفَّذ في صدفة مستقلة، فالأمر في سطر واحد.
+          script: bash -c "cd apps/admin && flutter drive --driver=test_driver/integration_test.dart --target=integration_test/frame_timings_test.dart > drive.log 2>&1"
       - name: Report
         if: always()
         shell: bash
