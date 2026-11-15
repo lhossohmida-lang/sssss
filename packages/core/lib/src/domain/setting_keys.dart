@@ -32,4 +32,7 @@ abstract final class SettingKeys {
 
   /// خانة الشريحة المختارة لإرسال SMS على هاتف الإدارة.
   static const String smsSimSlotIndex = 'sms_sim_slot_index';
+
+  /// وقت آخر تنفيذ لزر «سنة جديدة» بالمللي ثانية (UTC).
+  static const String lastNewYearAt = 'last_new_year_at';
 }

@@ -1073,3 +1073,24 @@ final StreamProvider<ParentRow?> myParentProvider =
       if (me == null) return Stream.value(null);
       return ref.watch(runtimeProvider).db.watchParent(me);
     });
+
+/// «سنة جديدة»: أرشفة كل المجموعات النشطة مع بقاء التلاميذ والسجل المالي.
+final Provider<NewYearService> newYearServiceProvider =
+    Provider<NewYearService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return NewYearService(
+        runtime.db,
+        runtime.writer,
+        ref.watch(groupServiceProvider),
+      );
+    });
+
+/// وقت آخر «سنة جديدة» بالمللي ثانية، أو `null` إن لم تُنفَّذ.
+final StreamProvider<int?> lastNewYearAtProvider =
+    StreamProvider.autoDispose<int?>(
+      (ref) => ref
+          .watch(runtimeProvider)
+          .db
+          .watchSetting(SettingKeys.lastNewYearAt)
+          .map(int.tryParse),
+    );

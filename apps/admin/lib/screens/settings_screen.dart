@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'new_year_section.dart';
+
 /// تاريخ `YYYY-MM-DD` بصيغة العرض `DD/MM/YYYY` بأرقام لاتينية.
 String displayDate(String key) {
   final parts = key.split('-');
@@ -455,6 +457,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       loading: _saving,
                       onPressed: canEdit ? _save : null,
                     ),
+                    const SizedBox(height: ClaySpacing.xl),
+                    NewYearSection(canEdit: canEdit),
                     const SizedBox(height: ClaySpacing.xl),
                   ],
                 ),

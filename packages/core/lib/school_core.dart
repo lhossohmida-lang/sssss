@@ -53,6 +53,7 @@ export 'src/domain/logo_service.dart';
 export 'src/domain/money.dart';
 export 'src/domain/monthly_finance_report.dart';
 export 'src/domain/monthly_finance_report_pdf.dart';
+export 'src/domain/new_year_service.dart';
 export 'src/domain/payment_service.dart';
 export 'src/domain/payout_queries.dart';
 export 'src/domain/payout_service.dart';
