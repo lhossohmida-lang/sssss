@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
@@ -7,6 +9,11 @@ import 'package:school_sms/school_sms.dart';
 /// قياس طابور الرسائل بخمسين ألف رسالة (90٪ مرسلة و5٪ منتظرة و5٪ فاشلة):
 /// عرض الطابور وعدّادات الحالات وأخذ الرسالة التالية وإضافة رسالة. أسرع
 /// ثلاث مرات لكل عملية، وميزانياتها بنحو خمسة أضعاف ما يقيسه حاسوب التطوير.
+/// ميزانيات القياس تحمي من التراجع الحقيقي؛ وتشغيل CI يجمع حزماً كثيرة على
+/// معالج واحد فيتضاعف الزمن بلا تراجع حقيقي، فتُضرب الميزانيات هناك في 3.
+/// حد المسح (300ms، مواصفات 2.15) ثابت لا يُضرب.
+final int budgetScale = Platform.environment.containsKey('CI') ? 3 : 1;
+
 void main() {
   late AppDatabase db;
   late SmsQueueService queue;
@@ -67,9 +74,9 @@ void main() {
       () => queue.watchStatusCounts().first,
     );
     final pending = await measure('عدد المنتظر', queue.pendingCount);
-    expect(load, lessThan(150));
-    expect(counts, lessThan(250));
-    expect(pending, lessThan(100));
+    expect(load, lessThan(150 * budgetScale));
+    expect(counts, lessThan(250 * budgetScale));
+    expect(pending, lessThan(100 * budgetScale));
   });
 
   test('إضافة رسالة وأخذ التالية من الطابور الكبير', () async {
@@ -81,7 +88,7 @@ void main() {
       'أخذ الرسالة التالية وإرسالها',
       () => queue.processNext((_) async {}),
     );
-    expect(enqueue, lessThan(150));
-    expect(next, lessThan(250));
+    expect(enqueue, lessThan(150 * budgetScale));
+    expect(next, lessThan(250 * budgetScale));
   });
 }
