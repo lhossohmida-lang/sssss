@@ -50,7 +50,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           # كل سطر من script يُنفَّذ في صدفة مستقلة، فالأمر في سطر واحد.
-          script: bash -c "cd apps/admin && flutter drive --driver=test_driver/integration_test.dart --target=integration_test/frame_timings_test.dart > drive.log 2>&1"
+          script: bash -c "cd apps/admin && flutter drive --no-dds --driver=test_driver/integration_test.dart --target=integration_test/frame_timings_test.dart > drive.log 2>&1"
       - name: Report
         if: always()
         shell: bash
