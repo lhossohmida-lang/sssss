@@ -24,6 +24,10 @@ class SupabaseAssistantModelClient implements AssistantModelClient {
   SupabaseAssistantModelClient(SupabaseClient client)
     : _invoke = _supabaseInvoker(client);
 
+  /// ينشئ عميلاً من جلسة Supabase التي هيّأها [AppRuntime] قبل فتح الشاشة.
+  factory SupabaseAssistantModelClient.fromInitializedInstance() =>
+      SupabaseAssistantModelClient(Supabase.instance.client);
+
   /// نقطة حقن لاختبارات العقد دون تهيئة Supabase أو استخدام شبكة.
   SupabaseAssistantModelClient.withInvoker(this._invoke);
 

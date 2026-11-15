@@ -13,6 +13,7 @@ import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import 'app_page.dart';
 import 'app_tab.dart';
+import 'assistant_screens.dart';
 import 'auth_screens.dart';
 import 'notifications_screen.dart';
 import 'providers.dart';
@@ -38,6 +39,7 @@ abstract final class AppRoutes {
   static const String login = '/login';
   static const String changePassword = '/change-password';
   static const String notifications = '/notifications';
+  static const String assistant = '/assistant';
 }
 
 /// يبني موجِّه تطبيق من [tabs] لكل دور يدخله.
@@ -123,6 +125,10 @@ GoRouter buildAppRouter({
         path: AppRoutes.notifications,
         builder: (context, state) => const NotificationsScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.assistant,
+        builder: (context, state) => const AssistantScreen(),
+      ),
       for (final page in pages) GoRoute(path: page.path, builder: page.builder),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => ShellPage(tabs: tabs, shell: shell),
@@ -202,6 +208,11 @@ class ShellPage extends ConsumerWidget {
               child: Icon(ClayIcons.notifications, color: p.text),
             ),
             onPressed: () => context.push(AppRoutes.notifications),
+          ),
+          IconButton(
+            tooltip: 'المساعد',
+            icon: Icon(ClayIcons.assistant, color: p.text),
+            onPressed: () => context.push(AppRoutes.assistant),
           ),
         ],
       ),

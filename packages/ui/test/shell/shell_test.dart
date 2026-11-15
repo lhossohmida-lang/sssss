@@ -188,6 +188,18 @@ void main() {
       expect(find.text('صفحة الرئيسية'), findsOneWidget);
     });
 
+    shellTest('زر المساعد في شريط التطبيق يفتح شاشة المحادثة', (tester) async {
+      await boot(tester, signedIn: true);
+      await passSplash(tester);
+      expect(find.byTooltip('المساعد'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('المساعد'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AssistantScreen), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
     shellTest('إظهار كلمة السر وإخفاؤها', (tester) async {
       await boot(tester);
       await passSplash(tester);

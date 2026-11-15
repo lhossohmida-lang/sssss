@@ -28,6 +28,9 @@ dependencies:
     path: ../core
   school_chat:
     path: ../chat
+  school_assistant:
+    path: ../assistant
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   drift: ^2.35.4

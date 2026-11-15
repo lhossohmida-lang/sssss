@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:school_assistant/school_assistant.dart';
 import 'package:school_chat/school_chat.dart';
 import 'package:school_core/school_core.dart';
 
+import 'assistant_voice.dart';
 import 'push_notifications.dart';
 import 'session_closer.dart';
 
@@ -22,6 +24,30 @@ final StreamProvider<AuthSession?> sessionProvider =
       yield auth.current;
       yield* auth.changes;
     });
+
+/// المساعد متاح عند وجود جلسة وخادم Supabase مهيّأ؛ ويستعمل بيانات الجهاز
+/// المحلي مع نطاق الأدوات الموافق للدور الحالي.
+final Provider<AssistantService?> assistantServiceProvider =
+    Provider.autoDispose<AssistantService?>((ref) {
+      final session = ref.watch(sessionProvider).value;
+      if (session == null) return null;
+      final runtime = ref.watch(runtimeProvider);
+      if (runtime.fileStore == null) return null;
+      return AssistantService(
+        session: session,
+        db: runtime.db,
+        writer: runtime.writer,
+        model: SupabaseAssistantModelClient.fromInitializedInstance(),
+        tools: createLocalAssistantTools(),
+      );
+    });
+
+/// محرك صوت واحد يعاد استخدامه داخل التطبيق؛ منصة الصوت تخص Android فقط.
+final Provider<AssistantVoiceEngine> assistantVoiceProvider = Provider((ref) {
+  final voice = PluginAssistantVoiceEngine();
+  ref.onDispose(voice.dispose);
+  return voice;
+});
 
 /// واجهة تمرير مسارات إشعارات FCM إلى الموجّه بعد إنشائه.
 final Provider<ValueNotifier<void Function(String)?>>
