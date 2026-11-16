@@ -43,9 +43,17 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
         run: python3 tool/supabase_bootstrap.py verify
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      # تنزيل مباشر من إصدارات المستودع الرسمي: محوّل `latest` في إجراء setup-cli يستعلم
+      # واجهة GitHub دون رمز فيتجاوز حدّ الطلبات على عناوين المشغّلات المشتركة.
+      - name: Install the Supabase CLI
+        shell: bash
+        run: |
+          set -e
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL --retry 3 "https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" supabase
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "::notice title=supabase-cli::$("$HOME/.local/bin/supabase" --version)"
 
       - name: Link the project and apply the migrations
         shell: bash
