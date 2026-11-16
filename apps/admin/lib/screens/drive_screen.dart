@@ -107,6 +107,9 @@ class GoogleDriveController implements DriveController {
       ),
       _windowsClientSecret = const String.fromEnvironment(
         'GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET',
+      ),
+      _serverClientId = const String.fromEnvironment(
+        'GOOGLE_SERVER_CLIENT_ID',
       ) {
     final staging = Directory(
       '${runtime.photosDirectory.parent.path}${Platform.pathSeparator}drive_uploads',
@@ -131,6 +134,10 @@ class GoogleDriveController implements DriveController {
   final String _ownerEmail;
   final String _windowsClientId;
   final String _windowsClientSecret;
+
+  /// معرّف عميل Web في Google Cloud: يلزم تسجيل الدخول على Android (Credential
+  /// Manager) إن لم يضمّنه ملف google-services.json.
+  final String _serverClientId;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final StreamController<DriveAccount?> _accountController =
       StreamController<DriveAccount?>.broadcast();
@@ -222,6 +229,9 @@ class GoogleDriveController implements DriveController {
     }
     await google.initialize(
       clientId: Platform.isWindows ? _windowsClientId : null,
+      serverClientId: Platform.isAndroid && _serverClientId.isNotEmpty
+          ? _serverClientId
+          : null,
     );
     _authSubscription = google.authenticationEvents.listen(
       (event) {

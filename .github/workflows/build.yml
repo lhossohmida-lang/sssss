@@ -1,11 +1,19 @@
 name: build
 
 # يُشغَّل عند تغيير ملف RELEASE_VERSION (محتواه هو وسم النسخة)، أو يدوياً.
+# إعداد الخادم (رابط Supabase والمفتاح العام وبريد Drive وملف Firebase) يُضمَّن وقت البناء
+# من Environment المدرسة (مدخل `school`، والافتراضي demo). لا تُنشر في Releases العامة
+# بناءات مدرسة عميل حقيقية؛ المرحلة 9 تجعل النسخة واحدة لكل المدارس تُربط بمدرسة وقت التشغيل.
 on:
   push:
     paths:
       - RELEASE_VERSION
   workflow_dispatch:
+    inputs:
+      school:
+        description: اسم المدرسة (اسم الـEnvironment)
+        required: true
+        default: demo
 
 permissions:
   contents: write
@@ -17,6 +25,7 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    environment: ${{ inputs.school || 'demo' }}
     strategy:
       fail-fast: false
       matrix:
@@ -42,19 +51,46 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "SCHOOL_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           fi
+      # ملف Firebase لهذا التطبيق من الأسرار (إن وُجد) ويُفعَّل معه إشعارات push.
+      - name: Prepare Firebase config
+        shell: bash
+        env:
+          GOOGLE_SERVICES_ADMIN: ${{ secrets.GOOGLE_SERVICES_ADMIN }}
+          GOOGLE_SERVICES_TEACHER: ${{ secrets.GOOGLE_SERVICES_TEACHER }}
+          GOOGLE_SERVICES_STUDENT: ${{ secrets.GOOGLE_SERVICES_STUDENT }}
+        run: |
+          case "${{ matrix.app }}" in
+            admin) json="$GOOGLE_SERVICES_ADMIN" ;;
+            teacher) json="$GOOGLE_SERVICES_TEACHER" ;;
+            student) json="$GOOGLE_SERVICES_STUDENT" ;;
+          esac
+          if [ -n "$json" ]; then
+            printf '%s' "$json" > "apps/${{ matrix.app }}/android/app/google-services.json"
+            echo "FIREBASE_PUSH_ENABLED=true" >> "$GITHUB_ENV"
+          fi
       - name: Build APK
         working-directory: apps/${{ matrix.app }}
+        shell: bash
         env:
           SCHOOL_KEYSTORE_PASSWORD: ${{ secrets.SCHOOL_KEYSTORE_PASSWORD }}
           SCHOOL_KEY_ALIAS: ${{ secrets.SCHOOL_KEY_ALIAS }}
           SCHOOL_KEY_PASSWORD: ${{ secrets.SCHOOL_KEY_PASSWORD }}
-          GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
+          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
         run: |
-          if [ "${{ matrix.app }}" = "admin" ]; then
-            flutter build apk --release --dart-define=GOOGLE_DRIVE_OWNER_EMAIL="$GOOGLE_DRIVE_OWNER_EMAIL"
-          else
-            flutter build apk --release
+          defines=()
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            defines+=("--dart-define=SUPABASE_URL=$SUPABASE_URL" "--dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY")
           fi
+          if [ "${FIREBASE_PUSH_ENABLED:-}" = "true" ]; then
+            defines+=("--dart-define=FIREBASE_PUSH_ENABLED=true")
+          fi
+          if [ "${{ matrix.app }}" = "admin" ]; then
+            defines+=("--dart-define=GOOGLE_DRIVE_OWNER_EMAIL=$GOOGLE_DRIVE_OWNER_EMAIL" "--dart-define=GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID")
+          fi
+          flutter build apk --release "${defines[@]}"
       - name: Rename APK
         run: |
           mkdir -p dist
@@ -68,6 +104,7 @@ jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
+    environment: ${{ inputs.school || 'demo' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -80,11 +117,15 @@ jobs:
       - name: Build Windows
         working-directory: apps/admin
         env:
-          GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           GOOGLE_DRIVE_WINDOWS_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_WINDOWS_CLIENT_ID }}
           GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
         run: >-
           flutter build windows --release
+          --dart-define=SUPABASE_URL="$env:SUPABASE_URL"
+          --dart-define=SUPABASE_ANON_KEY="$env:SUPABASE_ANON_KEY"
           --dart-define=GOOGLE_DRIVE_OWNER_EMAIL="$env:GOOGLE_DRIVE_OWNER_EMAIL"
           --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_ID="$env:GOOGLE_DRIVE_WINDOWS_CLIENT_ID"
           --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET="$env:GOOGLE_DESKTOP_CLIENT_SECRET"
