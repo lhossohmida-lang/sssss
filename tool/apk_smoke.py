@@ -41,6 +41,9 @@ APPS = (
 SETTLE_SECONDS = 45  # يشمل الفحص الأول للمحدِّث (بعد 20 ثانية) وتهيئة Firebase
 POLL_SECONDS = 5
 MIN_COLORS = 5  # شاشة سوداء أو بيضاء فارغة لها لون واحد؛ واجهة حقيقية لها أكثر بكثير
+# الشاشة الأولى للبناء العام (لا مدرسة مضمَّنة): ظهر نصها فعلاً في فحص preview-7. إن كشفت واجهة الأندرويد نصوصاً
+# ولم يكن هذا بينها فالتطبيق على شاشة أخرى (خطأ تحميل مثلاً) فيفشل الفحص؛ ولا نصوص مكشوفة = لا حكم.
+FIRST_SCREEN = "ربط التطبيق بمدرستك"
 
 _LOG_PREFIX = re.compile(r"^\d\d-\d\d\s+[\d:.]+\s+\d+\s+\d+\s+[A-Z]\s+[^:]*:\s*")
 _RESUMED = re.compile(r"(?:topResumedActivity|ResumedActivity)[=:]\s*ActivityRecord\{[0-9a-f]+ u\d+ ([\w.]+)/")
@@ -244,7 +247,10 @@ def smoke_app(
     (out_dir / f"{app}.png").write_bytes(adb.screencap_png())
 
     adb.shell("uiautomator", "dump", "/sdcard/smoke_ui.xml", timeout=60)
-    outcome.texts = ui_texts(extract_hierarchy(adb.shell("cat", "/sdcard/smoke_ui.xml")))[:12]
+    texts = ui_texts(extract_hierarchy(adb.shell("cat", "/sdcard/smoke_ui.xml")))
+    outcome.texts = texts[:12]
+    if texts and not any(FIRST_SCREEN in text for text in texts):
+        outcome.problems.append(f"الشاشة الأولى ليست «{FIRST_SCREEN}»: {one_line(' | '.join(texts[:6]))}")
     adb.shell("am", "force-stop", package)
     return outcome
 

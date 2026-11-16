@@ -23,7 +23,7 @@ DUMPSYS = (
 XML = (
     "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>"
     '<hierarchy rotation="0">'
-    '<node text="" content-desc="ربط المدرسة" class="android.view.View"/>'
+    '<node text="" content-desc="ربط التطبيق بمدرستك" class="android.view.View"/>'
     '<node text="الصق الرمز" content-desc="" class="android.widget.EditText"/>'
     '<node text="الصق الرمز" content-desc="" class="android.widget.EditText"/>'
     "</hierarchy>UI hierchary dumped to: /sdcard/smoke_ui.xml"
@@ -123,7 +123,7 @@ class PureFunctionsTest(unittest.TestCase):
         xml = smoke.extract_hierarchy(XML)
         self.assertTrue(xml.startswith("<?xml"))
         self.assertTrue(xml.endswith("</hierarchy>"))
-        self.assertEqual(smoke.ui_texts(xml), ["ربط المدرسة", "الصق الرمز"])
+        self.assertEqual(smoke.ui_texts(xml), ["ربط التطبيق بمدرستك", "الصق الرمز"])
         self.assertEqual(smoke.extract_hierarchy("no xml"), "")
         self.assertEqual(smoke.ui_texts(""), [])
         self.assertEqual(smoke.ui_texts("<hierarchy><node"), [])
@@ -160,7 +160,7 @@ class SmokeAppTest(unittest.TestCase):
         self.assertEqual(outcome.pid, 4242)
         self.assertEqual(outcome.resumed, "dz.school.admin")
         self.assertGreaterEqual(outcome.colors, 5)
-        self.assertEqual(outcome.texts, ["ربط المدرسة", "الصق الرمز"])
+        self.assertEqual(outcome.texts, ["ربط التطبيق بمدرستك", "الصق الرمز"])
         self.assertEqual((self.out / "admin.png").read_bytes(), b"\x89PNG-fake")
         self.assertEqual(self.sleeps, [5, 5])
         self.assertIn(("shell", "am", "force-stop", "dz.school.admin"), adb.calls)
@@ -198,6 +198,16 @@ class SmokeAppTest(unittest.TestCase):
     def test_blank_screen(self):
         outcome = self.smoke(FakeAdb(raw=raw_screen(1)))
         self.assertTrue(any("فارغة" in p for p in outcome.problems))
+
+    def test_an_unexpected_first_screen_fails(self):
+        error_screen = (
+            "<?xml version='1.0' ?><hierarchy>"
+            '<node text="تعذّر التحميل" content-desc="" class="android.view.View"/>'
+            '<node text="إعادة المحاولة" content-desc="" class="android.view.View"/>'
+            "</hierarchy>"
+        )
+        outcome = self.smoke(FakeAdb(xml=error_screen))
+        self.assertTrue(any("الشاشة الأولى" in p and "تعذّر التحميل" in p for p in outcome.problems), outcome.problems)
 
     def test_a_missing_ui_tree_is_not_a_failure(self):
         outcome = self.smoke(FakeAdb(xml="ERROR: null root node returned by UiTestAutomationBridge."))
@@ -273,7 +283,7 @@ class RunAndReportTest(unittest.TestCase):
         smoke.write_summary(
             summary,
             [
-                smoke.Outcome("admin", "dz.school.admin", True, 7, "dz.school.admin", 9, ["ربط المدرسة"]),
+                smoke.Outcome("admin", "dz.school.admin", True, 7, "dz.school.admin", 9, ["ربط التطبيق بمدرستك"]),
                 smoke.Outcome("teacher", "dz.school.teacher", True, None, None, 1, [], ["انهيار\nسطر ثانٍ"]),
             ],
         )
@@ -283,7 +293,7 @@ class RunAndReportTest(unittest.TestCase):
         out = buffer.getvalue()
         self.assertEqual(code, 1)
         self.assertIn("::notice title=apk-smoke-admin::ok pid=7", out)
-        self.assertIn("ربط المدرسة", out)
+        self.assertIn("ربط التطبيق بمدرستك", out)
         self.assertIn("::error title=apk-smoke-teacher::انهيار%0Aسطر ثانٍ", out)
 
     def test_report_without_a_summary_fails(self):

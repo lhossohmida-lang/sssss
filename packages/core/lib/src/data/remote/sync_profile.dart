@@ -45,7 +45,6 @@ abstract final class SyncProfile {
     'teacher_payouts',
     'expense_categories',
     'expenses',
-    'staff_debts',
     'sms_templates',
     'sms_queue',
     'chat_rooms',
@@ -55,6 +54,8 @@ abstract final class SyncProfile {
     'group_files',
     'notifications',
     'audit_log',
+    // آخراً: خادم لم يُطبَّق عليه الترحيل 0008 بعد يفشل سحب هذا الجدول وحده فلا يوقف سحب ما قبله.
+    'staff_debts',
   ];
 
   /// الجداول التي يُضاف إليها فقط ولا تُعدَّل على الخادم.
