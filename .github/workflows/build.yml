@@ -175,9 +175,26 @@ jobs:
             dist/school-admin-setup.exe
           if-no-files-found: error
 
+  # بوابة قبل النشر: الملفات الثلاثة تُثبَّت على محاكي Android وتبدأ بلا انهيار (tool/apk_smoke.py)، وإلا لا يُنشر شيء.
+  smoke:
+    needs: android
+    if: ${{ !inputs.school }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: apk-*
+          path: dist/apks
+          merge-multiple: true
+      - uses: ./.github/actions/apk-smoke
+        with:
+          apk-dir: dist/apks
+
   # لا يُنشر علناً إلا البناء العام؛ بناء مدرسة خاص يبقى أرتيفاكتاً.
   release:
-    needs: [android, windows]
+    needs: [android, windows, smoke]
     if: ${{ !inputs.school }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

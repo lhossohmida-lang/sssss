@@ -1,0 +1,79 @@
+name: release-smoke
+
+# يفحص إصداراً منشوراً فعلاً دون أي جهاز حقيقي:
+#  1. التطبيقات الثلاثة (بإعدادات Firebase وGoogle الحقيقية، وضع release، والمفتاح النهائي) تُثبَّت على محاكي Android
+#     وتبدأ بلا انهيار وترسم واجهتها (tool/apk_smoke.py).
+#  2. المحدِّث التلقائي نفسه (شيفرة التطبيق نفسها) يجد الإصدار في GitHub الحقيقي، ويُنزّل ملف Windows، ويتحقق من بصمته.
+# يعمل يدوياً أو عند تغيير ملفاته، ولا يغيّر شيئاً في الإصدار. مسار `build` يستعمل الإجراء نفسه بوابةً قبل النشر.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: وسم الإصدار المنشور؛ اتركه فارغاً لمحتوى RELEASE_VERSION
+        required: false
+        default: ""
+  push:
+    paths:
+      - tool/apk_smoke.py
+      - tool/apk_smoke_test.py
+      - packages/core/test/app/app_update_live_test.dart
+      - .github/actions/apk-smoke/**
+      - .github/workflows/release-smoke.yml
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.9"
+
+jobs:
+  apk-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the published APKs and check them against GitHub's digests
+        shell: bash
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${TAG_INPUT:-$(head -n 1 RELEASE_VERSION | tr -d '[:space:]')}"
+          echo "tag=$tag"
+          mkdir -p dist/apks
+          for name in school-admin school-teacher school-student; do
+            curl -fsSL --retry 3 -o "dist/apks/$name.apk" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$name.apk"
+          done
+          python3 tool/apk_smoke.py verify dist/apks "$tag"
+      - uses: ./.github/actions/apk-smoke
+        with:
+          apk-dir: dist/apks
+
+  updater-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Run the real updater against the published release
+        working-directory: packages/core
+        shell: bash
+        env:
+          UPDATE_LIVE: "1"
+          UPDATE_LIVE_REPO: ${{ github.repository }}
+          UPDATE_LIVE_SUMMARY: ${{ runner.temp }}/updater-live.txt
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MASK_ENV: GITHUB_TOKEN
+        run: |
+          set -o pipefail
+          if ! flutter test test/app/app_update_live_test.dart --reporter expanded 2>&1 | tee "$RUNNER_TEMP/updater-live.log"; then
+            python3 ../../tool/ci_error.py updater-live "$RUNNER_TEMP/updater-live.log" 40
+            exit 1
+          fi
+          echo "::notice title=updater-live::$(cat "$UPDATE_LIVE_SUMMARY")"

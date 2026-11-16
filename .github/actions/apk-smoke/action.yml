@@ -1,0 +1,45 @@
+name: apk-smoke
+description: >-
+  يثبّت ملفات APK الثلاثة (school-admin وschool-teacher وschool-student) على محاكي Android ويشغّل كلاً منها ويتحقق
+  أنه يبقى حياً ويرسم واجهته بلا انهيار (tool/apk_smoke.py). يعوّض غياب جهاز حقيقي للنسخ المنشورة.
+
+inputs:
+  apk-dir:
+    description: مجلد فيه school-admin.apk وschool-teacher.apk وschool-student.apk
+    required: true
+  artifact-name:
+    description: اسم أرتيفاكت لقطات الشاشة
+    default: apk-smoke
+
+runs:
+  using: composite
+  steps:
+    - name: Enable KVM
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+    - name: Install and start every APK on an Android emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 34
+        arch: x86_64
+        target: google_apis
+        profile: pixel_6
+        disable-animations: true
+        # كل سطر من script يُنفَّذ في صدفة مستقلة، فالأمر في سطر واحد.
+        script: python3 tool/apk_smoke.py run ${{ inputs.apk-dir }} dist/smoke
+    # تعليقات النتيجة تُقرأ علناً (سجلات المسار تحتاج حساباً)، وتُطبع خارج خطوة المحاكي كما في مسار perf.
+    - name: Report
+      if: always()
+      shell: bash
+      run: python3 tool/apk_smoke.py report dist/smoke/summary.json
+    - name: Upload screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: dist/smoke
+        if-no-files-found: ignore
+        retention-days: 14
