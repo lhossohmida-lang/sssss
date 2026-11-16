@@ -1,0 +1,124 @@
+name: supabase-deploy
+
+# ينشر خادم مدرسة على مشروع Supabase الخاص بها: الترحيلات ثم الدوال ثم التهيئة (تعطيل
+# التسجيل العام، وإنشاء حساب المالك، ودخول تجريبي). لكل مدرسة Environment باسمها (مدخل
+# `school`، والافتراضي demo). يعمل تلقائياً لمدرسة demo حين تتغير ملفات الخادم، ويدوياً
+# (workflow_dispatch) لأي مدرسة. لا تُطبع أي قيمة سرّية؛ النتائج والأخطاء في تعليقات
+# `supabase-*` العامة (دون أسرار).
+on:
+  push:
+    paths:
+      - .github/workflows/supabase-deploy.yml
+      - tool/supabase_bootstrap.py
+      - tool/ci_error.py
+      - supabase/config.toml
+      - supabase/migrations/**
+      - supabase/functions/**
+  workflow_dispatch:
+    inputs:
+      school:
+        description: اسم المدرسة (اسم الـEnvironment)
+        required: true
+        default: demo
+
+permissions:
+  contents: read
+
+# نشران على المشروع نفسه معاً قد يتعارضان: يُنتظر الأول ولا يُلغى.
+concurrency:
+  group: supabase-deploy-${{ inputs.school || 'demo' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: ${{ inputs.school || 'demo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify access to the project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+        run: python3 tool/supabase_bootstrap.py verify
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link the project and apply the migrations
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          MASK_ENV: SUPABASE_DB_PASSWORD,SUPABASE_ACCESS_TOKEN
+        run: |
+          set +e
+          supabase link --project-ref "$SUPABASE_PROJECT_REF" > supabase-db.log 2>&1
+          status=$?
+          if [ "$status" = "0" ]; then
+            supabase db push --yes >> supabase-db.log 2>&1
+            status=$?
+          fi
+          cat supabase-db.log
+          if [ "$status" != "0" ]; then
+            python3 tool/ci_error.py supabase-db-push supabase-db.log 40
+          fi
+          exit "$status"
+
+      - name: Deploy the Edge Functions
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          MASK_ENV: SUPABASE_ACCESS_TOKEN
+        run: |
+          set +e
+          supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF" > supabase-functions.log 2>&1
+          status=$?
+          cat supabase-functions.log
+          if [ "$status" != "0" ]; then
+            python3 tool/ci_error.py supabase-functions supabase-functions.log 40
+          fi
+          exit "$status"
+
+      - name: Set the assistant secrets (when the school has them)
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL || secrets.LLM_BASE_URL }}
+          MASK_ENV: SUPABASE_ACCESS_TOKEN,LLM_API_KEY
+        run: |
+          set +e
+          args=()
+          if [ -n "$LLM_API_KEY" ]; then args+=("LLM_API_KEY=$LLM_API_KEY"); fi
+          if [ -n "$LLM_MODEL" ]; then args+=("LLM_MODEL=$LLM_MODEL"); fi
+          if [ -n "$LLM_BASE_URL" ]; then args+=("LLM_BASE_URL=$LLM_BASE_URL"); fi
+          if [ "${#args[@]}" = "0" ]; then
+            echo "::notice title=supabase-secrets::لا أسرار مساعد في هذه المدرسة بعد"
+            exit 0
+          fi
+          supabase secrets set "${args[@]}" --project-ref "$SUPABASE_PROJECT_REF" > supabase-secrets.log 2>&1
+          status=$?
+          cat supabase-secrets.log
+          if [ "$status" != "0" ]; then
+            python3 tool/ci_error.py supabase-secrets supabase-secrets.log 30
+          else
+            echo "::notice title=supabase-secrets::ضُبطت أسرار المساعد (${#args[@]})"
+          fi
+          exit "$status"
+
+      - name: Configure sign-in, create the owner, smoke test
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          OWNER_PHONE: ${{ vars.OWNER_PHONE || secrets.OWNER_PHONE }}
+          OWNER_INITIAL_PASSWORD: ${{ secrets.OWNER_INITIAL_PASSWORD }}
+        run: python3 tool/supabase_bootstrap.py bootstrap

@@ -1,0 +1,7 @@
+# إعداد Supabase CLI للنشر فقط (supabase link وdb push وfunctions deploy من GitHub Actions)،
+# وليس للتشغيل المحلي. المشروع الحقيقي يُحدَّد بـ`--project-ref` في مسار النشر، فلكل
+# مدرسة مشروعها ولا يُحفظ هنا معرّف أي مشروع.
+project_id = "school"
+
+[functions.assistant]
+verify_jwt = true

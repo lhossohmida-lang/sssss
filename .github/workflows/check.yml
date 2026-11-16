@@ -54,8 +54,8 @@ jobs:
             exit "$status"
           fi
           cat assistant-deno-test.log
-      - name: Test the preflight tool
-        run: python3 -m unittest discover -s tool -p "preflight_test.py" -v
+      - name: Test the CI tools
+        run: python3 -m unittest discover -s tool -p "*_test.py" -v
       - name: Test
         shell: bash
         run: |
