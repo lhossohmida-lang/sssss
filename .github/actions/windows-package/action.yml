@@ -127,7 +127,15 @@ runs:
 
         # التحديث التلقائي: التطبيق يشغّل المثبّت صامتاً مع /relaunch=1 فوق نسخة تعمل، فيجب أن يُغلقها المثبّت
         # ويُعيد تشغيل التطبيق. نحاكيه بتثبيت الملف نفسه فوق التثبيت (والتطبيق ما زال يعمل).
-        $update = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', '/relaunch=1', "/LOG=`"$log`""
+        # لا نستعمل -Wait هنا: ينتظر العملية وأبناءها كلهم، والمثبّت يترك التطبيق المعاد تشغيله حياً (ابناً له)
+        # فلا ينتهي الانتظار أبداً (علّق به البناء ساعةً). ننتظر المثبّت وحده بمهلة.
+        $update = Start-Process -FilePath $setup -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', '/relaunch=1', "/LOG=`"$log`""
+        $null = $update.Handle # يُبقي مقبض العملية ليُقرأ ExitCode بعد الانتظار
+        if (-not $update.WaitForExit(180000)) {
+          Stop-Process -Id $update.Id -Force -ErrorAction SilentlyContinue
+          if (Test-Path $log) { Get-Content $log -Tail 30 | ForEach-Object { Write-Host $_ } }
+          Fail 'The silent update did not finish within 3 minutes'
+        }
         if ($update.ExitCode -ne 0) {
           if (Test-Path $log) { Get-Content $log -Tail 30 | ForEach-Object { Write-Host $_ } }
           Fail "The silent update exited with code $($update.ExitCode)"
