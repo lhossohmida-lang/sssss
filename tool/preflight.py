@@ -187,20 +187,25 @@ def check_desktop_secret(value: str, ctx: Values) -> Problem:
     return None
 
 
-def google_services(package: str) -> Check:
+def google_services(*expected: str) -> Check:
+    """ملف Firebase يجب أن يحوي عميلاً لكل اسم حزمة في [expected] (الملف الواحد قد يحوي التطبيقات الثلاثة)."""
+
     def check(value: str, ctx: Values) -> Problem:
         try:
             data = json.loads(value)
         except ValueError:
             return ("error", "ليس JSON صالحاً")
         clients = data.get("client") if isinstance(data, dict) else None
-        packages = {
+        found = {
             ((c.get("client_info") or {}).get("android_client_info") or {}).get("package_name")
             for c in (clients or [])
             if isinstance(c, dict)
         }
-        if package not in packages:
-            return ("error", f"اسم الحزمة داخل الملف لا يطابق {package}")
+        missing = [package for package in expected if package not in found]
+        if missing and len(expected) == 1:
+            return ("error", f"اسم الحزمة داخل الملف لا يطابق {expected[0]}")
+        if missing:
+            return ("error", "الملف لا يحوي التطبيقات: " + "، ".join(missing))
         return None
 
     return check
@@ -247,6 +252,13 @@ DEVELOPER_ITEMS: list[Item] = [
     Item("GOOGLE_SERVICES_ADMIN", False, True, google_services("dz.school.admin")),
     Item("GOOGLE_SERVICES_TEACHER", False, True, google_services("dz.school.teacher")),
     Item("GOOGLE_SERVICES_STUDENT", False, True, google_services("dz.school.student")),
+    # بديل الأسرار الثلاثة السابقة: ملف واحد يحوي التطبيقات الثلاثة.
+    Item(
+        "GOOGLE_SERVICES_JSON",
+        False,
+        True,
+        google_services("dz.school.admin", "dz.school.teacher", "dz.school.student"),
+    ),
     Item("FIREBASE_SERVICE_ACCOUNT", False, True, check_service_account),
 ]
 
@@ -254,6 +266,7 @@ FIREBASE_PROJECT_SOURCES = (
     "GOOGLE_SERVICES_ADMIN",
     "GOOGLE_SERVICES_TEACHER",
     "GOOGLE_SERVICES_STUDENT",
+    "GOOGLE_SERVICES_JSON",
     "FIREBASE_SERVICE_ACCOUNT",
 )
 

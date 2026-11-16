@@ -158,3 +158,40 @@ jobs:
             echo "::error title=server-sql-failure::${msg}"
           fi
           exit "$status"
+
+  # يتحقق أن إضافة google-services تتوافق مع Android Gradle Plugin وFlutter: يبني APK تجريبياً لكل تطبيق
+  # بملف إعداد اصطناعي (قيم وهمية لا سرّية) بدل اكتشاف الخلل في أول بناء إصدار حقيقي.
+  android-firebase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [admin, teacher, student]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Write a synthetic Firebase config
+        run: python3 tool/fake_google_services.py apps/${{ matrix.app }}/android/app/google-services.json dz.school.admin dz.school.teacher dz.school.student
+      - name: Build a debug APK with the Google services plugin
+        working-directory: apps/${{ matrix.app }}
+        shell: bash
+        run: |
+          set +e
+          flutter build apk --debug --dart-define=FIREBASE_PUSH_ENABLED=true > android-firebase.log 2>&1
+          status=$?
+          if [ "$status" != "0" ]; then
+            python3 ../../tool/ci_error.py android-firebase-${{ matrix.app }} android-firebase.log 40
+            exit "$status"
+          fi
+          tail -n 5 android-firebase.log

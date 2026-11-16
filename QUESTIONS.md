@@ -62,7 +62,7 @@
 ### أ4. Firebase (إشعارات push)
 إشعارات push على Android تحتاج Firebase (مجاني).
 14. افتح `console.firebase.google.com` ← Add project ← اختر نفس مشروع Google Cloud أعلاه.
-15. أضف 3 تطبيقات Android بأسماء الحزم (السؤال 20)، وحمّل ملف `google-services.json` لكل واحد، ثم ضع محتوى كل ملف في سر: `GOOGLE_SERVICES_ADMIN`، `GOOGLE_SERVICES_TEACHER`، `GOOGLE_SERVICES_STUDENT`.
+15. أضف 3 تطبيقات Android بأسماء الحزم (السؤال 20)، وحمّل ملف `google-services.json` لكل واحد، ثم ضع محتوى كل ملف في سر: `GOOGLE_SERVICES_ADMIN`، `GOOGLE_SERVICES_TEACHER`، `GOOGLE_SERVICES_STUDENT`. **أو** (الأسهل) بعد تسجيل التطبيقات الثلاثة نزّل ملفاً واحداً وضع محتواه في سرّ واحد `GOOGLE_SERVICES_JSON`؛ فهو يحوي التطبيقات الثلاثة ويستعمله البناء لكل تطبيق ليس له سرّه الخاص.
 16. Project settings ← Service accounts ← Generate new private key ← ضع محتوى الملف في السر `FIREBASE_SERVICE_ACCOUNT`.
 17. إن أردت تبسيط الأمر: **بديل دون Firebase** هو إشعارات تصل فقط حين يكون التطبيق مفتوحاً أو في الخلفية القريبة (عبر Realtime). **اقتراح:** Firebase، لأن البرومبت يطلب push.
 

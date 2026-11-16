@@ -21,13 +21,20 @@ def jwt(role: str) -> str:
     return f"{part({'alg': 'HS256'})}.{part({'role': role})}.signature"
 
 
+ALL_PACKAGES = ["dz.school.admin", "dz.school.teacher", "dz.school.student"]
+
+
+def client(package: str) -> dict:
+    return {"client_info": {"android_client_info": {"package_name": package}}}
+
+
 def services(package: str, project: str = "school-proj") -> str:
-    return json.dumps(
-        {
-            "project_info": {"project_id": project},
-            "client": [{"client_info": {"android_client_info": {"package_name": package}}}],
-        }
-    )
+    return json.dumps({"project_info": {"project_id": project}, "client": [client(package)]})
+
+
+def services_all(project: str = "school-proj", packages: list[str] = ALL_PACKAGES) -> str:
+    """ملف Firebase واحد يحوي عميلاً لكل تطبيق (كالملف الحقيقي بعد تسجيل التطبيقات الثلاثة)."""
+    return json.dumps({"project_info": {"project_id": project}, "client": [client(p) for p in packages]})
 
 
 def service_account(project: str = "school-proj") -> str:
@@ -159,6 +166,7 @@ class RepoMode(unittest.TestCase):
             "GOOGLE_SERVICES_ADMIN": services("dz.school.admin"),
             "GOOGLE_SERVICES_TEACHER": services("dz.school.teacher"),
             "GOOGLE_SERVICES_STUDENT": services("dz.school.student"),
+            "GOOGLE_SERVICES_JSON": services_all(),
             "FIREBASE_SERVICE_ACCOUNT": service_account(),
         }
         variables = {
@@ -178,6 +186,32 @@ class RepoMode(unittest.TestCase):
         errors = preflight.evaluate("repo", secrets, {}).errors
         self.assertTrue(any(e.startswith("GOOGLE_SERVICES_ADMIN") for e in errors))
         self.assertTrue(any("مشاريع مختلفة" in e for e in errors))
+
+    def test_one_shared_firebase_file_may_cover_the_three_apps(self):
+        report = preflight.evaluate("repo", {"GOOGLE_SERVICES_JSON": services_all()}, {})
+        self.assertEqual(report.errors, [])
+        self.assertIn(("GOOGLE_SERVICES_JSON", "ok"), report.rows)
+
+    def test_shared_firebase_file_must_have_every_app(self):
+        shared = services_all(packages=["dz.school.admin", "dz.school.student"])
+        errors = preflight.evaluate("repo", {"GOOGLE_SERVICES_JSON": shared}, {}).errors
+        self.assertEqual(len(errors), 1)
+        self.assertTrue(errors[0].startswith("GOOGLE_SERVICES_JSON"))
+        self.assertIn("dz.school.teacher", errors[0])
+        self.assertNotIn("dz.school.admin", errors[0])
+
+    def test_shared_firebase_file_must_match_the_service_account_project(self):
+        secrets = {
+            "GOOGLE_SERVICES_JSON": services_all("other-proj"),
+            "FIREBASE_SERVICE_ACCOUNT": service_account("school-proj"),
+        }
+        errors = preflight.evaluate("repo", secrets, {}).errors
+        self.assertTrue(any("مشاريع مختلفة" in e for e in errors))
+
+    def test_shared_firebase_file_is_a_secret_not_a_variable(self):
+        errors = preflight.evaluate("repo", {}, {"GOOGLE_SERVICES_JSON": services_all()}).errors
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Variables", errors[0])
 
     def test_keystore_must_be_base64_of_a_keystore(self):
         for bad in ("***", base64.b64encode(b"tiny").decode(), base64.b64encode(b"x" * 900).decode()):

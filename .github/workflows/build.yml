@@ -51,18 +51,20 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "SCHOOL_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           fi
-      # ملف Firebase لهذا التطبيق من الأسرار (إن وُجد) ويُفعَّل معه إشعارات push.
+      # ملف Firebase لهذا التطبيق: سرّه الخاص، أو GOOGLE_SERVICES_JSON المشترك (ملف واحد يحوي التطبيقات
+      # الثلاثة). بوجوده تُطبَّق إضافة google-services ويُفعَّل الدفع.
       - name: Prepare Firebase config
         shell: bash
         env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
           GOOGLE_SERVICES_ADMIN: ${{ secrets.GOOGLE_SERVICES_ADMIN }}
           GOOGLE_SERVICES_TEACHER: ${{ secrets.GOOGLE_SERVICES_TEACHER }}
           GOOGLE_SERVICES_STUDENT: ${{ secrets.GOOGLE_SERVICES_STUDENT }}
         run: |
           case "${{ matrix.app }}" in
-            admin) json="$GOOGLE_SERVICES_ADMIN" ;;
-            teacher) json="$GOOGLE_SERVICES_TEACHER" ;;
-            student) json="$GOOGLE_SERVICES_STUDENT" ;;
+            admin) json="${GOOGLE_SERVICES_ADMIN:-$GOOGLE_SERVICES_JSON}" ;;
+            teacher) json="${GOOGLE_SERVICES_TEACHER:-$GOOGLE_SERVICES_JSON}" ;;
+            student) json="${GOOGLE_SERVICES_STUDENT:-$GOOGLE_SERVICES_JSON}" ;;
           esac
           if [ -n "$json" ]; then
             printf '%s' "$json" > "apps/${{ matrix.app }}/android/app/google-services.json"

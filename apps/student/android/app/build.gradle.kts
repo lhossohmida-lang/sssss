@@ -63,3 +63,10 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// إشعارات الدفع (Firebase): إضافة google-services تقرأ app/google-services.json وتولّد منه إعداد
+// Firebase. دون الملف لا تُطبَّق الإضافة فيُبنى التطبيق كما كان وتبقى الإشعارات معطّلة
+// (FIREBASE_PUSH_ENABLED). الملف يضعه مسار البناء من الأسرار ويحجبه .gitignore.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
