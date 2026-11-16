@@ -85,7 +85,8 @@ jobs:
           MASK_ENV: SUPABASE_ACCESS_TOKEN
         run: |
           set +e
-          supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF" > supabase-functions.log 2>&1
+          # الإصدار 3 من CLI يطلب تأكيداً (--yes) ولا يطلبه في بيئة بلا طرفية، ويفضّل --remote على --project-ref.
+          supabase functions deploy --remote="$SUPABASE_PROJECT_REF" --yes > supabase-functions.log 2>&1
           status=$?
           cat supabase-functions.log
           if [ "$status" != "0" ]; then
@@ -112,7 +113,7 @@ jobs:
             echo "::notice title=supabase-secrets::لا أسرار مساعد في هذه المدرسة بعد"
             exit 0
           fi
-          supabase secrets set "${args[@]}" --project-ref "$SUPABASE_PROJECT_REF" > supabase-secrets.log 2>&1
+          supabase secrets set "${args[@]}" --remote="$SUPABASE_PROJECT_REF" --yes > supabase-secrets.log 2>&1
           status=$?
           cat supabase-secrets.log
           if [ "$status" != "0" ]; then
