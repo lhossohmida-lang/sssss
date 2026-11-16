@@ -23,10 +23,7 @@ void main() {
     expect(find.text('1 تلميذ عليهم مستحقات'), findsOneWidget);
     expect(find.text(Money.format(2000)), findsNWidgets(2));
     expect(find.text('سمير بن علي'), findsOneWidget);
-    expect(
-      find.textContaining('رياضيات · المجموعة 1 · الدورة 1'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('رياضيات · الفوج 1 · الدورة 1'), findsOneWidget);
     expect(find.textContaining('0550123451'), findsOneWidget);
     // نور غير منتسب فلا يظهر.
     expect(find.text('نور بن علي'), findsNothing);
@@ -67,7 +64,7 @@ void main() {
     expect(find.text(Money.format(1500)), findsNWidgets(2));
   });
 
-  appTest('البحث بلا نتيجة ثم الحصر بمجموعة', (tester) async {
+  appTest('البحث بلا نتيجة ثم الحصر بفوج', (tester) async {
     await openDues(tester);
     await tester.enterText(find.byType(TextField).first, 'نور');
     await tester.pump(const Duration(milliseconds: 400));
@@ -78,7 +75,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('سمير بن علي'), findsOneWidget);
 
-    await pick(tester, 'المجموعة', 'المجموعة 1 · رياضيات');
+    await pick(tester, 'الفوج', 'الفوج 1 · رياضيات');
     expect(find.text('سمير بن علي'), findsOneWidget);
   });
 
@@ -87,7 +84,7 @@ void main() {
     await tester.tap(find.byTooltip('تسجيل دفعة لـ سمير بن علي'));
     await tester.pumpAndSettle();
     expect(find.text('سمير بن علي'), findsOneWidget);
-    expect(find.text('رياضيات · المجموعة 1 · الدورة 1'), findsOneWidget);
+    expect(find.text('رياضيات · الفوج 1 · الدورة 1'), findsOneWidget);
     // التلميذ مختار من الخارج فلا زر «تغيير».
     expect(find.text('تغيير'), findsNothing);
   });

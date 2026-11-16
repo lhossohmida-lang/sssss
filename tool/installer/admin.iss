@@ -58,3 +58,11 @@ Name: "{autodesktop}\School Admin"; Filename: "{app}\admin.exe"; Tasks: desktopi
 
 [Run]
 Filename: "{app}\admin.exe"; Description: "{cm:LaunchProgram,School Admin}"; Flags: nowait postinstall skipifsilent
+; التحديث التلقائي: التطبيق يشغّل هذا المثبّت صامتاً مع /relaunch=1 ثم يغلق نفسه، فيُعاد فتح النسخة الجديدة.
+Filename: "{app}\admin.exe"; Flags: nowait; Check: RelaunchRequested
+
+[Code]
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;

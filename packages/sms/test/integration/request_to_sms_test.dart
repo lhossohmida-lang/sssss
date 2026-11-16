@@ -229,7 +229,7 @@ void main() {
     final first = messages.first.message;
     expect(first, contains('مدرسة النجاح'));
     expect(first, contains('رياضيات'));
-    expect(first, contains('المجموعة ${group.number}'));
+    expect(first, contains('الفوج ${group.number}'));
     expect(first, contains('2026-11-22'));
     expect(first, contains('أحمد بن علي'));
     expect(first, contains('نور بن علي'));

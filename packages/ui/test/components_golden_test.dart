@@ -196,7 +196,7 @@ void main() {
           ],
         ),
         const Spacer(),
-        const ClayBottomSheet(title: 'اختيار المجموعة', child: Text('المحتوى')),
+        const ClayBottomSheet(title: 'اختيار الفوج', child: Text('المحتوى')),
       ],
     ),
     height: 640,

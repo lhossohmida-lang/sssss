@@ -218,10 +218,7 @@ class GroupFileService {
               ..where((g) => g.id.equals(groupId) & g.deletedAt.isNull()))
             .getSingleOrNull();
     if (group == null || group.teacherId != teacherId) {
-      throw ValidationException.field(
-        fieldGroup,
-        'هذه المجموعة ليست من مجموعاتك',
-      );
+      throw ValidationException.field(fieldGroup, 'هذا الفوج ليس من أفواجك');
     }
   }
 

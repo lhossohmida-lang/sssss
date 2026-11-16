@@ -94,19 +94,19 @@ void main() {
       expect(ms, lessThan(100 * budgetScale));
     });
 
-    test('المجموعات وشبكة الحضور والجدول الأسبوعي', () async {
+    test('الأفواج وشبكة الحضور والجدول الأسبوعي', () async {
       final cycles = CycleService(db, writer);
       final groups = GroupService(db, writer, ScheduleService(db), cycles);
       final list = await measure(
-        'مجموعات: القائمة (100)',
+        'أفواج: القائمة (100)',
         () => groups.watchAll().first,
       );
       final grid = await measure(
-        'شبكة حضور مجموعة (دورة كاملة)',
+        'شبكة حضور فوج (دورة كاملة)',
         () => GroupGridQueries(db).load('perf-group-7', cycleNumber: 5),
       );
       final week = await measure(
-        'الجدول الأسبوعي (100 مجموعة)',
+        'الجدول الأسبوعي (100 فوج)',
         () => WeeklyScheduleQueries(db).load(),
       );
       expect(list, lessThan(100 * budgetScale));

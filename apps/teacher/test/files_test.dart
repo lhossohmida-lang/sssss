@@ -26,9 +26,9 @@ Future<Opened> openFiles(WidgetTester tester, {PickedFile? picked}) async {
     fileSource: source,
     pdfPresenter: presenter,
   );
-  await tester.tap(find.text('مجموعاتي').last);
+  await tester.tap(find.text('أفواجي').last);
   await tester.pumpAndSettle();
-  await tester.tap(find.text('المجموعة 1 · رياضيات'));
+  await tester.tap(find.text('الفوج 1 · رياضيات'));
   await tester.pumpAndSettle();
   await tester.tap(find.widgetWithText(ClayButton, 'الملفات'));
   await tester.pumpAndSettle();
@@ -73,7 +73,7 @@ void main() {
   appTest('لا ملفات: رسالة وزر إضافة', (tester) async {
     await openFiles(tester);
     expect(find.text('لا ملفات بعد'), findsOneWidget);
-    expect(find.text('ملفات المجموعة 1'), findsOneWidget);
+    expect(find.text('ملفات الفوج 1'), findsOneWidget);
     expect(find.widgetWithText(ClayButton, 'إضافة ملف'), findsOneWidget);
   });
 

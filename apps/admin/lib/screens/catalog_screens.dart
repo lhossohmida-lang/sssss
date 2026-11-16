@@ -66,7 +66,7 @@ class SubjectsScreen extends ConsumerWidget {
       context,
       title: 'حذف المادة',
       message:
-          'ستختفي «${item.name}» من القوائم، وتبقى في سجلات المجموعات '
+          'ستختفي «${item.name}» من القوائم، وتبقى في سجلات الأفواج '
           'والتلاميذ المرتبطين بها.',
       confirmLabel: 'حذف',
       danger: true,
@@ -194,7 +194,7 @@ class _SubjectDialogState extends State<_SubjectDialog> {
             keyboardType: TextInputType.number,
             textDirection: TextDirection.ltr,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            helper: 'السعر الافتراضي عند إنشاء مجموعة',
+            helper: 'السعر الافتراضي عند إنشاء فوج',
             error: _errors[SubjectService.fieldPrice],
             onSubmitted: (_) => _submit(),
           ),
@@ -259,7 +259,7 @@ class RoomsScreen extends ConsumerWidget {
       title: 'القاعات',
       data: ref.watch(roomsProvider),
       emptyTitle: 'لا توجد قاعات بعد',
-      emptyMessage: 'أضف قاعات المدرسة وسعة كل منها لتُقترح عند إنشاء مجموعة',
+      emptyMessage: 'أضف قاعات المدرسة وسعة كل منها لتُقترح عند إنشاء فوج',
       onRetry: () => ref.invalidate(roomsProvider),
       addLabel: 'إضافة قاعة',
       onAdd: canAdd ? () => _edit(context, ref, null) : null,

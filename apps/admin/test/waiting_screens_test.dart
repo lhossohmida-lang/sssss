@@ -146,16 +146,14 @@ void main() {
     expect(find.text('لا منتظرين في هذه القائمة'), findsOneWidget);
   });
 
-  appTest('«إنشاء مجموعة» تفتح النموذج بالمادة والأستاذ ونصيبه', (
-    tester,
-  ) async {
+  appTest('«إنشاء فوج» تفتح النموذج بالمادة والأستاذ ونصيبه', (tester) async {
     await openWaiting(tester);
     await openDetails(tester);
-    await tester.tap(find.widgetWithText(ClayButton, 'إنشاء مجموعة'));
+    await tester.tap(find.widgetWithText(ClayButton, 'إنشاء فوج'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(420, 3200);
     await tester.pumpAndSettle();
-    expect(find.text('إنشاء مجموعة'), findsWidgets);
+    expect(find.text('إنشاء فوج'), findsWidgets);
     expect(find.text('رياضيات'), findsOneWidget);
     expect(find.text('كمال'), findsOneWidget);
     final rate = tester
@@ -184,14 +182,12 @@ void main() {
     expect(find.textContaining('نور'), findsWidgets);
   });
 
-  appTest('صلاحية العرض فقط: بلا حد ولا إخراج ولا إنشاء مجموعة', (
-    tester,
-  ) async {
+  appTest('صلاحية العرض فقط: بلا حد ولا إخراج ولا إنشاء فوج', (tester) async {
     await openWaiting(tester, account: waitingViewer);
     await openDetails(tester);
     expect(find.text('سمير بن علي'), findsOneWidget);
     expect(find.text('حد التنبيه'), findsNothing);
     expect(find.byIcon(ClayIcons.close), findsNothing);
-    expect(find.widgetWithText(ClayButton, 'إنشاء مجموعة'), findsNothing);
+    expect(find.widgetWithText(ClayButton, 'إنشاء فوج'), findsNothing);
   });
 }

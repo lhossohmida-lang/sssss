@@ -37,12 +37,12 @@ class _GroupGridViewState extends ConsumerState<GroupGridView> {
     return grid.when(
       loading: () => const ClayLoadingView(),
       error: (_, _) => ClayErrorView(
-        message: 'تعذّرت قراءة المجموعة',
+        message: 'تعذّرت قراءة الفوج',
         onRetry: () => ref.invalidate(groupGridProvider),
       ),
       data: (g) {
         if (g == null) {
-          return const ClayEmptyView(title: 'هذه المجموعة غير موجودة');
+          return const ClayEmptyView(title: 'هذا الفوج غير موجود');
         }
         return ListView(
           padding: const EdgeInsets.all(ClaySpacing.screenPadding),
@@ -63,7 +63,7 @@ class _GroupGridViewState extends ConsumerState<GroupGridView> {
               )
             else if (g.students.isEmpty)
               const ClayEmptyView(
-                title: 'لا تلاميذ في هذه المجموعة',
+                title: 'لا تلاميذ في هذا الفوج',
                 message: 'يُنسب التلاميذ إليها من استمارة التسجيل أو ملفهم',
                 icon: ClayIcons.students,
               )

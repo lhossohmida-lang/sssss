@@ -273,7 +273,7 @@ class WaitingService {
             userId: owner.id,
             senderId: writer.actor().userId,
             title: 'قائمة انتظار بلغت حدّها',
-            body: '$title: $count منتظراً — يمكن فتح مجموعة جديدة',
+            body: '$title: $count منتظراً — يمكن فتح فوج جديد',
             kind: notifyThreshold,
             entity: 'waiting_lists',
             entityId: listId,

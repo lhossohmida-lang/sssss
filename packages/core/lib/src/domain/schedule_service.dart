@@ -38,7 +38,7 @@ class ScheduleConflict {
 
   /// رسالة واضحة للمستخدم.
   String get message =>
-      '${kind.label}: المجموعة $groupNumber من '
+      '${kind.label}: الفوج $groupNumber من '
       '${DateKey.formatMinutes(startMinutes)} إلى '
       '${DateKey.formatMinutes(endMinutes)}';
 }

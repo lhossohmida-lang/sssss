@@ -29,13 +29,13 @@ void main() {
     );
     expect(ok.tone, ClayTone.success);
     expect(ok.headline, 'حاضر');
-    expect(ok.detail, 'المجموعة 2 · رياضيات · القاعة 1');
+    expect(ok.detail, 'الفوج 2 · رياضيات · القاعة 1');
     expect(ok.isSuccess, isTrue);
 
     final dues = present(ScanOutcome.studentDues, group: 2);
     expect(dues.tone, ClayTone.warning);
     expect(dues.headline, contains('مستحقات'));
-    expect(dues.detail, contains('المجموعة 2'));
+    expect(dues.detail, contains('الفوج 2'));
     expect(dues.isSuccess, isFalse);
     expect(dues.isFailure, isFalse);
 

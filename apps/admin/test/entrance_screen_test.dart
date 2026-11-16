@@ -61,12 +61,12 @@ void main() {
     expect(env.usb.started, isTrue);
   });
 
-  appTest('مسح قارئ USB: بطاقة كبيرة بالاسم والحالة والمجموعة', (tester) async {
+  appTest('مسح قارئ USB: بطاقة كبيرة بالاسم والحالة والفوج', (tester) async {
     final env = await openEntrance(tester);
     await scan(tester, env.usb, 'S-SAMIR00001');
     expect(find.text('سمير بن علي'), findsOneWidget);
     expect(find.text('حاضر'), findsOneWidget);
-    expect(find.textContaining('المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.textContaining('الفوج 1 · رياضيات'), findsOneWidget);
     expect(find.text('مرّر رمزك على القارئ'), findsNothing);
     expect(env.fb.events, ['success']);
   });

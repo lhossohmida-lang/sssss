@@ -71,13 +71,13 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('رياضيات · المجموعة 1 · الدورة 1'), findsOneWidget);
+    expect(find.text('رياضيات · الفوج 1 · الدورة 1'), findsOneWidget);
     expect(find.text('غير مسلَّم'), findsOneWidget);
   });
 
   appTest('التفصيل: نصيب كل تلميذ والمعلّق', (tester) async {
     await openPayout(tester);
-    await tester.tap(find.text('رياضيات · المجموعة 1 · الدورة 1'));
+    await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
     expect(find.text('تفصيل الخلاص'), findsOneWidget);
     expect(find.text('سمير بن علي'), findsOneWidget);
@@ -102,7 +102,7 @@ void main() {
         DuesService(db, runtime.writer),
       ).markPaid(payout.id, paidBy: 'u-owner');
     });
-    await tester.tap(find.text('رياضيات · المجموعة 1 · الدورة 1'));
+    await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
     expect(find.textContaining('سُلِّم 20'), findsOneWidget);
   });

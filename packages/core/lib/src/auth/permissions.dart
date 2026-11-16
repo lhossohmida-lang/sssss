@@ -12,7 +12,7 @@ enum PermissionModule {
   teachers('teachers', 'الأساتذة'),
   subjects('subjects', 'المواد'),
   rooms('rooms', 'القاعات'),
-  groups('groups', 'المجموعات'),
+  groups('groups', 'الأفواج'),
   attendance('attendance', 'الحضور'),
   waiting('waiting', 'قوائم الانتظار'),
   payments('payments', 'المدفوعات'),

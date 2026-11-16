@@ -59,7 +59,7 @@ void main() {
         ),
       );
 
-  test('مجموعة مجهولة: null', () async {
+  test('فوج مجهولة: null', () async {
     expect(await queries.load('missing'), isNull);
   });
 

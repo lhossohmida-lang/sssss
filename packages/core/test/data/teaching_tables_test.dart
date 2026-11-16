@@ -74,7 +74,7 @@ void main() {
     );
   }
 
-  test('القيم الافتراضية للمجموعة: دورة من 8 حصص تبدأ بالدورة 1', () async {
+  test('القيم الافتراضية للفوج: دورة من 8 حصص تبدأ بالدورة 1', () async {
     final g = await db.select(db.groups).getSingle();
     expect(g.sessionsPerCycle, 8);
     expect(g.currentCycleNumber, 1);
@@ -82,7 +82,7 @@ void main() {
     expect(g.archivedAt, isNull);
   });
 
-  test('التلميذ لا ينتسب إلى نفس المجموعة مرتين', () async {
+  test('التلميذ لا ينتسب إلى نفس الفوج مرتين', () async {
     GroupStudentsCompanion link(String id) => GroupStudentsCompanion.insert(
       id: id,
       createdAt: 1,
@@ -102,7 +102,7 @@ void main() {
     );
   });
 
-  test('لا حصتان لنفس المجموعة في نفس التاريخ والوقت', () async {
+  test('لا حصتان لنفس الفوج في نفس التاريخ والوقت', () async {
     await db.into(db.sessions).insert(session('se1'));
     await db.into(db.sessions).insert(session('se2', start: 900));
     expect(

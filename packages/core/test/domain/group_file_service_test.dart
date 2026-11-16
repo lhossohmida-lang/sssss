@@ -131,7 +131,7 @@ void main() {
       await add(bytes: Uint8List(GroupFileService.maxBytes));
     });
 
-    test('مجموعة أستاذ آخر أو مجهولة: مرفوضة', () async {
+    test('فوج أستاذ آخر أو مجهولة: مرفوضة', () async {
       await expectLater(
         add(teacher: 't2'),
         throwsA(isA<ValidationException>()),
@@ -150,7 +150,7 @@ void main() {
     });
   });
 
-  test('إعادة التسمية لأستاذ المجموعة فقط وبعنوان غير فارغ', () async {
+  test('إعادة التسمية لأستاذ الفوج فقط وبعنوان غير فارغ', () async {
     final row = await add();
     await service.rename(row.id, title: ' عنوان جديد ', teacherId: 't1');
     expect((await service.files('g1')).single.title, 'عنوان جديد');

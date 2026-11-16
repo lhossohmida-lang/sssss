@@ -79,7 +79,7 @@ void main() {
       expect(await attendance.day('2026-12-01'), isEmpty);
     });
 
-    test('الحصر بأستاذ: حصص مجموعاته فقط', () async {
+    test('الحصر بأستاذ: حصص أفواجه فقط', () async {
       await env.teacher(id: 't2');
       await env.group(id: 'g2', number: 2, teacherId: 't2');
       await env.slot(
@@ -243,7 +243,7 @@ void main() {
       expect(await credits(), isEmpty);
     });
 
-    test('تلميذ ليس في المجموعة، أو حصة مجهولة أو ملغاة: مرفوض', () async {
+    test('تلميذ ليس في الفوج، أو حصة مجهولة أو ملغاة: مرفوض', () async {
       await env.student(id: 'x');
       final sat = await sessionOn(saturday);
       await expectLater(
@@ -408,7 +408,7 @@ void main() {
       expect(cancelled.closedAt, isNull);
     });
 
-    test('مجموعة مؤرشفة لا تُعالج', () async {
+    test('فوج مؤرشف لا تُعالج', () async {
       await env.db.customStatement(
         'UPDATE groups SET archived_at = 5 WHERE id = ?',
         ['g1'],

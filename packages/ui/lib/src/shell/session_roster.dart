@@ -172,7 +172,7 @@ class _SessionRosterScreenState extends ConsumerState<SessionRosterScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'المجموعة ${r.groupNumber} · ${r.subjectName}',
+                              'الفوج ${r.groupNumber} · ${r.subjectName}',
                               style: text.titleMedium,
                             ),
                           ),
@@ -224,7 +224,7 @@ class _SessionRosterScreenState extends ConsumerState<SessionRosterScreen> {
                 child: r.students.isEmpty
                     ? const ClayEmptyView(
                         title: 'لا تلاميذ في هذه الحصة',
-                        message: 'يُنسب التلاميذ إلى المجموعة من ملفهم',
+                        message: 'يُنسب التلاميذ إلى الفوج من ملفهم',
                         icon: ClayIcons.students,
                       )
                     : ListView.builder(

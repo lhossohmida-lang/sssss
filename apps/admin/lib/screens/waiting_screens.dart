@@ -15,7 +15,7 @@ class WaitingListsScreen extends ConsumerWidget {
       title: 'قوائم الانتظار',
       data: ref.watch(waitingListsProvider),
       emptyTitle: 'لا أحد في الانتظار',
-      emptyMessage: 'يظهر هنا التلاميذ الذين سُجّلوا دون مجموعة متاحة',
+      emptyMessage: 'يظهر هنا التلاميذ الذين سُجّلوا دون فوج متاح',
       itemExtent: 112,
       onRetry: () => ref.invalidate(waitingListsProvider),
       itemBuilder: (context, item) => ClayListTile(
@@ -186,7 +186,7 @@ class _WaitingDetailsScreenState extends ConsumerState<WaitingDetailsScreen> {
                       if (canCreateGroup) ...[
                         const SizedBox(height: ClaySpacing.md),
                         ClayButton(
-                          label: 'إنشاء مجموعة',
+                          label: 'إنشاء فوج',
                           icon: ClayIcons.groups,
                           onPressed: () => context.push(
                             Uri(

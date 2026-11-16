@@ -153,7 +153,7 @@ void main() {
       id: id,
       kind: 'attendance_excel',
       localPath: '/tmp/a.xlsx',
-      remotePath: 'المدرسة/رياضيات/مجموعة 1/a.xlsx',
+      remotePath: 'المدرسة/رياضيات/فوج 1/a.xlsx',
       dedupeKey: 'session:se1',
       createdAt: 1,
     );

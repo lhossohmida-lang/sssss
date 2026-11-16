@@ -75,7 +75,7 @@ void main() {
     expect((await queries.upcoming('s1')).map((s) => s.sessionId), ['running']);
   });
 
-  test('الملغاة تُدرج معلَّمة، ومجموعات الآخرين لا تظهر', () async {
+  test('الملغاة تُدرج معلَّمة، وأفواج الآخرين لا تظهر', () async {
     await session('a', '2026-11-16', status: 'cancelled');
     await session('b', '2026-11-17', group: 'g2');
     final mine = await queries.upcoming('s1');
@@ -85,7 +85,7 @@ void main() {
     expect(await queries.upcoming('nobody'), isEmpty);
   });
 
-  test('من غادر المجموعة لا يرى حصصها', () async {
+  test('من غادر الفوج لا يرى حصصها', () async {
     await session('a', '2026-11-16');
     await env.db.customStatement(
       "UPDATE group_students SET left_at = 5 WHERE id = 'e1'",

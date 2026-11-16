@@ -13,7 +13,7 @@ void main() {
     Uint8List? logo,
     int? remaining = 1500,
     String note = '',
-    String description = 'شهر — رياضيات · المجموعة 2 · الدورة 3',
+    String description = 'شهر — رياضيات · الفوج 2 · الدورة 3',
     String school = 'مدرسة النجاح',
   }) => ReceiptData(
     schoolName: school,

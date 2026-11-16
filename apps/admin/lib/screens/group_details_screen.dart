@@ -19,12 +19,12 @@ class GroupDetailsScreen extends ConsumerWidget {
     final canEdit = ref.can(PermissionModule.groups, PermissionAction.edit);
     return Scaffold(
       appBar: ClayAppBar(
-        title: item == null ? 'المجموعة' : 'المجموعة ${item.number}',
+        title: item == null ? 'الفوج' : 'الفوج ${item.number}',
         showBack: true,
         actions: [
           if (canEdit && item != null)
             IconButton(
-              tooltip: 'تعديل المجموعة',
+              tooltip: 'تعديل الفوج',
               icon: const Icon(ClayIcons.edit),
               onPressed: () => context.push('/groups/${item.id}/edit'),
             ),

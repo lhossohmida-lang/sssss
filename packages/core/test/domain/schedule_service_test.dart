@@ -102,17 +102,17 @@ void main() {
       expect(await slot(room: 'r1', teacher: 't1', weekday: 2), isEmpty);
     });
 
-    test('المجموعة لا تتعارض مع نفسها عند التعديل', () async {
+    test('الفوج لا تتعارض مع نفسها عند التعديل', () async {
       expect(await slot(room: 'r1', teacher: 't1', exclude: 'g1'), isEmpty);
     });
 
-    test('المجموعة المؤرشفة أو المحذوفة لا تحجز شيئاً', () async {
+    test('الفوج المؤرشف أو المحذوفة لا تحجز شيئاً', () async {
       await (env.db.update(env.db.groups)..where((g) => g.id.equals('g1')))
           .write(const GroupsCompanion(archivedAt: Value(5)));
       expect(await slot(room: 'r1', teacher: 't1'), isEmpty);
     });
 
-    test('قاعة الخانة تغلب القاعة الافتراضية للمجموعة', () async {
+    test('قاعة الخانة تغلب القاعة الافتراضية للفوج', () async {
       await (env.db.update(env.db.groupSlots)..where((s) => s.id.equals('sl1')))
           .write(const GroupSlotsCompanion(roomId: Value('r2')));
       expect(await slot(room: 'r1'), isEmpty);
@@ -127,7 +127,7 @@ void main() {
         teacherId: 't2',
         roomId: 'r1',
       )).single;
-      expect(conflict.message, 'القاعة محجوزة: المجموعة 1 من 10:00 إلى 11:30');
+      expect(conflict.message, 'القاعة محجوزة: الفوج 1 من 10:00 إلى 11:30');
       expect(conflict.groupId, 'g1');
     });
 
@@ -186,7 +186,7 @@ void main() {
       );
     });
 
-    test('الحصة المنقولة لا تتعارض مع نفسها ولا مع خانة مجموعتها', () async {
+    test('الحصة المنقولة لا تتعارض مع نفسها ولا مع خانة فوجها', () async {
       await session('se1');
       expect(
         await onDate(room: 'r1', teacher: 't1', excludeSession: 'se1'),
@@ -204,7 +204,7 @@ void main() {
       );
     });
 
-    test('قاعة الحصة تغلب قاعة المجموعة', () async {
+    test('قاعة الحصة تغلب قاعة الفوج', () async {
       await session('se1', roomId: 'r2');
       expect(await onDate(room: 'r1'), isEmpty);
       expect(await onDate(room: 'r2'), [ConflictKind.room]);

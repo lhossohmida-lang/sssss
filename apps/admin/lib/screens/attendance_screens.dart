@@ -154,7 +154,7 @@ class _SessionTile extends StatelessWidget {
             tone: ClayTone.warning,
           );
     return ClayListTile(
-      title: 'المجموعة ${item.groupNumber} · ${item.subjectName}',
+      title: 'الفوج ${item.groupNumber} · ${item.subjectName}',
       subtitle:
           '$times · ${item.teacherName} · ${item.roomName ?? 'بلا قاعة'}\n'
           'حاضر ${item.present} · غائب ${item.absent} · '

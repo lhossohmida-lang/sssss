@@ -50,7 +50,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 if (data.isEmpty) {
                   return const ClayEmptyView(
                     title: 'لا حصص في الجدول',
-                    message: 'تظهر هنا حصص المجموعات بعد إنشائها',
+                    message: 'تظهر هنا حصص الأفواج بعد إنشائها',
                     icon: ClayIcons.schedule,
                   );
                 }

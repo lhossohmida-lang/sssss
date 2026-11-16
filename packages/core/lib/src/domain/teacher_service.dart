@@ -194,7 +194,7 @@ class TeacherService {
     if (count > 0) {
       throw ValidationException.field(
         'groups',
-        'للأستاذ $count مجموعة نشطة؛ انقلها أو أرشفها قبل الحذف',
+        'للأستاذ $count فوج نشط؛ انقله أو أرشفه قبل الحذف',
       );
     }
     return db.transaction(() async {

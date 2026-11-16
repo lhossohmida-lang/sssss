@@ -143,7 +143,7 @@ class _Remaining extends StatelessWidget {
       for (final e in profile.enrolments)
         if (e.remaining > 0)
           (
-            label: '${e.subjectName} · المجموعة ${e.groupNumber}',
+            label: '${e.subjectName} · الفوج ${e.groupNumber}',
             amount: e.remaining,
           ),
       if (profile.registrationFeeRemaining > 0)

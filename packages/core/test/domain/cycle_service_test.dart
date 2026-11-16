@@ -51,7 +51,7 @@ void main() {
       '2026-11-24#4:normal',
     ]);
     final first = (await cycles.cycleSessions('g1', 1)).first;
-    expect(first.roomId, 'r1', reason: 'القاعة الافتراضية للمجموعة');
+    expect(first.roomId, 'r1', reason: 'القاعة الافتراضية للفوج');
     expect(first.startMinutes, 600);
 
     expect(
@@ -199,7 +199,7 @@ void main() {
     expect(() => cycles.cancelSession(first.id), throwsStateError);
   });
 
-  test('مجموعة بلا جدول أسبوعي لا تُبرمج لها حصص', () async {
+  test('فوج بلا جدول أسبوعي لا تُبرمج لها حصص', () async {
     await env.group(id: 'g2');
     expect(await cycles.topUp('g2', fromDate: saturday), isEmpty);
   });

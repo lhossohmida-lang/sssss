@@ -391,7 +391,7 @@ void main() {
       );
     });
 
-    test('الحذف يعطّل الحساب ويحجب أستاذاً له مجموعات نشطة', () async {
+    test('الحذف يعطّل الحساب ويحجب أستاذاً له أفواج نشطة', () async {
       final created = await service.add(
         name: 'كمال',
         phone: '0550123456',
@@ -408,7 +408,7 @@ void main() {
           isA<ValidationException>().having(
             (e) => e.errors['groups'],
             'groups',
-            contains('1 مجموعة نشطة'),
+            contains('1 فوج نشط'),
           ),
         ),
       );

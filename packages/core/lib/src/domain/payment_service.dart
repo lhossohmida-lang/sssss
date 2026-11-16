@@ -108,7 +108,7 @@ class PaymentListItem {
   String get description {
     switch (type) {
       case PaymentType.month:
-        return 'شهر — ${subjectName ?? ''} · المجموعة ${groupNumber ?? ''}'
+        return 'شهر — ${subjectName ?? ''} · الفوج ${groupNumber ?? ''}'
             ' · الدورة ${payment.cycleNumber ?? ''}';
       case PaymentType.transport:
         return 'نقل — ${payment.periodKey ?? ''}';
@@ -203,7 +203,7 @@ class PaymentService {
           PayableItem(
             type: PaymentType.month,
             label:
-                '${g?.subject ?? ''} · المجموعة ${g?.number ?? ''}'
+                '${g?.subject ?? ''} · الفوج ${g?.number ?? ''}'
                 ' · الدورة ${due.cycleNumber}',
             total: due.due,
             paid: due.paid,

@@ -69,7 +69,7 @@ class TeacherPayoutScreen extends ConsumerWidget {
               if (items.isEmpty) {
                 return const ClayEmptyView(
                   title: 'لا خلاصات بعد',
-                  message: 'يظهر خلاصك عند اكتمال دورة مجموعة من مجموعاتك',
+                  message: 'يظهر خلاصك عند اكتمال دورة فوج من أفواجك',
                   icon: ClayIcons.payments,
                 );
               }

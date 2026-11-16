@@ -184,7 +184,7 @@ Future<void> submit(WidgetTester tester) async {
 }
 
 void main() {
-  appTest('تسجيل في مجموعة: بيانات دخول الوليّ ثم التلميذ في القائمة', (
+  appTest('تسجيل في فوج: بيانات دخول الوليّ ثم التلميذ في القائمة', (
     tester,
   ) async {
     final o = await openForm(tester, registrationFee: 1500);
@@ -192,7 +192,7 @@ void main() {
     await fillPeople(tester);
     await pick(tester, 'المستوى', '3 متوسط');
     await pickSubject(tester, 'رياضيات');
-    await pick(tester, 'المجموعة', 'المجموعة 1 · كمال (0 تلميذ)');
+    await pick(tester, 'الفوج', 'الفوج 1 · كمال (0 تلميذ)');
     // السعر الافتراضي من المادة.
     expect(
       tester.widget<TextField>(fieldOf('سعر الشهر (دج)')).controller!.text,
@@ -232,9 +232,7 @@ void main() {
     expect(student.levelId, 'lv3');
   });
 
-  appTest('دون اختيار مجموعة: قائمة الانتظار مع الأستاذ المفضّل', (
-    tester,
-  ) async {
+  appTest('دون اختيار فوج: قائمة الانتظار مع الأستاذ المفضّل', (tester) async {
     final o = await openForm(tester);
     await fillPeople(tester);
     await pickSubject(tester, 'رياضيات');
@@ -276,7 +274,7 @@ void main() {
     final o = await openForm(tester);
     await fillPeople(tester);
     await pickSubject(tester, 'رياضيات');
-    await pick(tester, 'المجموعة', 'المجموعة 1 · كمال (0 تلميذ)');
+    await pick(tester, 'الفوج', 'الفوج 1 · كمال (0 تلميذ)');
     await pick(tester, 'التخفيض', 'نسبة مئوية');
     await tester.enterText(fieldOf('النسبة (%)'), '50');
     await tester.pump();
@@ -299,7 +297,7 @@ void main() {
     await openForm(tester);
     await fillPeople(tester);
     await pickSubject(tester, 'رياضيات');
-    await pick(tester, 'المجموعة', 'المجموعة 1 · كمال (0 تلميذ)');
+    await pick(tester, 'الفوج', 'الفوج 1 · كمال (0 تلميذ)');
     await pick(tester, 'التخفيض', 'نسبة مئوية');
     await tester.enterText(fieldOf('النسبة (%)'), '150');
     await submit(tester);

@@ -114,7 +114,7 @@ void main() {
     expect(await service.sessions('s1', 'g1', '2026-10'), hasLength(1));
   });
 
-  test('حصص مجموعة أخرى لا تظهر، ومن ليس منتسباً لا كشف له', () async {
+  test('حصص فوج آخر لا تظهر، ومن ليس منتسباً لا كشف له', () async {
     await env.group(id: 'g2', number: 2);
     await session('a', '2026-11-02', group: 'g2');
     await session('b', '2026-11-03');

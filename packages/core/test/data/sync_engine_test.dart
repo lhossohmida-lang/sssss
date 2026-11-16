@@ -530,7 +530,7 @@ void main() {
     });
 
     test(
-      'الوليّ يسحب الأساتذة والمجموعات من العروض المحجوبة ولا يدفعها',
+      'الوليّ يسحب الأساتذة والأفواج من العروض المحجوبة ولا يدفعها',
       () async {
         final parent = SyncProfile.forRole(UserRole.parent);
         final teachers = parent.firstWhere((t) => t.local == 'teachers');

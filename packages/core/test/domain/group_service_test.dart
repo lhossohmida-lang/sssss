@@ -68,7 +68,7 @@ void main() {
       cycles.cycleSessions(groupId, 1);
 
   group('الإنشاء', () {
-    test('مجموعة بجدولها وحصص دورتها الأولى مرقّمة', () async {
+    test('فوج بجدولها وحصص دورتها الأولى مرقّمة', () async {
       final g = await create(rate: 900);
       expect(g.number, 1);
       expect(g.sessionsPerCycle, 8);
@@ -93,7 +93,7 @@ void main() {
       }
     });
 
-    test('أرقام المجموعات متسلسلة', () async {
+    test('أرقام الأفواج متسلسلة', () async {
       final a = await create();
       final b = await create(
         teacher: 't2',
@@ -106,7 +106,7 @@ void main() {
       expect(b.number, 2);
     });
 
-    test('قاعة الخانة تتقدم على قاعة المجموعة', () async {
+    test('قاعة الخانة تتقدم على قاعة الفوج', () async {
       final g = await create(
         slots: const [
           GroupSlotInput(
@@ -133,7 +133,7 @@ void main() {
       expect(tables, containsAll(['groups', 'group_slots', 'sessions']));
     });
 
-    test('إنشاء مجموعة يخبر أولياء منتظري المادة بموعدها', () async {
+    test('إنشاء فوج يخبر أولياء منتظري المادة بموعدها', () async {
       await env.student();
       final enrolments = EnrolmentService(
         env.db,
@@ -251,7 +251,7 @@ void main() {
       );
     });
 
-    test('تعارض القاعة مع مجموعة أخرى', () async {
+    test('تعارض القاعة مع فوج آخر', () async {
       await create();
       // أستاذ آخر في القاعة نفسها والوقت نفسه.
       final e = await errorsFor(teacher: 't2', slots: const [slotSat]);
@@ -263,7 +263,7 @@ void main() {
       );
     });
 
-    test('تعارض الأستاذ مع مجموعته الأخرى', () async {
+    test('تعارض الأستاذ مع فوجه الأخرى', () async {
       await create();
       final e = await errorsFor(room: 'r2', slots: const [slotSat]);
       expect(e['slot:0'], contains('الأستاذ'));
@@ -362,7 +362,7 @@ void main() {
       expect(after, hasLength(8));
     });
 
-    test('تعارض عند التعديل يُرفض، والمجموعة لا تتعارض مع نفسها', () async {
+    test('تعارض عند التعديل يُرفض، والفوج لا تتعارض مع نفسها', () async {
       final a = await create();
       final b = await create(
         teacher: 't2',
@@ -394,7 +394,7 @@ void main() {
       );
     });
 
-    test('مجموعة مجهولة', () async {
+    test('فوج مجهولة', () async {
       expect(
         await service.update(
           'missing',

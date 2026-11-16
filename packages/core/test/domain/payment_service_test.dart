@@ -60,12 +60,12 @@ void main() {
   });
 
   group('ما يُدفع', () {
-    test('الشهر غير المسدَّد بمادته ومجموعته ودورته', () async {
+    test('الشهر غير المسدَّد بمادته وفوجه ودورته', () async {
       final items = await payments.payables('s1', now: now);
       expect(items, hasLength(1));
       final item = items.single;
       expect(item.type, PaymentType.month);
-      expect(item.label, 'رياضيات · المجموعة 1 · الدورة 1');
+      expect(item.label, 'رياضيات · الفوج 1 · الدورة 1');
       expect(item.total, 2000);
       expect(item.paid, 0);
       expect(item.remaining, 2000);
@@ -286,10 +286,7 @@ void main() {
       expect(page.items.map((i) => i.payment.amount), [1000, 700, 500]);
       expect(page.items.first.studentName, 'تلميذ s1');
       expect(page.items.first.description, 'حقوق التسجيل — 2026-2027');
-      expect(
-        page.items.last.description,
-        'شهر — رياضيات · المجموعة 1 · الدورة 1',
-      );
+      expect(page.items.last.description, 'شهر — رياضيات · الفوج 1 · الدورة 1');
       expect(page.hasMore, isFalse);
     });
 

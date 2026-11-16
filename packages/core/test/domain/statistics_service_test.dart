@@ -246,11 +246,7 @@ void main() {
     expect(snapshot.months[1].present, 0, reason: 'الحصة الملغاة لا تحسب');
     expect(snapshot.months[0].newStudents, 1);
     expect(snapshot.months[1].newStudents, 1);
-    expect(
-      snapshot.months[1].newGroups,
-      0,
-      reason: 'المجموعة المحذوفة لا تحسب',
-    );
+    expect(snapshot.months[1].newGroups, 0, reason: 'الفوج المحذوف لا تحسب');
     expect(snapshot.receivedTotal, 2000);
     expect(snapshot.expenseTotal, 1200);
     expect(snapshot.payoutTotal, 400);

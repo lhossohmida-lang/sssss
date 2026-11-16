@@ -94,14 +94,14 @@ class _DuesScreenState extends ConsumerState<DuesScreen> {
           Padding(
             padding: const EdgeInsets.all(ClaySpacing.screenPadding),
             child: ClayDropdown<String?>(
-              label: 'المجموعة',
+              label: 'الفوج',
               value: _groupId,
               options: [
-                const ClayOption(value: null, label: 'كل المجموعات'),
+                const ClayOption(value: null, label: 'كل الأفواج'),
                 for (final g in groups)
                   ClayOption(
                     value: g.id,
-                    label: 'المجموعة ${g.number} · ${g.subjectName}',
+                    label: 'الفوج ${g.number} · ${g.subjectName}',
                   ),
               ],
               onChanged: (value) => setState(() => _groupId = value),
@@ -120,7 +120,7 @@ class _DuesScreenState extends ConsumerState<DuesScreen> {
                   return ClayEmptyView(
                     title: filtered ? 'لا نتائج مطابقة' : 'لا مستحقات',
                     message: filtered
-                        ? 'جرّب اسماً آخر أو مجموعة أخرى'
+                        ? 'جرّب اسماً آخر أو فوجاً آخر'
                         : 'كل التلاميذ سدّدوا ما عليهم',
                     icon: ClayIcons.check,
                   );

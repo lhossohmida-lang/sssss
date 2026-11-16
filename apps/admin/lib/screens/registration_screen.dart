@@ -443,7 +443,7 @@ class SubjectChoiceCard extends ConsumerWidget {
             if (subjectId != null) ...[
               gap,
               ClayDropdown<String?>(
-                label: 'المجموعة',
+                label: 'الفوج',
                 value: draft.groupId,
                 options: [
                   const ClayOption(value: null, label: 'قائمة الانتظار'),
@@ -454,7 +454,7 @@ class SubjectChoiceCard extends ConsumerWidget {
                     ),
                 ],
                 helper: groups.isEmpty
-                    ? 'لا مجموعات لهذه المادة بعد؛ يُضاف إلى قائمة الانتظار'
+                    ? 'لا أفواج لهذه المادة بعد؛ يُضاف إلى قائمة الانتظار'
                     : null,
                 onChanged: (value) {
                   draft.groupId = value;

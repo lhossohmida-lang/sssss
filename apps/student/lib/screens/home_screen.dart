@@ -67,7 +67,7 @@ class _ChildHome extends ConsumerWidget {
                 hasScrollBody: false,
                 child: ClayEmptyView(
                   title: 'لا مواد بعد',
-                  message: 'لم ينتسب بعد إلى أي مجموعة',
+                  message: 'لم ينتسب بعد إلى أي فوج',
                   icon: ClayIcons.subjects,
                 ),
               )
@@ -196,7 +196,7 @@ class _SubjectCard extends StatelessWidget {
         padding: const EdgeInsets.all(ClaySpacing.md),
         onTap: () => context.push('/subjects/${info.groupId}'),
         semanticLabel:
-            '${info.subjectName}، المجموعة ${info.groupNumber}، '
+            '${info.subjectName}، الفوج ${info.groupNumber}، '
             'الأستاذ ${info.teacherName}',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,7 +208,7 @@ class _SubjectCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              'المجموعة ${info.groupNumber} · الأستاذ ${info.teacherName}',
+              'الفوج ${info.groupNumber} · الأستاذ ${info.teacherName}',
               style: text.bodySmall!.copyWith(color: p.textMuted),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

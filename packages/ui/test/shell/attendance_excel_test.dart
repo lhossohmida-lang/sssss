@@ -37,7 +37,7 @@ void main() {
       expect((rows[0][0]!.value as TextCellValue).value.text, 'كشف حضور حصة');
       expect(
         (rows[1][0]!.value as TextCellValue).value.text,
-        'المجموعة 4 · الرياضيات',
+        'الفوج 4 · الرياضيات',
       );
       expect((rows[4][1]!.value as TextCellValue).value.text, 'اسم التلميذ');
       expect((rows[5][1]!.value as TextCellValue).value.text, 'مريم');

@@ -73,7 +73,7 @@ class ParentScheduleScreen extends ConsumerWidget {
     if (upcoming.isEmpty && weekly.isEmpty) {
       return const ClayEmptyView(
         title: 'لا حصص في جدوله',
-        message: 'تظهر حصصه هنا حين ينتسب إلى مجموعة',
+        message: 'تظهر حصصه هنا حين ينتسب إلى فوج',
         icon: ClayIcons.schedule,
       );
     }

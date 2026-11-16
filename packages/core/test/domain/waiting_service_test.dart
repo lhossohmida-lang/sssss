@@ -194,7 +194,7 @@ void main() {
     },
   );
 
-  test('انتساب التلميذ إلى مجموعة يخرجه من القائمة ويعيد فحص الحد', () async {
+  test('انتساب التلميذ إلى فوج يخرجه من القائمة ويعيد فحص الحد', () async {
     final id = await wait('s1');
     await wait('s2');
     await waiting.setThreshold(id, 2);

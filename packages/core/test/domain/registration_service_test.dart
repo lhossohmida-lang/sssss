@@ -118,7 +118,7 @@ void main() {
       },
     );
 
-    test('منتسب أصلاً أو مجموعة مؤرشفة: مرفوض', () async {
+    test('منتسب أصلاً أو فوج مؤرشف: مرفوض', () async {
       await enrolments.enrol(
         studentId: 's1',
         groupId: 'g1',
@@ -230,7 +230,7 @@ void main() {
       expect(a, isNot(b));
     });
 
-    test('الانتساب إلى مجموعة يزيله من قائمة انتظار مادتها', () async {
+    test('الانتساب إلى فوج يزيله من قائمة انتظار مادتها', () async {
       await enrolments.addToWaiting(studentId: 's1', subjectId: 'sub');
       await enrolments.addToWaiting(studentId: 's1', subjectId: 'sub2');
       await enrolments.enrol(
@@ -250,7 +250,7 @@ void main() {
       expect(await env.db.select(env.db.waitingEntries).get(), hasLength(2));
     });
 
-    test('مجموعات المادة وأساتذتها', () async {
+    test('أفواج المادة وأساتذتها', () async {
       await env.teacher(id: 't2');
       await env.group(id: 'g2', teacherId: 't2');
       await env.db.customStatement(
@@ -266,7 +266,7 @@ void main() {
       expect(options.map((o) => o.id), ['g1', 'g2']);
       expect(options.first.studentCount, 1);
       expect(options.last.studentCount, 0);
-      expect(options.first.label, 'المجموعة 1 · الأستاذ t1');
+      expect(options.first.label, 'الفوج 1 · الأستاذ t1');
 
       await env.db
           .into(env.db.teacherSubjects)
@@ -372,7 +372,7 @@ void main() {
       },
     );
 
-    test('عدة مواد: مجموعة وقائمة انتظار، وحقوق التسجيل مرة واحدة', () async {
+    test('عدة مواد: فوج وقائمة انتظار، وحقوق التسجيل مرة واحدة', () async {
       final result = await service.register(
         request(
           choices: const [

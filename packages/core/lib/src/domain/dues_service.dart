@@ -223,7 +223,7 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
         cycleNumber: cycleNumber,
       );
       if (due == null) {
-        throw StateError('التلميذ غير ملزَم بهذه الدورة في هذه المجموعة');
+        throw StateError('التلميذ غير ملزَم بهذه الدورة في هذا الفوج');
       }
       _checkAmount(amount, due.remaining);
       return _insertPayment(
@@ -309,7 +309,7 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
     return db.transaction(() async {
       final enrolment = await _enrolment(studentId, groupId);
       if (enrolment == null) {
-        throw StateError('التلميذ غير منتسب إلى هذه المجموعة');
+        throw StateError('التلميذ غير منتسب إلى هذا الفوج');
       }
       final already =
           await (db.select(db.studentCredits)..where(

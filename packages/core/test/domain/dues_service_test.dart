@@ -209,7 +209,7 @@ void main() {
       expect((await dues.cycleDues(studentId: 's1')).single.remaining, 2000);
     });
 
-    test('من غادر المجموعة لا تُحسب عليه الدورات اللاحقة', () async {
+    test('من غادر الفوج لا تُحسب عليه الدورات اللاحقة', () async {
       await env.enroll(id: 'gs1', studentId: 's1');
       await session('se1', cycle: 1, number: 1); // 2026-11-11
       await session('se2', cycle: 2, number: 9); // 2026-11-19

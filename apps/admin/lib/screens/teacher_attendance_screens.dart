@@ -86,7 +86,7 @@ class _TeacherSheetScreenState extends ConsumerState<TeacherSheetScreen> {
                             vertical: ClaySpacing.xs,
                           ),
                           child: Text(
-                            '${m.teacherName} — المجموعة ${m.groupNumber} '
+                            '${m.teacherName} — الفوج ${m.groupNumber} '
                             '(${m.subjectName}) ${_dayLabel(m.date)}',
                             style: text.bodySmall,
                           ),

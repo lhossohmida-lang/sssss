@@ -64,7 +64,7 @@ class _ParentAttendanceScreenState
               if (enrolments.isEmpty) {
                 return const ClayEmptyView(
                   title: 'لا مواد بعد',
-                  message: 'لم ينتسب بعد إلى أي مجموعة',
+                  message: 'لم ينتسب بعد إلى أي فوج',
                   icon: ClayIcons.subjects,
                 );
               }

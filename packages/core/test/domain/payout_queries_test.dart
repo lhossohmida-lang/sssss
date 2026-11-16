@@ -75,7 +75,7 @@ void main() {
       expect(item.isRelease, isFalse);
       expect(item.kindLabel, 'اكتمال الدورة');
       expect(item.teacherName, 'الأستاذ t1');
-      expect(item.groupLabel, 'رياضيات · المجموعة 1 · الدورة 1');
+      expect(item.groupLabel, 'رياضيات · الفوج 1 · الدورة 1');
       expect(item.amount, 1000);
       expect(item.isPaid, isFalse);
 

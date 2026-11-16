@@ -208,7 +208,7 @@ void main() {
     expect((await payouts.compute('g1', 1)).earned, 1000);
   });
 
-  test('سعر المجموعة يغلب السعر الافتراضي للأستاذ', () async {
+  test('سعر الفوج يغلب السعر الافتراضي للأستاذ', () async {
     await (env.db.update(env.db.groups)..where((g) => g.id.equals('g1'))).write(
       const GroupsCompanion(ratePerStudent: Value(1600)),
     );

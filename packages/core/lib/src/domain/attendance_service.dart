@@ -461,7 +461,7 @@ class AttendanceService {
           senderId: writer.actor().userId,
           title: 'لم يحضر الأستاذ حصته',
           body:
-              '${info.read<String>('teacher')} — المجموعة '
+              '${info.read<String>('teacher')} — الفوج '
               '${info.read<int>('number')} (${info.read<String>('subject')}) '
               'يوم ${session.date}',
           kind: notifyTeacherAbsent,

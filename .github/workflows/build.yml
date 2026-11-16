@@ -86,6 +86,7 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
           GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+          SCHOOL: ${{ inputs.school }}
         run: |
           defines=()
           if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
@@ -96,6 +97,11 @@ jobs:
           fi
           if [ "${{ matrix.app }}" = "admin" ]; then
             defines+=("--dart-define=GOOGLE_DRIVE_OWNER_EMAIL=$GOOGLE_DRIVE_OWNER_EMAIL" "--dart-define=GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID")
+          fi
+          # التحديث التلقائي للبناء العام وحده: بناء مدرسة خاص (مدخل school) لا يستبدل نفسه بنسخة عامة فيفقد إعداده.
+          if [ -z "$SCHOOL" ]; then
+            tag="$(head -n 1 "$GITHUB_WORKSPACE/RELEASE_VERSION" | tr -d '[:space:]')"
+            defines+=("--dart-define=APP_RELEASE=$tag" "--dart-define=UPDATE_REPO=$GITHUB_REPOSITORY")
           fi
           flutter build apk --release "${defines[@]}"
       - name: Rename APK
@@ -129,13 +135,23 @@ jobs:
           GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           GOOGLE_DRIVE_WINDOWS_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_WINDOWS_CLIENT_ID }}
           GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
-        run: >-
-          flutter build windows --release
-          --dart-define=SUPABASE_URL="$env:SUPABASE_URL"
-          --dart-define=SUPABASE_ANON_KEY="$env:SUPABASE_ANON_KEY"
-          --dart-define=GOOGLE_DRIVE_OWNER_EMAIL="$env:GOOGLE_DRIVE_OWNER_EMAIL"
-          --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_ID="$env:GOOGLE_DRIVE_WINDOWS_CLIENT_ID"
-          --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET="$env:GOOGLE_DESKTOP_CLIENT_SECRET"
+          SCHOOL: ${{ inputs.school }}
+        run: |
+          $defines = @(
+            "--dart-define=SUPABASE_URL=$env:SUPABASE_URL",
+            "--dart-define=SUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY",
+            "--dart-define=GOOGLE_DRIVE_OWNER_EMAIL=$env:GOOGLE_DRIVE_OWNER_EMAIL",
+            "--dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_ID=$env:GOOGLE_DRIVE_WINDOWS_CLIENT_ID",
+            "--dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET=$env:GOOGLE_DESKTOP_CLIENT_SECRET"
+          )
+          # التحديث التلقائي للبناء العام وحده (انظر خطوة Android).
+          if (-not $env:SCHOOL) {
+            $tag = (Get-Content "$env:GITHUB_WORKSPACE/RELEASE_VERSION" -TotalCount 1).Trim()
+            $defines += "--dart-define=APP_RELEASE=$tag"
+            $defines += "--dart-define=UPDATE_REPO=$env:GITHUB_REPOSITORY"
+          }
+          flutter build windows --release @defines
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Read version
         id: version
         shell: bash
@@ -195,3 +211,10 @@ jobs:
             عند أول تشغيل يطلب كل تطبيق رمز مدرستك (`SCH1.…`) لصقاً أو مسحاً بالكاميرا. يعطيك إياه صاحب
             المدرسة من تطبيق الإدارة ← الحساب ← رمز ربط الأجهزة الأخرى. ويمكن لتطبيق الإدارة أن يعمل
             «معاينة محلية» بلا خادم.
+      # عقد التحديث التلقائي: التطبيقات تقرأ هذه الأصول من واجهة GitHub وتتحقق من بصمة SHA-256 المعلنة لكل ملف.
+      # يفشل المسار إن نقص ملف أو بصمته أو كان رابطه خارج مستودعنا، فلا يصل جهازاً إصدار لا يستطيع تحديث نفسه.
+      - name: Check the release assets the in-app updater reads
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: python3 tool/release_check.py "$TAG"

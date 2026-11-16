@@ -109,7 +109,7 @@ void main() {
     await refreshList(tester);
 
     // عودة إلى القائمة بالطلب قيد الانتظار.
-    expect(find.text('تغيير موعد · المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.text('تغيير موعد · الفوج 1 · رياضيات'), findsOneWidget);
     expect(find.text('قيد الانتظار'), findsOneWidget);
     final rows = await runDb(
       tester,
@@ -125,7 +125,7 @@ void main() {
     await openForm(tester);
     await pick(tester, 'الحصة', inDays(14));
     await settleCheck(tester);
-    expect(find.textContaining('الأستاذ مشغول: المجموعة 4'), findsOneWidget);
+    expect(find.textContaining('الأستاذ مشغول: الفوج 4'), findsOneWidget);
     final send = tester.widget<ClayButton>(
       find.widgetWithText(ClayButton, 'إرسال الطلب'),
     );
@@ -149,7 +149,7 @@ void main() {
     );
     expect(rows.single.type, 'cancel');
     expect(rows.single.sessionId, 'f1');
-    expect(find.text('إلغاء حصة · المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.text('إلغاء حصة · الفوج 1 · رياضيات'), findsOneWidget);
   });
 
   appTest('إضافة حصة بلا تاريخ: لا إرسال حتى يُحدَّد الموعد', (tester) async {
@@ -178,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     await refreshList(tester);
     expect(find.text('مقبول'), findsOneWidget);
-    await tester.tap(find.text('إلغاء حصة · المجموعة 1 · رياضيات'));
+    await tester.tap(find.text('إلغاء حصة · الفوج 1 · رياضيات'));
     await tester.pumpAndSettle();
     expect(find.text('ملاحظة الإدارة'), findsOneWidget);
     expect(find.text('تمت الموافقة'), findsOneWidget);

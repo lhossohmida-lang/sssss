@@ -10,6 +10,7 @@ import '../clay/clay_inputs.dart';
 import '../clay/clay_overlays.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import 'app_updater.dart';
 import 'pairing_screens.dart';
 import 'providers.dart';
 
@@ -110,6 +111,18 @@ class AccountScreen extends ConsumerWidget {
         ),
         const SizedBox(height: ClaySpacing.xl),
         const SchoolConnectionSection(),
+        ClayCard(
+          flat: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('التحديث', style: text.titleSmall),
+              const SizedBox(height: ClaySpacing.sm),
+              const UpdateSection(),
+            ],
+          ),
+        ),
+        const SizedBox(height: ClaySpacing.md),
         ClayButton(
           label: 'تغيير كلمة السر',
           icon: ClayIcons.edit,

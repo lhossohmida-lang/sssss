@@ -91,8 +91,8 @@ void main() {
     expect(first.lateMinutes, 7);
     expect(first.checkIn, isNotNull);
     expect(first.checkOut, isNotNull);
-    expect(first.groupLabel, 'المجموعة 1 · رياضيات');
-    expect(sheet.last.missed, 3, reason: 'حصص نوفمبر للمجموعة 2: 14 و21 و28');
+    expect(first.groupLabel, 'الفوج 1 · رياضيات');
+    expect(sheet.last.missed, 3, reason: 'حصص نوفمبر للفوج 2: 14 و21 و28');
   });
 
   test('الحصص التي لم تنتهِ بعد معلّقة لا غياب', () async {

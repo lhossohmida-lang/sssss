@@ -52,7 +52,7 @@ Future<AppRuntime> openSchedule(
 }
 
 void main() {
-  appTest('بلا مجموعات: رسالة فارغة', (tester) async {
+  appTest('بلا أفواج: رسالة فارغة', (tester) async {
     await openSchedule(tester, withGroups: false);
     expect(find.text('لا حصص في الجدول'), findsOneWidget);
   });
@@ -89,21 +89,21 @@ void main() {
     final semantics = tester.ensureSemantics();
     await openSchedule(tester);
     expect(
-      find.bySemanticsLabel('المجموعة 2 · رياضيات · السبت 14:00–15:30 · ياسين'),
+      find.bySemanticsLabel('الفوج 2 · رياضيات · السبت 14:00–15:30 · ياسين'),
       findsOneWidget,
     );
     semantics.dispose();
   });
 
-  appTest('النقر على حصة يفتح تفاصيل مجموعتها', (tester) async {
+  appTest('النقر على حصة يفتح تفاصيل فوجها', (tester) async {
     await openSchedule(tester);
     await tester.tap(find.text('م2 · رياضيات'));
     await tester.pumpAndSettle();
-    expect(find.text('المجموعة 2'), findsOneWidget);
+    expect(find.text('الفوج 2'), findsOneWidget);
     expect(find.text('الدورة 1 (الحالية)'), findsOneWidget);
   });
 
-  appTest('المجموعة المؤرشفة تختفي من الجدول', (tester) async {
+  appTest('الفوج المؤرشف تختفي من الجدول', (tester) async {
     final runtime = await openSchedule(tester);
     await runDb(
       tester,

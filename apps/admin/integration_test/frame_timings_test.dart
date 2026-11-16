@@ -10,7 +10,7 @@ import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 
 /// قياس زمن الإطارات لأثقل شاشات الإدارة على بيانات بحجم مدرسة ممتلئة
-/// (2000 تلميذ و100 مجموعة وسنة حضور و50 ألف رسالة): يُمرَّر كل قائمة تمريراً
+/// (2000 تلميذ و100 فوج وسنة حضور و50 ألف رسالة): يُمرَّر كل قائمة تمريراً
 /// سريعاً ذهاباً وإياباً ويُقاس زمن بناء الإطار وتحويله إلى صورة.
 ///
 /// يُشغَّل على محاكي Android في مسار `perf` بـGitHub Actions؛ وأرقام المحاكي
@@ -82,7 +82,7 @@ void main() {
       await scrollList(6);
     }, reportKey: 'students_list');
     await binding.watchPerformance(() async {
-      await openTab('المجموعات');
+      await openTab('الأفواج');
       await scrollList(4);
     }, reportKey: 'groups_list');
     await binding.watchPerformance(() async {

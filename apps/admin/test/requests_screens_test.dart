@@ -111,12 +111,10 @@ void main() {
     expect(find.text('لا طلبات معلّقة'), findsOneWidget);
   });
 
-  appTest('طلب معلّق: الأستاذ والنوع والمجموعة والموعد المطلوب', (
-    tester,
-  ) async {
+  appTest('طلب معلّق: الأستاذ والنوع والفوج والموعد المطلوب', (tester) async {
     await openRequests(tester);
     expect(find.textContaining('كمال · تغيير موعد'), findsOneWidget);
-    expect(find.textContaining('المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.textContaining('الفوج 1 · رياضيات'), findsOneWidget);
     expect(find.textContaining(inDays(3)), findsOneWidget);
     expect(find.text('قيد الانتظار'), findsOneWidget);
     expect(find.text('قيد الانتظار (1)'), findsOneWidget);
@@ -160,7 +158,7 @@ void main() {
   appTest('تعارض عند البتّ: الموافقة معطّلة وسببه ظاهر', (tester) async {
     await openRequests(tester, busyAtNewSlot: true);
     await openRequest(tester);
-    expect(find.textContaining('الأستاذ مشغول: المجموعة 9'), findsOneWidget);
+    expect(find.textContaining('الأستاذ مشغول: الفوج 9'), findsOneWidget);
     final approve = tester.widget<ClayButton>(
       find.widgetWithText(ClayButton, 'موافقة'),
     );

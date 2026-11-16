@@ -68,16 +68,16 @@ void main() {
     await shoot(tester, 'schedule_windows_light');
   });
 
-  appTest('تفاصيل المجموعة وشبكة الحضور: Windows فاتح', (tester) async {
+  appTest('تفاصيل الفوج وشبكة الحضور: Windows فاتح', (tester) async {
     size(tester, 1280, 900, Brightness.light);
     final runtime = await openPayments(tester);
     final group = await runDb(
       tester,
       () => runtime.db.select(runtime.db.groups).getSingle(),
     );
-    await tester.tap(find.text('المجموعات').last);
+    await tester.tap(find.text('الأفواج').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('المجموعة ${group.number} · رياضيات'));
+    await tester.tap(find.text('الفوج ${group.number} · رياضيات'));
     await shoot(tester, 'group_details_windows_light');
   });
 

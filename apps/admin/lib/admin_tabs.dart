@@ -52,7 +52,7 @@ final List<AppTab> adminTabs = [
   AppTab(
     path: '/groups',
     destination: const ClayDestination(
-      label: 'المجموعات',
+      label: 'الأفواج',
       icon: ClayIcons.groups,
     ),
     requires: PermissionModule.groups,

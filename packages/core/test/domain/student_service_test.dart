@@ -60,7 +60,7 @@ void main() {
   Future<StudentProfile?> load() => service.load('s1', month: month);
 
   group('الملف', () {
-    test('تلميذ بلا مجموعات ولا مستحقات', () async {
+    test('تلميذ بلا أفواج ولا مستحقات', () async {
       final p = (await load())!;
       expect(p.fullName, 'تلميذ s1');
       expect(p.levelName, isNull);
@@ -76,7 +76,7 @@ void main() {
       expect(await load(), isNull);
     });
 
-    test('المجموعات بأسمائها وحضورها ومستحقاتها', () async {
+    test('الأفواج بأسمائها وحضورها ومستحقاتها', () async {
       await env.enroll(id: 'e1', studentId: 's1', price: 2000);
       await env.enroll(
         id: 'e2',
@@ -157,7 +157,7 @@ void main() {
       expect(p.totalRemaining, 2700);
     });
 
-    test('من غادر المجموعة لا تظهر في ملفه', () async {
+    test('من غادر الفوج لا تظهر في ملفه', () async {
       await env.enroll(id: 'e1', studentId: 's1');
       expect(await service.leaveGroup('s1', 'g1'), isTrue);
       expect(await service.leaveGroup('s1', 'g1'), isFalse);
@@ -300,7 +300,7 @@ void main() {
   });
 
   group('الحذف', () {
-    test('ناعم: يغادر مجموعاته وقوائمه وتبقى سجلاته', () async {
+    test('ناعم: يغادر أفواجه وقوائمه وتبقى سجلاته', () async {
       await env.enroll(id: 'e1', studentId: 's1');
       await EnrolmentService(
         env.db,

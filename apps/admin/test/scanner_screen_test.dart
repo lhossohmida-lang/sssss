@@ -184,14 +184,14 @@ void main() {
     expect(env.source!.disposed, isTrue);
   });
 
-  appTest('تلميذ منتسب: حاضر أخضر بمجموعته، ويُسجَّل حضوره بمسح الرمز', (
+  appTest('تلميذ منتسب: حاضر أخضر بفوجه، ويُسجَّل حضوره بمسح الرمز', (
     tester,
   ) async {
     final env = await openScanner(tester);
     await scan(tester, env.source!, 'S-SAMIR00001');
     expect(find.text('سمير بن علي'), findsWidgets);
     expect(find.text('حاضر'), findsNWidgets(2));
-    expect(find.textContaining('المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.textContaining('الفوج 1 · رياضيات'), findsOneWidget);
     expect(env.fb.events, ['success']);
     final rows = await runDb(
       tester,
@@ -234,7 +234,7 @@ void main() {
     final env = await openScanner(tester);
     await scan(tester, env.source!, 'T-KAMAL00001');
     expect(find.text('دخول الأستاذ'), findsNWidgets(2));
-    expect(find.textContaining('المجموعة 1'), findsOneWidget);
+    expect(find.textContaining('الفوج 1'), findsOneWidget);
     expect(env.fb.events, ['success']);
   });
 

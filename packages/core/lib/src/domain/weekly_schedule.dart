@@ -40,7 +40,7 @@ class ScheduleEntry {
 
   /// وصف الخانة لقارئ الشاشة والعرض.
   String get label =>
-      'المجموعة $groupNumber · $subjectName · '
+      'الفوج $groupNumber · $subjectName · '
       '${GroupService.weekdayName(weekday)} $timeText';
 }
 

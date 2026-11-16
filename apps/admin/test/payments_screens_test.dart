@@ -113,10 +113,10 @@ void main() {
   appTest('تسجيل دفعة جزئية: وصل مرقَّم ثم تفاصيل ثم القائمة', (tester) async {
     final runtime = await openPayments(tester);
     await startPayment(tester);
-    expect(find.text('رياضيات · المجموعة 1 · الدورة 1'), findsOneWidget);
+    expect(find.text('رياضيات · الفوج 1 · الدورة 1'), findsOneWidget);
     expect(find.text('الباقي ${Money.format(2000)}'), findsOneWidget);
 
-    await tester.tap(find.text('رياضيات · المجموعة 1 · الدورة 1'));
+    await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
     // المبلغ مملوء بالباقي.
     expect(tester.widget<TextField>(amountField()).controller!.text, '2000');
@@ -152,7 +152,7 @@ void main() {
     final presenter = FakePdfPresenter();
     await openPayments(tester, pdfPresenter: presenter);
     await startPayment(tester);
-    await tester.tap(find.text('رياضيات · المجموعة 1 · الدورة 1'));
+    await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
     await tester.enterText(amountField(), '2000');
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
@@ -178,7 +178,7 @@ void main() {
   appTest('الباقي بعد الجزئية يظهر في المرة التالية', (tester) async {
     await openPayments(tester);
     await startPayment(tester);
-    await tester.tap(find.text('رياضيات · المجموعة 1 · الدورة 1'));
+    await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
     await tester.enterText(amountField(), '500');
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
@@ -194,7 +194,7 @@ void main() {
   appTest('مبلغ يزيد عن الباقي أو صفر: خطأ ولا تسجيل', (tester) async {
     final runtime = await openPayments(tester);
     await startPayment(tester);
-    await tester.tap(find.text('رياضيات · المجموعة 1 · الدورة 1'));
+    await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
 
     await tester.enterText(amountField(), '3000');

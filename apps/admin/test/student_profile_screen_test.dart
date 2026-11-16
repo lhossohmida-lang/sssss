@@ -146,13 +146,13 @@ Finder fieldOf(String label) => find.descendant(
 );
 
 void main() {
-  appTest('يعرض البيانات والوليّ والمجموعة والمستحقات ورمز QR', (tester) async {
+  appTest('يعرض البيانات والوليّ والفوج والمستحقات ورمز QR', (tester) async {
     final o = await openProfile(tester);
     expect(find.text('ملف التلميذ'), findsOneWidget);
     expect(find.text('أحمد بن علي'), findsOneWidget);
     expect(find.text('علي بن علي'), findsOneWidget);
     expect(find.text('0550123456@school.local'), findsOneWidget);
-    expect(find.text('رياضيات · المجموعة 1'), findsOneWidget);
+    expect(find.text('رياضيات · الفوج 1'), findsOneWidget);
     expect(find.text('كمال · 2 000 دج للدورة'), findsOneWidget);
     expect(find.text('حاضر 0'), findsOneWidget);
     expect(find.text('الباقي 2 000 دج'), findsOneWidget);
@@ -219,26 +219,26 @@ void main() {
     await tester.pumpAndSettle();
     final group = find.descendant(
       of: find
-          .ancestor(of: find.text('المجموعة'), matching: find.byType(Column))
+          .ancestor(of: find.text('الفوج'), matching: find.byType(Column))
           .first,
       matching: find.byWidgetPredicate((w) => w is DropdownButton),
     );
     await tester.tap(group);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('المجموعة 1 · كمال (1 تلميذ)').last);
+    await tester.tap(find.text('الفوج 1 · كمال (1 تلميذ)').last);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة'));
     await tester.pumpAndSettle();
-    expect(find.text('التلميذ منتسب إلى هذه المجموعة'), findsOneWidget);
+    expect(find.text('التلميذ منتسب إلى هذا الفوج'), findsOneWidget);
   });
 
-  appTest('مغادرة المجموعة بعد التأكيد', (tester) async {
+  appTest('مغادرة الفوج بعد التأكيد', (tester) async {
     final o = await openProfile(tester);
-    await tester.tap(find.byTooltip('مغادرة مجموعة رياضيات'));
+    await tester.tap(find.byTooltip('مغادرة فوج رياضيات'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'مغادرة'));
     await tester.pumpAndSettle();
-    expect(find.text('غير منتسب إلى أي مجموعة'), findsOneWidget);
+    expect(find.text('غير منتسب إلى أي فوج'), findsOneWidget);
     final enrolment = await runDb(
       tester,
       () => o.runtime.db.select(o.runtime.db.groupStudents).getSingle(),
@@ -272,7 +272,7 @@ void main() {
     expect(find.widgetWithText(ClayButton, 'تعديل البيانات'), findsNothing);
     expect(find.widgetWithText(ClayButton, 'إضافة مادة'), findsNothing);
     expect(find.widgetWithText(ClayButton, 'حذف التلميذ'), findsNothing);
-    expect(find.byTooltip('مغادرة مجموعة رياضيات'), findsNothing);
+    expect(find.byTooltip('مغادرة فوج رياضيات'), findsNothing);
   });
 
   appTest('من لا يملك عرض المدفوعات: لا مبالغ ولا مستحقات ولا زر دفع', (
@@ -286,7 +286,7 @@ void main() {
     expect(find.textContaining('الباقي'), findsNothing);
     expect(find.widgetWithText(ClayButton, 'تسجيل دفعة'), findsNothing);
     // الحضور والمجموعة ظاهران.
-    expect(find.textContaining('رياضيات · المجموعة 1'), findsOneWidget);
+    expect(find.textContaining('رياضيات · الفوج 1'), findsOneWidget);
   });
 
   appTest('عرض المدفوعات بلا استلام المال: المبالغ بلا زر دفع', (tester) async {
@@ -324,7 +324,7 @@ void main() {
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل دفعة'));
     await tester.pumpAndSettle();
     expect(find.text('تسجيل دفعة'), findsWidgets);
-    expect(find.text('رياضيات · المجموعة 1 · الدورة 1'), findsOneWidget);
+    expect(find.text('رياضيات · الفوج 1 · الدورة 1'), findsOneWidget);
   });
 
   appTest('المالك: المستحقات وزر الدفع ظاهران', (tester) async {

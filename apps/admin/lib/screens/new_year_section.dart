@@ -23,7 +23,7 @@ class NewYearSection extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'أُرشفت ${result.archivedGroups} مجموعة، وبقي '
+          'أُرشف ${result.archivedGroups} فوج، وبقي '
           '${result.retainedStudents} تلميذاً بسجلاتهم',
         ),
       ),
@@ -50,8 +50,8 @@ class NewYearSection extends ConsumerWidget {
           ),
           const SizedBox(height: ClaySpacing.xs),
           Text(
-            'تؤرشف كل المجموعات النشطة وتبقى سجلاتها، ويبقى التلاميذ '
-            'وحضورهم ومدفوعاتهم وخلاص الأساتذة. تبدأ السنة الجديدة بمجموعات '
+            'تؤرشف كل الأفواج النشطة وتبقى سجلاتها، ويبقى التلاميذ '
+            'وحضورهم ومدفوعاتهم وخلاص الأساتذة. تبدأ السنة الجديدة بأفواج '
             'جديدة.',
             style: text.bodySmall!.copyWith(color: p.textMuted),
           ),
@@ -150,14 +150,14 @@ class _NewYearFormState extends ConsumerState<_NewYearForm> {
       children: [
         if (_failed)
           Text(
-            'تعذّرت قراءة المجموعات الحالية',
+            'تعذّرت قراءة الأفواج الحالية',
             style: text.bodyMedium!.copyWith(color: p.status.danger),
           )
         else if (preview == null)
           const SizedBox(height: 48, child: ClayLoadingView())
         else ...[
           Text(
-            'ستُؤرشف ${preview.activeGroups} مجموعة نشطة، وتخرج من القوائم '
+            'سيُؤرشف ${preview.activeGroups} فوج نشط، وتخرج من القوائم '
             'والجداول ${preview.upcomingSessions} حصة قادمة غير منعقدة.',
             style: text.bodyMedium,
           ),

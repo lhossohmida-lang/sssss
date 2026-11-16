@@ -160,7 +160,7 @@ void main() {
     expect(find.text('مدرسة النجاح', findRichText: true), findsNothing);
     expect(find.textContaining('مدرسة النجاح'), findsOneWidget);
     expect(find.text('2'), findsWidgets);
-    expect(find.text('1 مجموعة نشطة'), findsOneWidget);
+    expect(find.text('1 فوج نشط'), findsOneWidget);
     // 500 دج استُلمت اليوم، وما بقي 3500 على تلميذين.
     expect(find.text(Money.format(500)), findsWidgets);
     expect(find.text(Money.format(3500)), findsOneWidget);
@@ -230,7 +230,7 @@ void main() {
     expect(find.widgetWithText(ClayButton, 'تسجيل التلميذ'), findsOneWidget);
   });
 
-  appTest('«المزيد»: أقسام مجمّعة بعناوينها وتختفي المجموعة الفارغة', (
+  appTest('«المزيد»: أقسام مجمّعة بعناوينها وتختفي الفوج الفارغة', (
     tester,
   ) async {
     await openDashboard(

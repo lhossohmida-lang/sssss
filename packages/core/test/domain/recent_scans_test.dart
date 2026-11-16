@@ -62,7 +62,7 @@ void main() {
     expect(await feed.load(since: 0), isEmpty);
   });
 
-  test('تلميذ مسح رمزه: حاضر بمجموعته وقاعته', () async {
+  test('تلميذ مسح رمزه: حاضر بفوجه وقاعته', () async {
     await scanner.scan(studentQr, now: at(10, 0));
     final items = await feed.load(since: ms(at(9, 0)));
     expect(items, hasLength(1));

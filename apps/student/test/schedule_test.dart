@@ -130,7 +130,7 @@ void main() {
     expect(sat.dy, lessThan(mon.dy));
   });
 
-  appTest('الابن الآخر: جدول مجموعته وحدها', (tester) async {
+  appTest('الابن الآخر: جدول فوجه وحدها', (tester) async {
     await openSchedule(tester);
     // سمير (الأول بالاسم) في مجموعة الرياضيات فقط.
     tester.view.physicalSize = const Size(420, 3000);
@@ -140,7 +140,7 @@ void main() {
     expect(find.textContaining('فيزياء'), findsNothing);
   });
 
-  appTest('ابن بلا مجموعات: رسالة', (tester) async {
+  appTest('ابن بلا أفواج: رسالة', (tester) async {
     final runtime = await openSchedule(tester);
     await runDb(
       tester,

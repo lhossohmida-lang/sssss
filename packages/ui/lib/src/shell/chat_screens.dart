@@ -89,7 +89,7 @@ class _ChatInboxScreenState extends ConsumerState<ChatInboxScreen> {
                         ? 'لا توجد محادثات بعد'
                         : 'لا توجد نتائج لهذا البحث',
                     message: query.isEmpty
-                        ? 'ابدأ محادثة مع وليّ أو أستاذ، أو افتح غرفة مجموعتك'
+                        ? 'ابدأ محادثة مع وليّ أو أستاذ، أو افتح غرفة فوجك'
                         : 'جرّب اسماً أو كلمة من آخر رسالة',
                     icon: ClayIcons.chat,
                     actionLabel: canStart ? 'بدء محادثة' : null,
@@ -253,7 +253,7 @@ class _ChatCreateScreenState extends ConsumerState<ChatCreateScreen> {
             TabBar(
               tabs: [
                 const Tab(text: 'محادثة خاصة'),
-                if (canCreateGroups) const Tab(text: 'غرفة مجموعة'),
+                if (canCreateGroups) const Tab(text: 'غرفة فوج'),
               ],
             ),
             Expanded(
@@ -286,7 +286,7 @@ class _ChatCreateScreenState extends ConsumerState<ChatCreateScreen> {
         if (items.isEmpty) {
           return const ClayEmptyView(
             title: 'لا توجد جهات اتصال مطابقة',
-            message: 'تظهر هنا حسابات الأولياء والأساتذة المرتبطة بمجموعاتك',
+            message: 'تظهر هنا حسابات الأولياء والأساتذة المرتبطة بأفواجك',
             icon: Icons.person_search_outlined,
           );
         }
@@ -324,7 +324,7 @@ class _ChatCreateScreenState extends ConsumerState<ChatCreateScreen> {
     return groups.when(
       loading: () => const ClayLoadingView(),
       error: (error, _) => ClayErrorView(
-        message: 'تعذّر تحميل المجموعات',
+        message: 'تعذّر تحميل الأفواج',
         onRetry: () => ref.invalidate(groupsProvider),
       ),
       data: (items) {
@@ -339,8 +339,8 @@ class _ChatCreateScreenState extends ConsumerState<ChatCreateScreen> {
             .toList(growable: false);
         if (filtered.isEmpty) {
           return const ClayEmptyView(
-            title: 'لا توجد مجموعات نشطة',
-            message: 'ستظهر هنا مجموعاتك التي يمكن فتح غرفة محادثة لها',
+            title: 'لا توجد أفواج نشطة',
+            message: 'ستظهر هنا أفواجك التي يمكن فتح غرفة محادثة لها',
             icon: ClayIcons.groups,
           );
         }
@@ -1289,7 +1289,7 @@ UserRole _roleFromCode(String code) => UserRole.values.firstWhere(
 );
 
 String _groupTitle(GroupItem group) =>
-    '${group.subjectName} · المجموعة ${group.number}';
+    '${group.subjectName} · الفوج ${group.number}';
 
 String _safeExtension(String name) {
   final last = name.split('.').last.toLowerCase();

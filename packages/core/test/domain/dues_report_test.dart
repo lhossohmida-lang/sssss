@@ -56,7 +56,7 @@ void main() {
     expect(first.oldestCycle, 1);
     expect(first.name, 'تلميذ s1');
     expect(first.parentPhone, '0550123456');
-    expect(first.lines.first.label, 'رياضيات · المجموعة 1 · الدورة 1');
+    expect(first.lines.first.label, 'رياضيات · الفوج 1 · الدورة 1');
     expect(report.students.last.total, 2000);
     expect(report.total, 8000);
     expect(report.count, 2);
@@ -74,7 +74,7 @@ void main() {
     expect((await reports.load()).isEmpty, isTrue);
   });
 
-  test('الحصر بمجموعة', () async {
+  test('الحصر بفوج', () async {
     await env.enroll(id: 'e1', studentId: 's1');
     await env.enroll(id: 'e2', studentId: 's1', groupId: 'g2', price: 1500);
     await env.enroll(id: 'e3', studentId: 's2', groupId: 'g2', price: 1500);

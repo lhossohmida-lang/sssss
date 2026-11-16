@@ -52,7 +52,7 @@ class SubjectScreen extends ConsumerWidget {
                     children: [
                       Text(info.subjectName, style: text.titleLarge),
                       Text(
-                        'المجموعة ${info.groupNumber} · '
+                        'الفوج ${info.groupNumber} · '
                         'الأستاذ ${info.teacherName}',
                         style: text.bodyMedium!.copyWith(color: p.textMuted),
                       ),

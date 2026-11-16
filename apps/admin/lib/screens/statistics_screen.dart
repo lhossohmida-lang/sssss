@@ -174,7 +174,7 @@ class _StatisticsBody extends StatelessWidget {
         ),
       if (snapshot.scope.groups)
         ClayBarSeries(
-          label: 'مجموعات جديدة',
+          label: 'أفواج جديدة',
           color: palette.status.info,
           values: [for (final month in months) month.newGroups],
         ),
@@ -203,7 +203,7 @@ class _StatisticsBody extends StatelessWidget {
     ].join(' · ');
     final enrollmentSummary = [
       if (snapshot.scope.students) '${snapshot.activeStudents} تلميذ نشط',
-      if (snapshot.scope.groups) '${snapshot.activeGroups} مجموعة نشطة',
+      if (snapshot.scope.groups) '${snapshot.activeGroups} فوج نشط',
     ].join(' · ');
 
     return ListView(
@@ -221,7 +221,7 @@ class _StatisticsBody extends StatelessWidget {
                 ),
               if (snapshot.scope.groups)
                 _TotalCard(
-                  label: 'المجموعات النشطة',
+                  label: 'الأفواج النشطة',
                   value: '${snapshot.activeGroups}',
                 ),
             ],

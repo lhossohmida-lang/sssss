@@ -354,7 +354,7 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
                       ],
                     ),
                     const SizedBox(height: ClaySpacing.sm),
-                    row('المجموعة', item.groupLabel),
+                    row('الفوج', item.groupLabel),
                     if (item.sessionDate != null)
                       row(
                         'الحصة الحالية',

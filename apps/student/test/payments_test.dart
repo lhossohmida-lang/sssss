@@ -109,7 +109,7 @@ void main() {
 
   appTest('دفعات الابن وحده بوصفها ووصلها ومبلغها وتاريخها', (tester) async {
     await openPayments(tester, child: 'نور');
-    expect(find.text('شهر — رياضيات · المجموعة 1 · الدورة 1'), findsOneWidget);
+    expect(find.text('شهر — رياضيات · الفوج 1 · الدورة 1'), findsOneWidget);
     expect(find.text('حقوق التسجيل — 2026-2027'), findsOneWidget);
     expect(find.textContaining('AAA-000001'), findsOneWidget);
     expect(find.textContaining('AAA-000002'), findsOneWidget);
@@ -154,8 +154,8 @@ void main() {
     await openPayments(tester, child: 'نور');
     // الرياضيات سُدِّدت دورتها الأولى بالكامل، والفيزياء لم تُسدَّد.
     expect(find.text('المتبقي عليه'), findsOneWidget);
-    expect(find.text('فيزياء · المجموعة 2'), findsOneWidget);
-    expect(find.text('رياضيات · المجموعة 1'), findsNothing);
+    expect(find.text('فيزياء · الفوج 2'), findsOneWidget);
+    expect(find.text('رياضيات · الفوج 1'), findsNothing);
   });
 
   appTest('الضغط على دفعة يعرض وصلها PDF', (tester) async {

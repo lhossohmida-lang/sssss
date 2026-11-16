@@ -133,7 +133,7 @@ void main() {
 
     test('removed parents lose the room preview and message access', () async {
       final room = await h.teacher.createGroupRoom('g1');
-      await h.teacher.sendText(room.id, 'رسالة للمجموعة');
+      await h.teacher.sendText(room.id, 'رسالة للفوج');
       final parent = h.service('u-parent', UserRole.parent, entityId: 'p1');
       final parentMessage = await parent.sendText(room.id, 'ردّ الولي');
       expect(
@@ -214,7 +214,7 @@ void main() {
       'archiving a group removes it from private participant access',
       () async {
         final room = await h.teacher.createGroupRoom('g1');
-        await h.teacher.sendText(room.id, 'أرشيف المجموعة');
+        await h.teacher.sendText(room.id, 'أرشيف الفوج');
         await h.writer.patch(
           h.db.groups,
           key: {'id': 'g1'},

@@ -277,7 +277,7 @@ void main() {
       expect(account, isNull);
     });
 
-    appTest('أستاذ له مجموعة نشطة: لا يُحذف مع رسالة', (tester) async {
+    appTest('أستاذ له فوج نشط: لا يُحذف مع رسالة', (tester) async {
       final (o, teacher) = await withTeacher(tester);
       await runDb(tester, () async {
         final db = o.runtime.db;
@@ -309,7 +309,7 @@ void main() {
       await tester.tap(find.widgetWithText(ClayButton, 'حذف').last);
       await tester.pumpAndSettle();
       expect(find.text('تعذّرت العملية'), findsOneWidget);
-      expect(find.textContaining('1 مجموعة نشطة'), findsOneWidget);
+      expect(find.textContaining('1 فوج نشط'), findsOneWidget);
     });
   });
 

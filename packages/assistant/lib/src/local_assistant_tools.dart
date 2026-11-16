@@ -531,10 +531,10 @@ class _ProposeSessionRequestTool extends _LocalTool {
             .getSingleOrNull();
     if (group == null || group.teacherId != teacherId) {
       return const AssistantToolResult.data({
-        'error': 'هذه المجموعة ليست من مجموعاتك',
+        'error': 'هذا الفوج ليس من أفواجك',
       });
     }
-    final summary = StringBuffer('${type.label} للمجموعة ${group.number}.');
+    final summary = StringBuffer('${type.label} للفوج ${group.number}.');
     if (type.needsNewSlot) {
       summary.write(
         ' الموعد المقترح: $newDate، ${DateKey.formatMinutes(start!)}–${DateKey.formatMinutes(end!)}.',

@@ -52,7 +52,7 @@ void main() {
   });
 
   test(
-    'الحضور: لآخر حصتين من كل مجموعة لا حضور، ولما قبلهما سجل لكل منتسب',
+    'الحضور: لآخر حصتين من كل فوج لا حضور، ولما قبلهما سجل لكل منتسب',
     () async {
       final summary = await PerfDataGenerator(db, spec: small).generate();
       // 6 مجموعات × 14 حصة منعقدة × ~13.3 تلميذاً للمجموعة (80 انتساباً/6).
@@ -116,7 +116,7 @@ void main() {
         'WHERE ts.teacher_id IS NULL',
       ),
       0,
-      reason: 'كل أستاذ يدرّس مادة مجموعته',
+      reason: 'كل أستاذ يدرّس مادة فوجه',
     );
     expect(
       await orphans(
@@ -177,23 +177,19 @@ void main() {
     expect(await status('failed'), 10);
   });
 
-  test(
-    'الحجم الكامل (2000 تلميذ و100 مجموعة وسنة حضور و50 ألف رسالة)',
-    () async {
-      final watch = Stopwatch()..start();
-      final summary = await PerfDataGenerator(db).generate();
-      watch.stop();
-      expect(summary.students, 2000);
-      expect(summary.groups, 100);
-      expect(summary.sessions, 100 * 80);
-      expect(summary.smsMessages, 50000);
-      // 4000 انتساب بمتوسط 40 تلميذاً للمجموعة × 78 حصة منعقدة لكل مجموعة.
-      expect(summary.attendance, 4000 * 78 ~/ 1);
-      expect(await count(db, 'SELECT COUNT(*) AS n FROM sms_queue'), 50000);
-      expect(summary.payments, greaterThan(30000));
-      // التوليد المجمَّع سريع: عشرات الثواني على أبطأ حاسوب، لا دقائق.
-      expect(watch.elapsed, lessThan(const Duration(minutes: 2)));
-    },
-    timeout: const Timeout(Duration(minutes: 4)),
-  );
+  test('الحجم الكامل (2000 تلميذ و100 فوج وسنة حضور و50 ألف رسالة)', () async {
+    final watch = Stopwatch()..start();
+    final summary = await PerfDataGenerator(db).generate();
+    watch.stop();
+    expect(summary.students, 2000);
+    expect(summary.groups, 100);
+    expect(summary.sessions, 100 * 80);
+    expect(summary.smsMessages, 50000);
+    // 4000 انتساب بمتوسط 40 تلميذاً للمجموعة × 78 حصة منعقدة لكل مجموعة.
+    expect(summary.attendance, 4000 * 78 ~/ 1);
+    expect(await count(db, 'SELECT COUNT(*) AS n FROM sms_queue'), 50000);
+    expect(summary.payments, greaterThan(30000));
+    // التوليد المجمَّع سريع: عشرات الثواني على أبطأ حاسوب، لا دقائق.
+    expect(watch.elapsed, lessThan(const Duration(minutes: 2)));
+  }, timeout: const Timeout(Duration(minutes: 4)));
 }

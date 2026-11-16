@@ -80,7 +80,7 @@ Future<AppRuntime> openAttendance(
 }
 
 Future<void> openRoster(WidgetTester tester) async {
-  await tester.tap(find.text('المجموعة 1 · رياضيات'));
+  await tester.tap(find.text('الفوج 1 · رياضيات'));
   await tester.pumpAndSettle();
 }
 
@@ -109,7 +109,7 @@ void main() {
 
   appTest('حصة اليوم بعدّاداتها ثم فتح الورقة', (tester) async {
     await openAttendance(tester);
-    expect(find.text('المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
     expect(
       find.textContaining('10:00–11:30 · كمال · القاعة 1'),
       findsOneWidget,
@@ -201,7 +201,7 @@ void main() {
     expect(find.text('العودة إلى اليوم'), findsOneWidget);
     await tester.tap(find.text('العودة إلى اليوم'));
     await tester.pumpAndSettle();
-    expect(find.text('المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
     await tester.tap(find.byTooltip('اليوم السابق'));
     await tester.pumpAndSettle();
     expect(find.text('لا حصص في هذا اليوم'), findsOneWidget);

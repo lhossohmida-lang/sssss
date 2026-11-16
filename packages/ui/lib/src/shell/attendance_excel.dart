@@ -60,7 +60,7 @@ class AttendanceExcelData {
 /// Builds a right-to-left XLSX workbook away from the UI isolate.
 abstract final class AttendanceExcelExporter {
   static String defaultFileName(AttendanceExcelData data) =>
-      'حضور مجموعة ${data.groupNumber} - ${data.subjectName} - ${data.date}';
+      'حضور فوج ${data.groupNumber} - ${data.subjectName} - ${data.date}';
 
   static String normalizeFileName(String requestedName) {
     var name = requestedName
@@ -95,7 +95,7 @@ abstract final class AttendanceExcelExporter {
 
       sheet.appendRow([TextCellValue('كشف حضور حصة')]);
       sheet.appendRow([
-        TextCellValue('المجموعة ${data.groupNumber} · ${data.subjectName}'),
+        TextCellValue('الفوج ${data.groupNumber} · ${data.subjectName}'),
       ]);
       sheet.appendRow([TextCellValue('الأستاذ: ${data.teacherName}')]);
       sheet.appendRow([

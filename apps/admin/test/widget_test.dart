@@ -74,7 +74,7 @@ void main() {
     for (final label in [
       'الرئيسية',
       'التلاميذ',
-      'المجموعات',
+      'الأفواج',
       'المدفوعات',
       'المزيد',
     ]) {
@@ -92,7 +92,7 @@ void main() {
     await loginWith(tester, receptionist.email, receptionist.password);
     expect(find.text('التلاميذ'), findsWidgets);
     expect(find.text('المدفوعات'), findsWidgets);
-    expect(find.text('المجموعات'), findsNothing);
+    expect(find.text('الأفواج'), findsNothing);
   });
 
   appTest('عامل عرض المحادثات يفتح صندوق الإدارة دون إنشاء', (tester) async {

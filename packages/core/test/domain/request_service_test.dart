@@ -120,7 +120,7 @@ void main() {
     test('يُحفظ قيد الانتظار، تُقترح قاعة، ويُشعَر صاحب المدرسة', () async {
       final request = await reschedule();
       expect(request.status, 'pending');
-      expect(request.newRoomId, 'r1', reason: 'قاعة المجموعة متاحة فتُقترح');
+      expect(request.newRoomId, 'r1', reason: 'قاعة الفوج متاح فتُقترح');
       expect(request.reason, 'ظرف عائلي');
       expect(await requests.pendingCount(), 1);
 
@@ -133,7 +133,7 @@ void main() {
       expect(session.date, saturday, reason: 'لا يتغير شيء قبل الموافقة');
     });
 
-    test('إن كانت قاعة المجموعة محجوزة تُقترح قاعة أخرى', () async {
+    test('إن كانت قاعة الفوج محجوزة تُقترح قاعة أخرى', () async {
       await env.group(id: 'g2', teacherId: 't2', roomId: 'r1');
       await env.slot(
         id: 'sl2',
@@ -265,7 +265,7 @@ void main() {
         (message) => message.phone == '+213550123456',
       );
       expect(parentMessage.kind, SmsTemplateKeys.requestApproved);
-      expect(parentMessage.message, contains('المجموعة 1'));
+      expect(parentMessage.message, contains('الفوج 1'));
       expect(parentMessage.message, contains('تلميذ s1، تلميذ s2'));
       expect(parentMessage.message, contains('نُقلت إلى الاثنين 2026-11-16'));
 
@@ -406,7 +406,7 @@ void main() {
       expect(result.request.newRoomId, 'r2');
     });
 
-    test('من غادر المجموعة لا يستلم وليّه رسالة', () async {
+    test('من غادر الفوج لا يستلم وليّه رسالة', () async {
       await (env.db.update(env.db.groupStudents)
             ..where((gs) => gs.studentId.equals('s3')))
           .write(const GroupStudentsCompanion(leftAt: Value(5)));
@@ -498,7 +498,7 @@ void main() {
       newRoomId: room,
     );
 
-    test('موعد خال: صالح وتُقترح قاعة المجموعة ولا يُكتب شيء', () async {
+    test('موعد خال: صالح وتُقترح قاعة الفوج ولا يُكتب شيء', () async {
       final result = await preview();
       expect(result.ok, isTrue);
       expect(result.suggestedRoom?.id, 'r1');
@@ -517,7 +517,7 @@ void main() {
       );
       expect(clash.ok, isFalse);
       expect(clash.conflicts, isNotEmpty);
-      expect(clash.conflicts.first.message, contains('المجموعة 1'));
+      expect(clash.conflicts.first.message, contains('الفوج 1'));
     });
 
     test('أستاذ مشغول يمنع الطلب حتى بلا قاعة', () async {
@@ -550,8 +550,8 @@ void main() {
       expect(later.ok, isFalse);
     });
 
-    test('مجموعة ليست للأستاذ، وحصة غير مختارة', () async {
-      expect((await preview(teacher: 't2')).error, contains('ليست من'));
+    test('فوج ليس للأستاذ، وحصة غير مختارة', () async {
+      expect((await preview(teacher: 't2')).error, contains('ليس من'));
       expect((await preview(withSession: false)).error, contains('اختر الحصة'));
     });
 
@@ -581,7 +581,7 @@ void main() {
       );
     });
 
-    test('طلباتي: الأحدث أولاً بوصف مجموعتها وحصتها، ولأستاذها فقط', () async {
+    test('طلباتي: الأحدث أولاً بوصف فوجها وحصتها، ولأستاذها فقط', () async {
       final a = await reschedule();
       env.time += 10;
       final b = await requests.submit(
@@ -592,7 +592,7 @@ void main() {
       );
       final mine = await requests.mine('t1');
       expect(mine.map((r) => r.id), [b.id, a.id]);
-      expect(mine.last.groupLabel, 'المجموعة 1 · رياضيات');
+      expect(mine.last.groupLabel, 'الفوج 1 · رياضيات');
       expect(mine.last.type, SessionRequestType.reschedule);
       expect(mine.last.status, SessionRequestStatus.pending);
       expect(mine.last.sessionDate, isNotNull);

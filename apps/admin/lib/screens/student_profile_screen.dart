@@ -39,9 +39,9 @@ class StudentProfileScreen extends ConsumerWidget {
   ) async {
     final ok = await showClayConfirm(
       context,
-      title: 'مغادرة المجموعة',
+      title: 'مغادرة الفوج',
       message:
-          'سيغادر التلميذ مجموعة ${info.subjectName} رقم ${info.groupNumber}. '
+          'سيغادر التلميذ فوج ${info.subjectName} رقم ${info.groupNumber}. '
           'تبقى دوراته السابقة ومستحقاتها، ولا تُحسب عليه الدورات القادمة.',
       confirmLabel: 'مغادرة',
       danger: true,
@@ -97,7 +97,7 @@ class StudentProfileScreen extends ConsumerWidget {
       context,
       title: 'حذف التلميذ',
       message:
-          'سيختفي ${profile.fullName} من القوائم ويغادر مجموعاته، وتبقى '
+          'سيختفي ${profile.fullName} من القوائم ويغادر أفواجه، وتبقى '
           'مدفوعاته وحضوره في السجلات.',
       confirmLabel: 'حذف',
       danger: true,
@@ -209,10 +209,10 @@ class StudentProfileScreen extends ConsumerWidget {
                         ltr: true,
                       ),
                   ]),
-                  card('المجموعات', [
+                  card('الأفواج', [
                     if (profile.enrolments.isEmpty)
                       Text(
-                        'غير منتسب إلى أي مجموعة',
+                        'غير منتسب إلى أي فوج',
                         style: text.bodyMedium!.copyWith(color: p.textMuted),
                       ),
                     for (final info in profile.enrolments)
@@ -419,13 +419,13 @@ class _EnrolmentTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${info.subjectName} · المجموعة ${info.groupNumber}',
+                    '${info.subjectName} · الفوج ${info.groupNumber}',
                     style: text.titleSmall,
                   ),
                 ),
                 if (onLeave != null)
                   IconButton(
-                    tooltip: 'مغادرة مجموعة ${info.subjectName}',
+                    tooltip: 'مغادرة فوج ${info.subjectName}',
                     icon: const Icon(ClayIcons.logout),
                     onPressed: onLeave,
                   ),

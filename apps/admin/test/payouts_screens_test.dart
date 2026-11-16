@@ -110,10 +110,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('كمال'), findsWidgets);
-    expect(
-      find.textContaining('رياضيات · المجموعة 1 · الدورة 1'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('رياضيات · الفوج 1 · الدورة 1'), findsOneWidget);
     expect(find.textContaining('اكتمال الدورة'), findsOneWidget);
     // الشارة وشريحة التصفية.
     expect(find.text('غير مسلَّم'), findsNWidgets(2));

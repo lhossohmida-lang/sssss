@@ -84,7 +84,7 @@ class RequestItem {
   SessionRequestType get type => SessionRequestType.fromCode(request.type);
   SessionRequestStatus get status =>
       SessionRequestStatus.fromCode(request.status);
-  String get groupLabel => 'المجموعة $groupNumber · $subjectName';
+  String get groupLabel => 'الفوج $groupNumber · $subjectName';
 }
 
 /// دورة حياة طلبات الأستاذ: إنشاء ← (موافقة مع تعديل | رفض).
@@ -128,7 +128,7 @@ class RequestService {
     return db.transaction(() async {
       final group = await _group(groupId);
       if (group.teacherId != teacherId) {
-        throw const InvalidRequestException('هذه المجموعة ليست من مجموعاتك');
+        throw const InvalidRequestException('هذا الفوج ليس من أفواجك');
       }
       final session = await _targetSession(type, sessionId, groupId);
       String? roomId = newRoomId;
@@ -179,7 +179,7 @@ class RequestService {
           userId: owner.id,
           kind: notifyPending,
           title: 'طلب جديد من ${teacher.name}',
-          body: '${type.label} — المجموعة ${group.number}',
+          body: '${type.label} — الفوج ${group.number}',
           entityId: request.id,
         );
       }
@@ -202,7 +202,7 @@ class RequestService {
     try {
       final group = await _group(groupId);
       if (group.teacherId != teacherId) {
-        return const RequestPreview(error: 'هذه المجموعة ليست من مجموعاتك');
+        return const RequestPreview(error: 'هذا الفوج ليس من أفواجك');
       }
       final session = await _targetSession(type, sessionId, groupId);
       if (!type.needsNewSlot) return const RequestPreview();
@@ -462,7 +462,7 @@ class RequestService {
       final subject = await (db.select(
         db.subjects,
       )..where((s) => s.id.equals(group.subjectId))).getSingle();
-      final message = '${subject.name} (المجموعة ${group.number}): $summary';
+      final message = '${subject.name} (الفوج ${group.number}): $summary';
       final smsQueued = await _informParents(
         group.id,
         message,
@@ -621,7 +621,7 @@ class RequestService {
     }
     final session = await _session(sessionId);
     if (session.groupId != groupId) {
-      throw const InvalidRequestException('الحصة ليست من هذه المجموعة');
+      throw const InvalidRequestException('الحصة ليست من هذا الفوج');
     }
     _ensureOpen(session);
     return session;

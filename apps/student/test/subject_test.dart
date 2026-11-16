@@ -87,9 +87,9 @@ Future<({AppRuntime runtime, FakePdfPresenter presenter})> openSubject(
 }
 
 void main() {
-  appTest('بطاقة المادة تفتح صفحتها: الأستاذ والمجموعة', (tester) async {
+  appTest('بطاقة المادة تفتح صفحتها: الأستاذ والفوج', (tester) async {
     await openSubject(tester);
-    expect(find.text('المجموعة 1 · الأستاذ كمال'), findsOneWidget);
+    expect(find.text('الفوج 1 · الأستاذ كمال'), findsOneWidget);
     expect(find.text('النتائج'), findsOneWidget);
     expect(find.text('الملفات'), findsOneWidget);
   });
@@ -110,9 +110,7 @@ void main() {
     expect(newer.dy, lessThan(older.dy));
   });
 
-  appTest('الملفات: ملفات مجموعة المادة وحدها، والضغط يفتح PDF', (
-    tester,
-  ) async {
+  appTest('الملفات: ملفات فوج المادة وحدها، والضغط يفتح PDF', (tester) async {
     final o = await openSubject(tester);
     tester.view.physicalSize = const Size(420, 3000);
     await tester.pumpAndSettle();

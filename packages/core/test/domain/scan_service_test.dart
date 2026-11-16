@@ -164,7 +164,7 @@ void main() {
       );
     });
 
-    test('لا حصة له الآن: يوم آخر أو تلميذ بلا مجموعة (أحمر)', () async {
+    test('لا حصة له الآن: يوم آخر أو تلميذ بلا فوج (أحمر)', () async {
       final wrongDay = await scanner.scan(studentQr, now: at(10, 0, day: 15));
       expect(wrongDay.outcome, ScanOutcome.studentNoSession);
       expect(wrongDay.owner?.id, 's1');
@@ -183,7 +183,7 @@ void main() {
       expect(await attendance(), isEmpty);
     });
 
-    test('من غادر المجموعة لا حصة له', () async {
+    test('من غادر الفوج لا حصة له', () async {
       await (env.db.update(env.db.groupStudents)
             ..where((gs) => gs.id.equals('gs1')))
           .write(const GroupStudentsCompanion(leftAt: Value(5)));
@@ -245,7 +245,7 @@ void main() {
       expect(credit.deletedAt, isNotNull);
     });
 
-    test('تلميذ في مجموعتين: يُختار الأقرب بداية', () async {
+    test('تلميذ في فوجين: يُختار الأقرب بداية', () async {
       await env.teacher(id: 't2');
       await env.group(id: 'g2', teacherId: 't2');
       await env.slot(

@@ -18,7 +18,7 @@ void main() {
   });
   tearDown(() => env.close());
 
-  test('بلا مجموعات: جدول فارغ بحدود افتراضية', () async {
+  test('بلا أفواج: جدول فارغ بحدود افتراضية', () async {
     final schedule = await queries.load();
     expect(schedule.isEmpty, isTrue);
     expect(schedule.firstMinute, 480);
@@ -26,7 +26,7 @@ void main() {
     expect(schedule.by(ScheduleAxis.room), isEmpty);
   });
 
-  test('الخانات بقاعتها: قاعة الخانة ثم الافتراضية للمجموعة', () async {
+  test('الخانات بقاعتها: قاعة الخانة ثم الافتراضية للفوج', () async {
     await env.group(roomId: 'r1');
     await env.slot(id: 'a', weekday: 6);
     await env.slot(id: 'b', weekday: 2, roomId: 'r2');
@@ -100,10 +100,10 @@ void main() {
     await env.slot(id: 'a', weekday: 6, start: 605, end: 695);
     final entry = (await queries.load()).entries.single;
     expect(entry.timeText, '10:05–11:35');
-    expect(entry.label, 'المجموعة 1 · رياضيات · السبت 10:05–11:35');
+    expect(entry.label, 'الفوج 1 · رياضيات · السبت 10:05–11:35');
   });
 
-  test('جدول تلميذ: مجموعاته الحالية فقط', () async {
+  test('جدول تلميذ: أفواجه الحالية فقط', () async {
     await env.student();
     await env.group(roomId: 'r1');
     await env.group(id: 'g2', number: 2, teacherId: 't2');

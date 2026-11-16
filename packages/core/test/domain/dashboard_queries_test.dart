@@ -43,7 +43,7 @@ void main() {
     expect(stats.weekTotal, 0);
   });
 
-  test('التلاميذ والمجموعات وحصص اليوم والحاضرون', () async {
+  test('التلاميذ والأفواج وحصص اليوم والحاضرون', () async {
     await env.group();
     await env.group(id: 'g2', number: 2);
     await env.db.customStatement(

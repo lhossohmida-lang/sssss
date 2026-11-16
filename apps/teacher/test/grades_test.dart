@@ -9,9 +9,9 @@ import 'home_screens_test.dart' hide main;
 
 Future<AppRuntime> openGrades(WidgetTester tester) async {
   final runtime = await openTeacher(tester);
-  await tester.tap(find.text('مجموعاتي').last);
+  await tester.tap(find.text('أفواجي').last);
   await tester.pumpAndSettle();
-  await tester.tap(find.text('المجموعة 1 · رياضيات'));
+  await tester.tap(find.text('الفوج 1 · رياضيات'));
   await tester.pumpAndSettle();
   await tester.tap(find.widgetWithText(ClayButton, 'النتائج'));
   await tester.pumpAndSettle();
@@ -41,7 +41,7 @@ void main() {
   appTest('لا نتائج: رسالة وزر اختبار جديد', (tester) async {
     await openGrades(tester);
     expect(find.text('لا نتائج بعد'), findsOneWidget);
-    expect(find.text('نتائج المجموعة 1'), findsOneWidget);
+    expect(find.text('نتائج الفوج 1'), findsOneWidget);
   });
 
   appTest('إدخال اختبار: علامة بفاصلة وملاحظة، ومن تُترك علامته لا نتيجة له', (

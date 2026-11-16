@@ -100,7 +100,7 @@ runs:
         Write-Host ("{0} {1} MB" -f $setup.Name, [math]::Round($setup.Length / 1MB, 1))
 
     # تثبيت صامت في مجلد مؤقت ثم تشغيل admin.exe والتأكد أنه يبقى حياً (انهياره فوراً بالرمز 0xC0000135 يعني DLL ناقصة)
-    # ثم إزالته. يكمّل الفحص السابق، لكنه لا يكشف نقص مكتبات Visual C++ وحده لأن المشغّل يثبّتها.
+    # ثم تثبيت صامت فوقه كما يفعل التحديث التلقائي والتأكد أنه أُعيد تشغيله، ثم إزالته. يكمّل الفحص السابق، لكنه لا يكشف نقص مكتبات Visual C++ وحده لأن المشغّل يثبّتها.
     - name: Smoke-test the installer (silent install, launch, uninstall)
       shell: pwsh
       env:
@@ -124,9 +124,25 @@ runs:
           Fail ('admin.exe exited within 15 s with code 0x{0:X} (0xC0000135 means a DLL was not found)' -f $app.ExitCode)
         }
         Write-Host "admin.exe is running (pid $($app.Id))"
-        Stop-Process -Id $app.Id -Force
+
+        # التحديث التلقائي: التطبيق يشغّل المثبّت صامتاً مع /relaunch=1 فوق نسخة تعمل، فيجب أن يُغلقها المثبّت
+        # ويُعيد تشغيل التطبيق. نحاكيه بتثبيت الملف نفسه فوق التثبيت (والتطبيق ما زال يعمل).
+        $update = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', '/relaunch=1', "/LOG=`"$log`""
+        if ($update.ExitCode -ne 0) {
+          if (Test-Path $log) { Get-Content $log -Tail 30 | ForEach-Object { Write-Host $_ } }
+          Fail "The silent update exited with code $($update.ExitCode)"
+        }
+        $relaunched = $null
+        for ($i = 0; $i -lt 30 -and -not $relaunched; $i++) {
+          Start-Sleep -Seconds 1
+          $relaunched = Get-Process -Name admin -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $app.Id } | Select-Object -First 1
+        }
+        if (-not $relaunched) { Fail 'The silent update did not relaunch admin.exe (/relaunch=1)' }
+        Write-Host "update relaunched the app (pid $($relaunched.Id))"
+        Get-Process -Name admin -ErrorAction SilentlyContinue | Stop-Process -Force
+        Start-Sleep -Seconds 2
         $uninstall = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
         if ($uninstall.ExitCode -ne 0) { Fail "The uninstaller exited with code $($uninstall.ExitCode)" }
         for ($i = 0; $i -lt 40 -and (Test-Path (Join-Path $dir 'admin.exe')); $i++) { Start-Sleep -Seconds 1 }
         if (Test-Path (Join-Path $dir 'admin.exe')) { Fail 'admin.exe is still there after the uninstall' }
-        Write-Host '::notice title=windows-package::installer ok: installs, starts and uninstalls'
+        Write-Host '::notice title=windows-package::installer ok: installs, starts, updates in place and relaunches, uninstalls'

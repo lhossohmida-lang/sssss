@@ -38,7 +38,7 @@ abstract final class SmsTemplateCatalog {
     ),
     SmsTemplateDefinition(
       key: SmsTemplateKeys.groupCreated,
-      title: 'إنشاء مجموعة',
+      title: 'إنشاء فوج',
       variables: {'school', 'name', 'subject', 'group', 'schedule'},
     ),
     SmsTemplateDefinition(

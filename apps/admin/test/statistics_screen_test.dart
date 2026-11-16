@@ -162,7 +162,7 @@ void main() {
     expect(find.textContaining(Money.format(300)), findsOneWidget);
     expect(find.textContaining(Money.format(400)), findsOneWidget);
     expect(find.text('التلاميذ النشطون'), findsOneWidget);
-    expect(find.text('المجموعات النشطة'), findsOneWidget);
+    expect(find.text('الأفواج النشطة'), findsOneWidget);
 
     await tester.tap(find.byTooltip('السنة السابقة'));
     await tester.pumpAndSettle();

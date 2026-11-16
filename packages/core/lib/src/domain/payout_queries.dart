@@ -34,7 +34,7 @@ class PayoutItem {
 
   /// «رياضيات · المجموعة 2 · الدورة 3».
   String get groupLabel =>
-      '$subjectName · المجموعة $groupNumber · الدورة ${payout.cycleNumber}';
+      '$subjectName · الفوج $groupNumber · الدورة ${payout.cycleNumber}';
 
   String get kindLabel => isRelease ? 'إفراج عن نصيب معلّق' : 'اكتمال الدورة';
 }

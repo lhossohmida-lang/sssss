@@ -46,7 +46,7 @@ void main() {
       accounts: [teacher],
     );
     await loginWith(tester, teacher.email, teacher.password);
-    for (final label in ['الرئيسية', 'مجموعاتي', 'طلباتي', 'خلاصي', 'حسابي']) {
+    for (final label in ['الرئيسية', 'أفواجي', 'طلباتي', 'خلاصي', 'حسابي']) {
       expect(find.text(label), findsWidgets, reason: label);
     }
   });

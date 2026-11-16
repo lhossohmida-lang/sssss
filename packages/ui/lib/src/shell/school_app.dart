@@ -13,6 +13,7 @@ import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import 'app_page.dart';
 import 'app_tab.dart';
+import 'app_updater.dart';
 import 'assistant_screens.dart';
 import 'auth_screens.dart';
 import 'notifications_screen.dart';
@@ -247,7 +248,12 @@ class ShellPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: shell,
+      body: Column(
+        children: [
+          const UpdateBanner(),
+          Expanded(child: shell),
+        ],
+      ),
     );
   }
 }
@@ -305,6 +311,8 @@ class _SchoolAppState extends ConsumerState<SchoolApp> {
     ref.watch(sessionCloserProvider);
     ref.read(pushNavigationHandlerProvider).value = _router.go;
     ref.watch(pushNotificationsProvider);
+    // يبدأ فحص النسخ الجديدة وتنزيلها في الخلفية ما دام التطبيق مفتوحاً (معطَّل في بناء التطوير).
+    ref.watch(updateControllerProvider);
     return ClayApp(app: _runtime.app, routerConfig: _router);
   }
 }

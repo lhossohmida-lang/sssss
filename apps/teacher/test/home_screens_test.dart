@@ -216,8 +216,8 @@ void main() {
     expect(find.textContaining('مدرسة النجاح'), findsOneWidget);
     expect(find.text('حصص اليوم'), findsOneWidget);
     // حصتا g1 فقط؛ حصة g2 لأستاذ آخر.
-    expect(find.text('المجموعة 1 · رياضيات'), findsNWidgets(2));
-    expect(find.text('المجموعة 2 · رياضيات'), findsNothing);
+    expect(find.text('الفوج 1 · رياضيات'), findsNWidgets(2));
+    expect(find.text('الفوج 2 · رياضيات'), findsNothing);
     expect(find.text('مغلقة'), findsOneWidget);
     expect(find.text('ملغاة'), findsOneWidget);
     expect(
@@ -232,36 +232,36 @@ void main() {
     expect(find.text('لا حصص لك اليوم'), findsOneWidget);
   });
 
-  appTest('مجموعاتي: المجموعات النشطة للأستاذ فقط', (tester) async {
+  appTest('أفواجي: الأفواج النشطة للأستاذ فقط', (tester) async {
     await openTeacher(tester);
-    await tester.tap(find.text('مجموعاتي').last);
+    await tester.tap(find.text('أفواجي').last);
     await tester.pumpAndSettle();
-    expect(find.text('المجموعة 1 · رياضيات'), findsOneWidget);
-    expect(find.text('المجموعة 2 · رياضيات'), findsNothing);
-    expect(find.text('المجموعة 3 · رياضيات'), findsNothing);
+    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+    expect(find.text('الفوج 2 · رياضيات'), findsNothing);
+    expect(find.text('الفوج 3 · رياضيات'), findsNothing);
     expect(find.textContaining('2 تلميذ'), findsOneWidget);
   });
 
-  appTest('مجموعاتي بلا مجموعات: رسالة', (tester) async {
+  appTest('أفواجي بلا أفواج: رسالة', (tester) async {
     await openTeacher(tester, seed: false);
-    await tester.tap(find.text('مجموعاتي').last);
+    await tester.tap(find.text('أفواجي').last);
     await tester.pumpAndSettle();
-    expect(find.text('لا مجموعات لك بعد'), findsOneWidget);
+    expect(find.text('لا أفواج لك بعد'), findsOneWidget);
   });
 
-  appTest('تفاصيل المجموعة: معلوماتها وشبكة الحضور', (tester) async {
+  appTest('تفاصيل الفوج: معلوماتها وشبكة الحضور', (tester) async {
     await openTeacher(tester);
-    await tester.tap(find.text('مجموعاتي').last);
+    await tester.tap(find.text('أفواجي').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('المجموعة 1 · رياضيات'));
+    await tester.tap(find.text('الفوج 1 · رياضيات'));
     await tester.pumpAndSettle();
-    expect(find.text('المجموعة 1'), findsOneWidget);
+    expect(find.text('الفوج 1'), findsOneWidget);
     expect(find.text('الدورة 1 (الحالية)'), findsOneWidget);
     expect(find.text('سمير بن علي'), findsOneWidget);
     expect(find.text('نور بن علي'), findsOneWidget);
   });
 
-  appTest('النقر على حصة ملغاة من الرئيسية يفتح مجموعتها', (tester) async {
+  appTest('النقر على حصة ملغاة من الرئيسية يفتح فوجها', (tester) async {
     await openTeacher(tester);
     await tester.tap(find.text('ملغاة'));
     await tester.pumpAndSettle();

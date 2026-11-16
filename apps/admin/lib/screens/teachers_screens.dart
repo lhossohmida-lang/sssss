@@ -283,7 +283,7 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
             keyboardType: TextInputType.number,
             textDirection: TextDirection.ltr,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            helper: 'قيمة افتراضية تُغيَّر لكل مجموعة',
+            helper: 'قيمة افتراضية تُغيَّر لكل فوج',
             error: _errors[TeacherService.fieldRate],
           ),
           const SizedBox(height: ClaySpacing.md),

@@ -69,7 +69,7 @@ void main() {
 
   group('المعاينة', () {
     test(
-      'المجموعات النشطة والتلاميذ المنتسبون (دون تكرار) والحصص القادمة',
+      'الأفواج النشطة والتلاميذ المنتسبون (دون تكرار) والحصص القادمة',
       () async {
         await session('past', 'g1', '2026-11-10');
         await session('doneToday', 'g1', '2026-11-14', start: 400);
@@ -96,7 +96,7 @@ void main() {
       expect(preview.enrolledStudents, 1);
     });
 
-    test('بلا مجموعات: أصفار', () async {
+    test('بلا أفواج: أصفار', () async {
       final empty = TestEnv();
       addTearDown(empty.close);
       final s = NewYearService(
@@ -138,7 +138,7 @@ void main() {
       expect(await service.lastStartedAt(), isNull);
     });
 
-    test('يؤرشف كل المجموعات النشطة ويعيد الأعداد', () async {
+    test('يؤرشف كل الأفواج النشطة ويعيد الأعداد', () async {
       env.time = 5000;
       final result = await service.start(confirmation: ' سنة جديدة ');
       expect(result.archivedGroups, 3);
@@ -224,7 +224,7 @@ void main() {
       },
     );
 
-    test('بلا مجموعات نشطة: لا أرشفة لكن يُسجَّل التنفيذ', () async {
+    test('بلا أفواج نشطة: لا أرشفة لكن يُسجَّل التنفيذ', () async {
       await service.start(confirmation: 'سنة جديدة');
       env.time = 8000;
       final again = await service.start(confirmation: 'سنة جديدة');
@@ -233,7 +233,7 @@ void main() {
       expect(await service.lastStartedAt(), greaterThanOrEqualTo(8000));
     });
 
-    test('مجموعة جديدة بعدها تأخذ رقماً بعد القديمة وتبقى نشطة', () async {
+    test('فوج جديد بعدها تأخذ رقماً بعد القديمة وتبقى نشطة', () async {
       await service.start(confirmation: 'سنة جديدة');
       final created = await groups.create(
         subjectId: 'sub',

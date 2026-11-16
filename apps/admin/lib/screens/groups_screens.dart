@@ -19,10 +19,10 @@ class GroupsScreen extends ConsumerWidget {
   ) async {
     final ok = await showClayConfirm(
       context,
-      title: 'أرشفة المجموعة',
+      title: 'أرشفة الفوج',
       message:
-          'ستخرج المجموعة ${item.number} (${item.subjectName}) من القوائم '
-          'النشطة وتبقى سجلاتها وحضورها ومدفوعاتها.',
+          'سيخرج الفوج ${item.number} (${item.subjectName}) من القوائم '
+          'النشطة وتبقى سجلاته وحضوره ومدفوعاته.',
       confirmLabel: 'أرشفة',
       danger: true,
     );
@@ -40,14 +40,14 @@ class GroupsScreen extends ConsumerWidget {
           child: state.when(
             loading: () => const ClaySkeletonList(),
             error: (_, _) => ClayErrorView(
-              message: 'تعذّرت قراءة المجموعات',
+              message: 'تعذّرت قراءة الأفواج',
               onRetry: () => ref.invalidate(groupsProvider),
             ),
             data: (items) {
               if (items.isEmpty) {
                 return const ClayEmptyView(
-                  title: 'لا توجد مجموعات بعد',
-                  message: 'أنشئ مجموعة بجدولها الأسبوعي لتُولَّد حصصها',
+                  title: 'لا توجد أفواج بعد',
+                  message: 'أنشئ فوجاً بجدوله الأسبوعي لتُولَّد حصصه',
                   icon: ClayIcons.groups,
                 );
               }
@@ -61,7 +61,7 @@ class GroupsScreen extends ConsumerWidget {
                 itemBuilder: (context, i) {
                   final item = items[i];
                   return ClayListTile(
-                    title: 'المجموعة ${item.number} · ${item.subjectName}',
+                    title: 'الفوج ${item.number} · ${item.subjectName}',
                     subtitle:
                         '${item.teacherName} · ${item.roomName ?? 'بلا قاعة'} '
                         '· ${item.studentCount} تلميذ\n${item.scheduleText}',
@@ -70,14 +70,14 @@ class GroupsScreen extends ConsumerWidget {
                     trailing: [
                       if (canEdit)
                         IconButton(
-                          tooltip: 'تعديل المجموعة ${item.number}',
+                          tooltip: 'تعديل الفوج ${item.number}',
                           icon: const Icon(ClayIcons.edit),
                           onPressed: () =>
                               context.push('/groups/${item.id}/edit'),
                         ),
                       if (canEdit)
                         IconButton(
-                          tooltip: 'أرشفة المجموعة ${item.number}',
+                          tooltip: 'أرشفة الفوج ${item.number}',
                           icon: const Icon(ClayIcons.backup),
                           onPressed: () => _archive(context, ref, item),
                         ),
@@ -92,7 +92,7 @@ class GroupsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(ClaySpacing.screenPadding),
             child: ClayButton(
-              label: 'إنشاء مجموعة',
+              label: 'إنشاء فوج',
               icon: ClayIcons.add,
               expand: true,
               onPressed: () => context.push('/groups/new'),
@@ -389,7 +389,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     final body = !_loaded
         ? const ClayLoadingView()
         : _editing && _existing == null
-        ? const ClayEmptyView(title: 'هذه المجموعة غير موجودة')
+        ? const ClayEmptyView(title: 'هذا الفوج غير موجود')
         : Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -397,7 +397,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(ClaySpacing.screenPadding),
                 children: [
-                  card('المجموعة', [
+                  card('الفوج', [
                     ClayDropdown<String>(
                       label: 'المادة',
                       hint: 'اختر المادة',
@@ -524,7 +524,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                     ),
                   ]),
                   ClayButton(
-                    label: _editing ? 'حفظ التعديلات' : 'إنشاء المجموعة',
+                    label: _editing ? 'حفظ التعديلات' : 'إنشاء الفوج',
                     expand: true,
                     loading: _saving,
                     onPressed: _submit,
@@ -537,7 +537,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
 
     return Scaffold(
       appBar: ClayAppBar(
-        title: _editing ? 'تعديل المجموعة' : 'إنشاء مجموعة',
+        title: _editing ? 'تعديل الفوج' : 'إنشاء فوج',
         showBack: true,
       ),
       body: body,
@@ -631,7 +631,7 @@ class _SlotCard extends StatelessWidget {
               label: 'قاعة هذه الخانة',
               value: slot.roomId,
               options: [
-                const ClayOption(value: null, label: 'قاعة المجموعة'),
+                const ClayOption(value: null, label: 'قاعة الفوج'),
                 for (final r in rooms)
                   ClayOption(value: r.id, label: '${r.name} (${r.capacity})'),
               ],

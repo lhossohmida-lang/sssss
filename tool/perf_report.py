@@ -10,7 +10,7 @@ import sys
 
 SCREENS = {
     "students_list": "قائمة التلاميذ",
-    "groups_list": "قائمة المجموعات",
+    "groups_list": "قائمة الأفواج",
     "payments_list": "قائمة المدفوعات",
     "dashboard": "لوحة المدير",
 }
@@ -51,7 +51,7 @@ def main(path):
     info = data.get("data", {})
     if info:
         lines.append(
-            "البيانات: {students} تلميذ، {groups} مجموعة، {sessions} حصة، "
+            "البيانات: {students} تلميذ، {groups} فوج، {sessions} حصة، "
             "{attendance} سجل حضور، {payments} دفعة، {sms_messages} رسالة "
             "(توليدها {generation_millis}ms).".format(**{k: info.get(k, "?") for k in (
                 "students", "groups", "sessions", "attendance", "payments",

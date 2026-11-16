@@ -196,10 +196,7 @@ class GradeService {
               .getSingleOrNull();
       if (group == null ||
           (teacherId != null && group.teacherId != teacherId)) {
-        throw ValidationException.field(
-          fieldGroup,
-          'هذه المجموعة ليست من مجموعاتك',
-        );
+        throw ValidationException.field(fieldGroup, 'هذا الفوج ليس من أفواجك');
       }
       final fromTitle = originalTitle ?? cleanTitle;
       final fromDate = originalDate ?? date;
@@ -255,10 +252,7 @@ class GradeService {
       )..where((g) => g.id.equals(groupId))).getSingleOrNull();
       if (group == null ||
           (teacherId != null && group.teacherId != teacherId)) {
-        throw ValidationException.field(
-          fieldGroup,
-          'هذه المجموعة ليست من مجموعاتك',
-        );
+        throw ValidationException.field(fieldGroup, 'هذا الفوج ليس من أفواجك');
       }
       final rows =
           await (db.select(db.grades)..where(

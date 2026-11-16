@@ -203,8 +203,8 @@ void main() {
     expect(find.text('نور بن علي'), findsOneWidget);
     expect(find.text('رياضيات'), findsOneWidget);
     expect(find.text('فيزياء'), findsOneWidget);
-    expect(find.text('المجموعة 1 · الأستاذ كمال'), findsOneWidget);
-    expect(find.text('المجموعة 2 · الأستاذ كمال'), findsOneWidget);
+    expect(find.text('الفوج 1 · الأستاذ كمال'), findsOneWidget);
+    expect(find.text('الفوج 2 · الأستاذ كمال'), findsOneWidget);
     expect(find.text('حضر 2'), findsOneWidget);
     expect(find.text('غاب 1'), findsOneWidget);
     expect(find.text('برخصة 1'), findsOneWidget);

@@ -19,8 +19,7 @@ class DueLine {
   final int cycleNumber;
   final int remaining;
 
-  String get label =>
-      '$subjectName · المجموعة $groupNumber · الدورة $cycleNumber';
+  String get label => '$subjectName · الفوج $groupNumber · الدورة $cycleNumber';
 }
 
 /// تلميذ عليه مستحقات، وبنودها الأقدم أولاً.

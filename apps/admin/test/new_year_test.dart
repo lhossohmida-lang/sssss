@@ -111,13 +111,13 @@ void main() {
     await openNewYear(tester, owner);
     expect(find.text('السنة الدراسية'), findsOneWidget);
     expect(find.text('لم تُبدأ سنة جديدة بعد من هذا النظام.'), findsOneWidget);
-    expect(find.textContaining('تؤرشف كل المجموعات النشطة'), findsOneWidget);
+    expect(find.textContaining('تؤرشف كل الأفواج النشطة'), findsOneWidget);
   });
 
   appTest('النافذة تعرض ما سيُؤرشف وما سيبقى، والزر معطَّل', (tester) async {
     await openNewYear(tester, owner);
     await openDialog(tester);
-    expect(find.textContaining('ستُؤرشف 2 مجموعة نشطة'), findsOneWidget);
+    expect(find.textContaining('سيُؤرشف 2 فوج نشط'), findsOneWidget);
     expect(find.textContaining('يبقى 2 تلميذاً'), findsOneWidget);
     final start = tester.widget<ClayButton>(
       find.widgetWithText(ClayButton, 'بدء سنة جديدة'),
@@ -159,9 +159,7 @@ void main() {
     expect(groups.every((g) => g.archivedAt == null), isTrue);
   });
 
-  appTest('التأكيد يؤرشف المجموعات ويبقي التلاميذ ويعرض الملخص', (
-    tester,
-  ) async {
+  appTest('التأكيد يؤرشف الأفواج ويبقي التلاميذ ويعرض الملخص', (tester) async {
     final runtime = await openNewYear(tester, owner);
     await openDialog(tester);
     await tester.enterText(find.byType(TextField).last, 'سنة جديدة');
@@ -169,10 +167,7 @@ void main() {
     await tester.tap(find.widgetWithText(ClayButton, 'بدء سنة جديدة'));
     await settle(tester);
 
-    expect(
-      find.text('أُرشفت 2 مجموعة، وبقي 2 تلميذاً بسجلاتهم'),
-      findsOneWidget,
-    );
+    expect(find.text('أُرشف 2 فوج، وبقي 2 تلميذاً بسجلاتهم'), findsOneWidget);
     final groups = await runDb(
       tester,
       () => runtime.db.select(runtime.db.groups).get(),

@@ -16,10 +16,7 @@ final List<AppTab> teacherTabs = [
   ),
   AppTab(
     path: '/groups',
-    destination: const ClayDestination(
-      label: 'مجموعاتي',
-      icon: ClayIcons.groups,
-    ),
+    destination: const ClayDestination(label: 'أفواجي', icon: ClayIcons.groups),
     builder: (_) => const TeacherGroupsScreen(),
   ),
   AppTab(

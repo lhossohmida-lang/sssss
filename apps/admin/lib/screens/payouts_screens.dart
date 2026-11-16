@@ -105,7 +105,7 @@ class _PayoutsScreenState extends ConsumerState<PayoutsScreen> {
                     title: _status == PayoutStatus.unpaid
                         ? 'لا خلاص ينتظر التسليم'
                         : 'لا خلاصات',
-                    message: 'يظهر خلاص الأستاذ عند اكتمال دورة مجموعته',
+                    message: 'يظهر خلاص الأستاذ عند اكتمال دورة فوجه',
                     icon: ClayIcons.payments,
                   );
                 }

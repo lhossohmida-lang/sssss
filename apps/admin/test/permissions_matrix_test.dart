@@ -269,7 +269,7 @@ void main() {
       );
       await loginWith(tester, empty.email, empty.password);
       expect(find.text('التلاميذ'), findsNothing);
-      expect(find.text('المجموعات'), findsNothing);
+      expect(find.text('الأفواج'), findsNothing);
       expect(find.text('المدفوعات'), findsNothing);
       await tester.tap(find.text('المزيد').last);
       await tester.pumpAndSettle();

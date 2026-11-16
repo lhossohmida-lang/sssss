@@ -101,7 +101,7 @@ void main() {
     expect(find.textContaining('تأخر 5 د'), findsOneWidget);
     expect(find.text('غاب 1'), findsOneWidget);
     expect(find.text('حصص لم يحضرها أستاذها في آخر 7 أيام: 1'), findsOneWidget);
-    expect(find.textContaining('المجموعة 1 (رياضيات)'), findsOneWidget);
+    expect(find.textContaining('الفوج 1 (رياضيات)'), findsOneWidget);
   });
 
   appTest('كشف الأستاذ حصة بحصة بدخوله وخروجه وتأخره', (tester) async {

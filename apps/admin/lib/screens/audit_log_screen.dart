@@ -25,10 +25,10 @@ const Map<String, String> _auditEntityLabels = {
   'subjects': 'المواد',
   'rooms': 'القاعات',
   'transport_lines': 'خطوط النقل',
-  'groups': 'المجموعات',
-  'group_students': 'انتساب التلاميذ للمجموعات',
+  'groups': 'الأفواج',
+  'group_students': 'انتساب التلاميذ للأفواج',
   'waiting_lists': 'قوائم الانتظار',
-  'waiting_entries': 'منتظرو المجموعات',
+  'waiting_entries': 'منتظرو الأفواج',
   'sessions': 'الحصص',
   'attendance': 'حضور التلاميذ',
   'teacher_attendance': 'حضور الأساتذة',
@@ -45,7 +45,7 @@ const Map<String, String> _auditEntityLabels = {
   'chat_members': 'أعضاء المحادثة',
   'chat_messages': 'رسائل المحادثة',
   'grades': 'النتائج',
-  'group_files': 'ملفات المجموعات',
+  'group_files': 'ملفات الأفواج',
   'notifications': 'الإشعارات',
   'user_accounts': 'حسابات المستخدمين',
 };
@@ -70,7 +70,7 @@ const Map<String, String> _auditFieldLabels = {
   'room_id': 'معرّف القاعة',
   'teacher_id': 'معرّف الأستاذ',
   'student_id': 'معرّف التلميذ',
-  'group_id': 'معرّف المجموعة',
+  'group_id': 'معرّف الفوج',
   'must_change_password': 'تغيير كلمة السر عند الدخول',
 };
 

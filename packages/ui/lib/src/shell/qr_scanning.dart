@@ -95,7 +95,7 @@ class ScanPresentation {
   /// عرض نتيجة [result]. تُهمل `repeated` (قراءة مزدوجة) فلا تُعرض.
   static ScanPresentation? of(ScanResult result) {
     final group = [
-      if (result.groupNumber != null) 'المجموعة ${result.groupNumber}',
+      if (result.groupNumber != null) 'الفوج ${result.groupNumber}',
       if (result.subjectName != null) result.subjectName!,
       if (result.roomName != null) result.roomName!,
     ].join(' · ');

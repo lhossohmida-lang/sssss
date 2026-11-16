@@ -24,7 +24,7 @@ class GroupOption {
   String get id => group.id;
 
   /// الاسم الظاهر، مثل «المجموعة 2 · الأستاذ كمال».
-  String get label => 'المجموعة ${group.number} · $teacherName';
+  String get label => 'الفوج ${group.number} · $teacherName';
 }
 
 /// انتساب التلاميذ إلى المجموعات وقوائم الانتظار.
@@ -140,7 +140,7 @@ class EnrolmentService {
       if (group == null ||
           group.deletedAt != null ||
           group.archivedAt != null) {
-        throw ValidationException.field(fieldGroup, 'المجموعة غير متاحة');
+        throw ValidationException.field(fieldGroup, 'الفوج غير متاح');
       }
       final id = StableId.groupStudent(groupId, studentId);
       final existing = await (db.select(
@@ -151,7 +151,7 @@ class EnrolmentService {
           existing.leftAt == null) {
         throw ValidationException.field(
           fieldGroup,
-          'التلميذ منتسب إلى هذه المجموعة',
+          'التلميذ منتسب إلى هذا الفوج',
         );
       }
       final held = await cycles.countedSessions(

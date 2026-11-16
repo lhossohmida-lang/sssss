@@ -122,7 +122,7 @@ class _SessionTile extends StatelessWidget {
         '${DateKey.formatMinutes(s.startMinutes)}–'
         '${DateKey.formatMinutes(s.endMinutes)}';
     return ClayListTile(
-      title: 'المجموعة ${item.groupNumber} · ${item.subjectName}',
+      title: 'الفوج ${item.groupNumber} · ${item.subjectName}',
       subtitle:
           '$times · ${item.roomName ?? 'بلا قاعة'}\n'
           'حاضر ${item.present} · غائب ${item.absent} · '
@@ -146,14 +146,14 @@ class TeacherGroupsScreen extends ConsumerWidget {
     return groups.when(
       loading: () => const ClaySkeletonList(),
       error: (_, _) => ClayErrorView(
-        message: 'تعذّرت قراءة مجموعاتك',
+        message: 'تعذّرت قراءة أفواجك',
         onRetry: () => ref.invalidate(groupsProvider),
       ),
       data: (items) {
         if (items.isEmpty) {
           return const ClayEmptyView(
-            title: 'لا مجموعات لك بعد',
-            message: 'تُنشئ الإدارة مجموعاتك وتظهر هنا',
+            title: 'لا أفواج لك بعد',
+            message: 'تُنشئ الإدارة أفواجك وتظهر هنا',
             icon: ClayIcons.groups,
           );
         }
@@ -164,7 +164,7 @@ class TeacherGroupsScreen extends ConsumerWidget {
           itemBuilder: (context, i) {
             final g = items[i];
             return ClayListTile(
-              title: 'المجموعة ${g.number} · ${g.subjectName}',
+              title: 'الفوج ${g.number} · ${g.subjectName}',
               subtitle:
                   '${g.roomName ?? 'بلا قاعة'} · ${g.studentCount} تلميذ\n'
                   '${g.scheduleText}',
@@ -192,7 +192,7 @@ class TeacherGroupDetailsScreen extends ConsumerWidget {
     final item = ref.watch(groupItemProvider(groupId));
     return Scaffold(
       appBar: ClayAppBar(
-        title: item == null ? 'المجموعة' : 'المجموعة ${item.number}',
+        title: item == null ? 'الفوج' : 'الفوج ${item.number}',
         showBack: true,
       ),
       body: GroupGridView(

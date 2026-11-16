@@ -20,7 +20,7 @@ class GradesScreen extends ConsumerWidget {
     final assessments = ref.watch(assessmentsProvider(groupId));
     return Scaffold(
       appBar: ClayAppBar(
-        title: item == null ? 'النتائج' : 'نتائج المجموعة ${item.number}',
+        title: item == null ? 'النتائج' : 'نتائج الفوج ${item.number}',
         showBack: true,
       ),
       body: Column(
@@ -36,7 +36,7 @@ class GradesScreen extends ConsumerWidget {
                 if (items.isEmpty) {
                   return const ClayEmptyView(
                     title: 'لا نتائج بعد',
-                    message: 'أدخل نتائج اختبار لتلاميذ مجموعتك دفعة واحدة',
+                    message: 'أدخل نتائج اختبار لتلاميذ فوجك دفعة واحدة',
                     icon: ClayIcons.attendance,
                   );
                 }
@@ -207,7 +207,7 @@ class _AssessmentFormScreenState extends ConsumerState<AssessmentFormScreen> {
     final ok = await showClayConfirm(
       context,
       title: 'حذف الاختبار',
-      message: 'ستُحذف كل نتائج «${widget.title}» لهذه المجموعة.',
+      message: 'ستُحذف كل نتائج «${widget.title}» لهذا الفوج.',
       confirmLabel: 'حذف',
       danger: true,
     );
@@ -305,7 +305,7 @@ class _AssessmentFormScreenState extends ConsumerState<AssessmentFormScreen> {
               const SizedBox(height: ClaySpacing.sm),
               if (list.isEmpty)
                 const ClayEmptyView(
-                  title: 'لا تلاميذ في هذه المجموعة',
+                  title: 'لا تلاميذ في هذا الفوج',
                   icon: ClayIcons.students,
                 ),
               for (final e in list)

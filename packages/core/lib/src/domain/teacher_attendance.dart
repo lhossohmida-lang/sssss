@@ -47,7 +47,7 @@ class TeacherSessionRow {
   final int? checkIn;
   final int? checkOut;
 
-  String get groupLabel => 'المجموعة $groupNumber · $subjectName';
+  String get groupLabel => 'الفوج $groupNumber · $subjectName';
 }
 
 /// كشف شهر أستاذ.

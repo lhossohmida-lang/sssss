@@ -32,14 +32,13 @@ abstract final class SmsTemplateKeys {
         'غيّرها عند الدخول.',
     attendanceAbsent: '{school}: لم يحضر {name} حصة {subject} يوم {date}.',
     waitingThreshold: '{school}: وصل {name} إلى حد الانتظار في {subject}. سنخبركم عند توفر مكان.',
-    groupCreated:
-        '{school}: أُنشئت مجموعة {subject} لـ {name}. موعدها: {schedule}.',
+    groupCreated: '{school}: أُنشئ فوج {subject} لـ {name}. موعده: {schedule}.',
     cycleCompleted:
         '{school}: اكتملت دورة {subject} لـ {name}. المستحقات: {amount} دج.',
     scheduleChange: '{school}: تغيّر موعد {subject} لـ {name} إلى {date}، {time}، القاعة {room}.',
     requestApproved:
         '{school}: وافقت الإدارة على طلب الأستاذ بشأن {subject} '
-        '(المجموعة {group})؛ {summary}. التلاميذ: {name}.',
+        '(الفوج {group})؛ {summary}. التلاميذ: {name}.',
     requestRejected:
         '{school}: رُفض طلب الأستاذ {name}: {request}. '
         'ملاحظة الإدارة: {note}.',

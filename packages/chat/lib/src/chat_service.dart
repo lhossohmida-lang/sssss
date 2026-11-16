@@ -260,7 +260,7 @@ class ChatService {
     final target = await _account(targetAccountId);
     if (!await _canMessage(target)) {
       throw const ChatAccessException(
-        'لا توجد مجموعة نشطة مشتركة تتيح هذه المحادثة',
+        'لا يوجد فوج نشط مشترك يتيح هذه المحادثة',
       );
     }
     final roomId = StableId.chatPrivateRoom(principal.userId, targetAccountId);
@@ -327,13 +327,13 @@ class ChatService {
             ))
             .getSingleOrNull();
     if (group == null) {
-      throw const ChatAccessException('المجموعة غير موجودة أو مؤرشفة');
+      throw const ChatAccessException('الفوج غير موجود أو مؤرشف');
     }
     final isGroupTeacher =
         principal.role == UserRole.teacher &&
         principal.entityId == group.teacherId;
     if (!principal.canCreateAny && !isGroupTeacher) {
-      throw const ChatAccessException('إنشاء غرفة هذه المجموعة غير مسموح');
+      throw const ChatAccessException('إنشاء غرفة هذا الفوج غير مسموح');
     }
 
     final existing =
@@ -371,7 +371,7 @@ class ChatService {
           title: Value(
             title?.trim().isNotEmpty == true
                 ? title!.trim()
-                : '${subject?.name ?? 'المجموعة'} · ${group.number}',
+                : '${subject?.name ?? 'الفوج'} · ${group.number}',
           ),
           createdBy: principal.userId,
         ),
@@ -992,7 +992,7 @@ class ChatService {
         (principal.role == UserRole.teacher ||
             principal.role == UserRole.parent) &&
         !await _isActiveGroupParticipant(room)) {
-      throw const ChatAccessException('انتهت عضويتك في هذه المجموعة');
+      throw const ChatAccessException('انتهت عضويتك في هذا الفوج');
     }
   }
 
@@ -1005,7 +1005,7 @@ class ChatService {
         (principal.role == UserRole.teacher ||
             principal.role == UserRole.parent) &&
         !await _isActiveGroupParticipant(room)) {
-      throw const ChatAccessException('انتهت عضويتك في هذه المجموعة');
+      throw const ChatAccessException('انتهت عضويتك في هذا الفوج');
     }
     if (room.type == ChatRoomType.private.code &&
         (principal.role == UserRole.teacher ||
@@ -1023,7 +1023,7 @@ class ChatService {
       }
       final target = await _account(others.first.userId);
       if (!await _canMessage(target)) {
-        throw const ChatAccessException('لم تعد هناك مجموعة نشطة مشتركة');
+        throw const ChatAccessException('لم يعد هناك فوج نشط مشترك');
       }
     }
   }

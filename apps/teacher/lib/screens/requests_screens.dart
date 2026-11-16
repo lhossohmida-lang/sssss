@@ -54,7 +54,7 @@ class TeacherRequestsScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             row('الحالة', item.status.label),
-            row('المجموعة', item.groupLabel),
+            row('الفوج', item.groupLabel),
             if (item.sessionDate != null)
               row(
                 'الحصة',
@@ -297,8 +297,8 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
       appBar: const ClayAppBar(title: 'طلب جديد', showBack: true),
       body: groups.isEmpty
           ? const ClayEmptyView(
-              title: 'لا مجموعات لك',
-              message: 'لا طلب دون مجموعة',
+              title: 'لا أفواج لك',
+              message: 'لا طلب دون فوج',
               icon: ClayIcons.groups,
             )
           : ListView(
@@ -323,13 +323,13 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
                 ),
                 gap,
                 ClayDropdown<String>(
-                  label: 'المجموعة',
+                  label: 'الفوج',
                   value: groupId,
                   options: [
                     for (final g in groups)
                       ClayOption(
                         value: g.id,
-                        label: 'المجموعة ${g.number} · ${g.subjectName}',
+                        label: 'الفوج ${g.number} · ${g.subjectName}',
                       ),
                   ],
                   onChanged: (v) => _changed(() {

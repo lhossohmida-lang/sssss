@@ -3,6 +3,7 @@ library;
 
 export 'src/app/app_config.dart';
 export 'src/app/app_runtime.dart';
+export 'src/app/app_update.dart';
 export 'src/app/school_pairing.dart';
 export 'src/app_identity.dart';
 export 'src/auth/account_directory.dart';

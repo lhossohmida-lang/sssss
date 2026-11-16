@@ -81,20 +81,20 @@ Future<AppRuntime> openDetails(
     await mark(2, 's1', 'excused');
     await mark(0, 's2', 'present');
   });
-  await tester.tap(find.text('المجموعة 1 · رياضيات'));
+  await tester.tap(find.text('الفوج 1 · رياضيات'));
   await tester.pumpAndSettle();
   return runtime;
 }
 
 void main() {
-  appTest('التفاصيل: معلومات المجموعة والدورة وتقدّمها', (tester) async {
+  appTest('التفاصيل: معلومات الفوج والدورة وتقدّمها', (tester) async {
     tester.view.physicalSize = const Size(900, 1400);
     await openDetails(tester);
     expect(find.text('رياضيات'), findsWidgets);
     expect(find.textContaining('كمال · القاعة 1 · 2 تلميذ'), findsOneWidget);
     expect(find.text('الدورة 1 (الحالية)'), findsOneWidget);
     expect(find.text('انعقدت 0 من 8 حصة'), findsOneWidget);
-    expect(find.byTooltip('تعديل المجموعة'), findsOneWidget);
+    expect(find.byTooltip('تعديل الفوج'), findsOneWidget);
   });
 
   appTest('الشبكة: صفوف التلاميذ وخلاياهم بحالاتها', (tester) async {
@@ -118,10 +118,10 @@ void main() {
     semantics.dispose();
   });
 
-  appTest('مجموعة بلا تلاميذ: رسالة فارغة', (tester) async {
+  appTest('فوج بلا تلاميذ: رسالة فارغة', (tester) async {
     tester.view.physicalSize = const Size(900, 1400);
     await openDetails(tester, withStudents: false);
-    expect(find.text('لا تلاميذ في هذه المجموعة'), findsOneWidget);
+    expect(find.text('لا تلاميذ في هذا الفوج'), findsOneWidget);
   });
 
   appTest('الدورة الأولى لا سابقة لها ولا لاحقة', (tester) async {
@@ -161,18 +161,18 @@ void main() {
     expect(find.text('الدورة 2 (الحالية)'), findsOneWidget);
   });
 
-  appTest('زر التعديل يفتح نموذج المجموعة', (tester) async {
+  appTest('زر التعديل يفتح نموذج الفوج', (tester) async {
     tester.view.physicalSize = const Size(900, 1400);
     await openDetails(tester);
-    await tester.tap(find.byTooltip('تعديل المجموعة'));
+    await tester.tap(find.byTooltip('تعديل الفوج'));
     await tester.pumpAndSettle();
-    expect(find.text('تعديل المجموعة'), findsOneWidget);
+    expect(find.text('تعديل الفوج'), findsOneWidget);
   });
 
   appTest('صلاحية العرض فقط: الشبكة ظاهرة بلا زر تعديل', (tester) async {
     tester.view.physicalSize = const Size(900, 1400);
     await openDetails(tester, account: viewer);
     expect(find.text('سمير بن علي'), findsOneWidget);
-    expect(find.byTooltip('تعديل المجموعة'), findsNothing);
+    expect(find.byTooltip('تعديل الفوج'), findsNothing);
   });
 }

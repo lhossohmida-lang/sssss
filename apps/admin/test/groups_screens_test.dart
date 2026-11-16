@@ -98,8 +98,8 @@ Future<AppRuntime> openGroups(
     });
   });
   // من لا يملك صلاحية المجموعات لا يرى تبويبها.
-  if (find.text('المجموعات').evaluate().isNotEmpty) {
-    await tester.tap(find.text('المجموعات').last);
+  if (find.text('الأفواج').evaluate().isNotEmpty) {
+    await tester.tap(find.text('الأفواج').last);
     await tester.pumpAndSettle();
   }
   return runtime;
@@ -120,7 +120,7 @@ Future<void> pick(WidgetTester tester, String label, String option) async {
 }
 
 Future<void> openForm(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(ClayButton, 'إنشاء مجموعة'));
+  await tester.tap(find.widgetWithText(ClayButton, 'إنشاء فوج'));
   await tester.pumpAndSettle();
   tester.view.physicalSize = const Size(420, 3200);
   await tester.pumpAndSettle();
@@ -133,20 +133,18 @@ Future<void> fillBasics(WidgetTester tester) async {
 }
 
 Future<void> submit(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(ClayButton, 'إنشاء المجموعة'));
+  await tester.tap(find.widgetWithText(ClayButton, 'إنشاء الفوج'));
   await tester.pumpAndSettle();
 }
 
 void main() {
   appTest('قائمة فارغة برسالة وزر إنشاء', (tester) async {
     await openGroups(tester);
-    expect(find.text('لا توجد مجموعات بعد'), findsOneWidget);
-    expect(find.widgetWithText(ClayButton, 'إنشاء مجموعة'), findsOneWidget);
+    expect(find.text('لا توجد أفواج بعد'), findsOneWidget);
+    expect(find.widgetWithText(ClayButton, 'إنشاء فوج'), findsOneWidget);
   });
 
-  appTest('إنشاء مجموعة: تظهر في القائمة بجدولها وتُولَّد حصصها', (
-    tester,
-  ) async {
+  appTest('إنشاء فوج: تظهر في القائمة بجدولها وتُولَّد حصصها', (tester) async {
     final runtime = await openGroups(tester);
     await openForm(tester);
     await fillBasics(tester);
@@ -171,7 +169,7 @@ void main() {
     await pick(tester, 'اليوم', 'الثلاثاء');
     await submit(tester);
 
-    expect(find.text('المجموعة 1 · رياضيات'), findsOneWidget);
+    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
     expect(find.textContaining('كمال · القاعة 1 · 0 تلميذ'), findsOneWidget);
     expect(find.textContaining('الثلاثاء 10:00–11:30'), findsOneWidget);
     final sessions = await runDb(
@@ -187,7 +185,7 @@ void main() {
     await submit(tester);
     expect(find.text('اختر المادة'), findsWidgets);
     expect(find.text('اختر الأستاذ'), findsOneWidget);
-    expect(find.text('إنشاء مجموعة'), findsWidgets);
+    expect(find.text('إنشاء فوج'), findsWidgets);
   });
 
   appTest('الأستاذ لا يظهر إلا بعد اختيار المادة، ومن يدرّسها فقط', (
@@ -246,7 +244,7 @@ void main() {
     expect(find.textContaining('القاعة محجوزة'), findsNothing);
 
     await submit(tester);
-    expect(find.text('المجموعة 2 · رياضيات'), findsOneWidget);
+    expect(find.text('الفوج 2 · رياضيات'), findsOneWidget);
   });
 
   appTest('خانة غير صالحة تُرفض برسالة', (tester) async {
@@ -260,7 +258,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('تتداخل مع خانة 1'), findsOneWidget);
     await submit(tester);
-    expect(find.text('إنشاء مجموعة'), findsWidgets);
+    expect(find.text('إنشاء فوج'), findsWidgets);
     expect(find.textContaining('تتداخل مع خانة 1'), findsOneWidget);
     // حذف الخانة الثانية يزيل الخطأ.
     await tester.tap(find.byTooltip('حذف الخانة 2'));
@@ -285,7 +283,7 @@ void main() {
     expect(find.text('إلى 15:30'), findsOneWidget);
   });
 
-  appTest('تعديل مجموعة: الأستاذ والجدول، والمادة وعدد الحصص مقفلان', (
+  appTest('تعديل فوج: الأستاذ والجدول، والمادة وعدد الحصص مقفلان', (
     tester,
   ) async {
     final runtime = await openGroups(tester);
@@ -305,11 +303,11 @@ void main() {
         startDate: '2026-11-07',
       );
     });
-    await tester.tap(find.byTooltip('تعديل المجموعة 1'));
+    await tester.tap(find.byTooltip('تعديل الفوج 1'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(420, 3200);
     await tester.pumpAndSettle();
-    expect(find.text('تعديل المجموعة'), findsOneWidget);
+    expect(find.text('تعديل الفوج'), findsOneWidget);
     expect(
       find.text('لا يتغير بعد الإنشاء لأنه أساس المستحقات'),
       findsOneWidget,
@@ -343,16 +341,16 @@ void main() {
         startDate: '2026-11-07',
       );
     });
-    await tester.tap(find.byTooltip('أرشفة المجموعة 1'));
+    await tester.tap(find.byTooltip('أرشفة الفوج 1'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'أرشفة'));
     await tester.pumpAndSettle();
-    expect(find.text('لا توجد مجموعات بعد'), findsOneWidget);
+    expect(find.text('لا توجد أفواج بعد'), findsOneWidget);
   });
 
   appTest('صلاحية العرض فقط: بلا إنشاء ولا أرشفة', (tester) async {
     final runtime = await openGroups(tester, account: viewer);
-    expect(find.widgetWithText(ClayButton, 'إنشاء مجموعة'), findsNothing);
+    expect(find.widgetWithText(ClayButton, 'إنشاء فوج'), findsNothing);
     await runDb(tester, () async {
       await GroupService(
         runtime.db,
@@ -368,8 +366,8 @@ void main() {
         startDate: '2026-11-07',
       );
     });
-    expect(find.text('المجموعة 1 · رياضيات'), findsOneWidget);
-    expect(find.byTooltip('أرشفة المجموعة 1'), findsNothing);
-    expect(find.byTooltip('تعديل المجموعة 1'), findsNothing);
+    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+    expect(find.byTooltip('أرشفة الفوج 1'), findsNothing);
+    expect(find.byTooltip('تعديل الفوج 1'), findsNothing);
   });
 }

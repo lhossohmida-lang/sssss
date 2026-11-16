@@ -45,7 +45,7 @@ class GroupFilesScreen extends ConsumerWidget {
     final ok = await showClayConfirm(
       context,
       title: 'حذف الملف',
-      message: 'سيُحذف «${item.title}» من المجموعة ولن يراه التلاميذ.',
+      message: 'سيُحذف «${item.title}» من الفوج ولن يراه التلاميذ.',
       confirmLabel: 'حذف',
       danger: true,
     );
@@ -61,7 +61,7 @@ class GroupFilesScreen extends ConsumerWidget {
     final files = ref.watch(groupFilesProvider(groupId));
     return Scaffold(
       appBar: ClayAppBar(
-        title: group == null ? 'الملفات' : 'ملفات المجموعة ${group.number}',
+        title: group == null ? 'الملفات' : 'ملفات الفوج ${group.number}',
         showBack: true,
       ),
       body: Column(
@@ -77,7 +77,7 @@ class GroupFilesScreen extends ConsumerWidget {
                 if (items.isEmpty) {
                   return const ClayEmptyView(
                     title: 'لا ملفات بعد',
-                    message: 'ارفع دروساً أو تمارين PDF لتلاميذ مجموعتك',
+                    message: 'ارفع دروساً أو تمارين PDF لتلاميذ فوجك',
                     icon: ClayIcons.files,
                   );
                 }
