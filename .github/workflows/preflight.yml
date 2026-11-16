@@ -141,8 +141,7 @@ jobs:
             echo "::error title=preflight-signing::أسرار ناقصة:$missing"
             exit 1
           fi
-          printf '%s' "$SCHOOL_KEYSTORE_BASE64" | tr -d ' 
-' | base64 -d > "$RUNNER_TEMP/release.jks" 2>/dev/null
+          printf '%s' "$SCHOOL_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/release.jks" 2>/dev/null
           if [ ! -s "$RUNNER_TEMP/release.jks" ]; then
             echo "::error title=preflight-signing::SCHOOL_KEYSTORE_BASE64 ليست base64 صالحة"
             exit 1
