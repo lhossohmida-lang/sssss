@@ -238,6 +238,8 @@ SCHOOL_ITEMS: list[Item] = [
     Item("LLM_MODEL", False, False, None, repo_default_ok=True),
     Item("LLM_BASE_URL", False, False, check_https_url, repo_default_ok=True),
     Item("GOOGLE_DRIVE_OWNER_EMAIL", False, False, check_email),
+    # كلمة سر حسابات الدخول التجريبية لأساتذة العرض وأوليائه (مدرسة demo فقط، اختيارية).
+    Item("DEMO_ACCOUNTS_PASSWORD", False, True, check_owner_password),
 ]
 
 # أسرار المطوّر المشتركة بين المدارس (على مستوى المستودع).

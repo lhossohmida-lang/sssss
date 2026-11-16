@@ -136,6 +136,41 @@ class SchoolMode(unittest.TestCase):
         self.assertEqual(len(report.warnings), 1)
 
 
+class DemoAccountsPassword(unittest.TestCase):
+    def test_it_is_optional_in_a_school(self):
+        secrets, variables = good_school()
+        report = preflight.evaluate("school", secrets, variables)
+        self.assertEqual(report.errors, [])
+        self.assertIn(("DEMO_ACCOUNTS_PASSWORD", "not-set"), report.rows)
+
+    def test_a_good_value_is_accepted(self):
+        secrets, variables = good_school()
+        secrets["DEMO_ACCOUNTS_PASSWORD"] = "Demo-Sentinel-Pass-1"
+        report = preflight.evaluate("school", secrets, variables)
+        self.assertEqual(report.errors, [])
+        self.assertIn(("DEMO_ACCOUNTS_PASSWORD", "ok"), report.rows)
+
+    def test_short_or_padded_values_are_errors(self):
+        for bad in ("short", "Demo-Sentinel-Pass-1\n"):
+            secrets, variables = good_school()
+            secrets["DEMO_ACCOUNTS_PASSWORD"] = bad
+            errors = preflight.evaluate("school", secrets, variables).errors
+            self.assertEqual(len(errors), 1, bad)
+            self.assertTrue(errors[0].startswith("DEMO_ACCOUNTS_PASSWORD"))
+
+    def test_it_must_be_a_secret_not_a_variable(self):
+        secrets, variables = good_school()
+        variables["DEMO_ACCOUNTS_PASSWORD"] = "Demo-Sentinel-Pass-1"
+        errors = preflight.evaluate("school", secrets, variables).errors
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Variables", errors[0])
+
+    def test_at_repo_level_it_is_a_misplaced_school_value(self):
+        errors = preflight.evaluate("repo", {"DEMO_ACCOUNTS_PASSWORD": "Demo-Sentinel-Pass-1"}, {}).errors
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Environment", errors[0])
+
+
 class RepoMode(unittest.TestCase):
     def test_developer_names_are_optional_until_they_exist(self):
         report = preflight.evaluate("repo", {}, {})

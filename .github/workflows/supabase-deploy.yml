@@ -22,6 +22,10 @@ on:
         description: اسم المدرسة (اسم الـEnvironment)
         required: true
         default: demo
+      reseed:
+        description: أعد كتابة بيانات العرض الوهمية (مدرسة demo فقط)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -159,14 +163,21 @@ jobs:
       # مدرسة العرض فقط: رمز ربط الأجهزة بها (عنوان الخادم والمفتاح العام والاسم، ولا سرّ فيه) ليُلصق في
       # التطبيق العام عند أول تشغيل. بياناتها وهمية فلا ضرر من ظهوره في التعليقات العلنية؛ ولا يُطبع
       # لمدرسة عميل حقيقية (يبقى عنوان خادمها لها): انظر tool/pairing_code.py.
+      # تنبيه: GitHub يخفي ما يطابق قيمة سرّ، حتى بترميز base64، فإن كان المفتاح العام محفوظاً في Secrets
+      # خرج الرمز مشوّهاً (***). لذلك لا يُطبع إلا حين يكون في Variables (وهو عام بطبيعته).
       - name: Print the demo pairing code
         if: ${{ (inputs.school || 'demo') == 'demo' }}
         shell: bash
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          KEY_IS_SECRET: ${{ secrets.SUPABASE_ANON_KEY != '' }}
         run: |
           set -e
+          if [ "$KEY_IS_SECRET" = "true" ]; then
+            echo "::notice title=supabase-pairing::المفتاح العام محفوظ في Secrets فيخفي GitHub جزءاً من الرمز. انقله إلى Variables في Environment demo (هو عام بطبيعته) ثم أعد النشر، أو ولّد الرمز على حاسوبك بـ tool/pairing_code.py"
+            exit 0
+          fi
           code="$(python3 tool/pairing_code.py --url "$SUPABASE_URL" --key "$SUPABASE_ANON_KEY" --name "مدرسة العرض")"
           echo "::notice title=supabase-pairing::$code"
           {
@@ -205,3 +216,20 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
         run: python3 tool/supabase_bootstrap.py temp-owner-delete
+
+      # مدرسة العرض فقط، وآخر خطوة (بعد الفحوص): بيانات وهمية واقعية (تلاميذ وأساتذة ومجموعات وحصص وحضور
+      # ودفعات) تُزرع مرة واحدة بالمفتاح السرّي، ويرفض الزرع إن وُجد تلاميذ حقيقيون. حسابات دخول أساتذة العرض
+      # وأوليائه لا تُنشأ إلا إن وُضع سرّ DEMO_ACCOUNTS_PASSWORD في Environment (وإلا تُنشأ من تطبيق الإدارة).
+      - name: Seed the demo data (once)
+        if: ${{ (inputs.school || 'demo') == 'demo' }}
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          DEMO_ACCOUNTS_PASSWORD: ${{ secrets.DEMO_ACCOUNTS_PASSWORD }}
+          RESEED: ${{ inputs.reseed }}
+        run: |
+          flag=""
+          if [ "$RESEED" = "true" ]; then flag="--force"; fi
+          python3 tool/demo_seed.py seed $flag
