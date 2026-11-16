@@ -38,9 +38,13 @@ function base64url(input: Uint8Array | string): string {
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
-function pemToDer(pem: string): Uint8Array {
+function pemToDer(pem: string) {
   const body = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, "").replace(/\s+/g, "");
-  return Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+  const binary = atob(body);
+  // مصفوفة فوق ArrayBuffer عادي (لا SharedArrayBuffer) فيقبلها importKey في تعريفات TypeScript الحديثة.
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 let cached: { token: string; expiresAt: number } | undefined;
