@@ -259,14 +259,19 @@ class Suite:
                 }
             ],
         }
-        status, payload = self.call(
-            "POST", "/functions/v1/assistant", self.user(self.owner), body, timeout=90
-        )
-        code = payload.get("error") if isinstance(payload, dict) else None
+        for attempt in range(2):
+            status, payload = self.call(
+                "POST", "/functions/v1/assistant", self.user(self.owner), body, timeout=90
+            )
+            code = payload.get("error") if isinstance(payload, dict) else None
+            if status == 503 and code == "assistant_not_configured" and attempt == 0:
+                time.sleep(15)  # أسرار الدالة الجديدة تصل إلى العمليات بعد لحظات من ضبطها
+                continue
+            break
         if status == 503 and code == "assistant_not_configured":
-            raise Skip("لا مفتاح نموذج في هذه المدرسة بعد")
+            raise Skip("لا مفتاح نموذج في هذه المدرسة بعد (أو لم تصل الأسرار إلى الدالة)")
         if status in (429, 504):
-            raise Skip(f"النموذج مشغول أو بطيء الآن ({code})")
+            raise Skip(f"النموذج مشغول أو بطيء الآن ({status} {code})")
         assert status == 200 and isinstance(payload, dict), f"الدالة أعادت {status} {code or sb.reason(payload)}"
         assert payload.get("content") or payload.get("toolCalls"), "رد النموذج فارغ"
 
@@ -330,6 +335,9 @@ def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
     failed = [(n, d) for n, s, d in probe.results if s == "fail"]
     states = " ".join(f"{n}={s}" for n, s, _ in probe.results)
     print(f"::notice title=server-check::{sb.escape(states)}")
+    skipped = [(n, d) for n, s, d in probe.results if s == "skip"]
+    if skipped:
+        print(f"::notice title=server-check::{sb.escape('تخطّي: ' + '; '.join(f'{n}: {d}' for n, d in skipped))}")
     if failed:
         print(f"::error title=server-check::{sb.escape('; '.join(f'{n}: {d}' for n, d in failed))}")
         return 1
