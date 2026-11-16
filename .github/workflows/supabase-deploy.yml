@@ -11,6 +11,7 @@ on:
       - .github/workflows/supabase-deploy.yml
       - tool/supabase_bootstrap.py
       - tool/ci_error.py
+      - tool/server_check.py
       - supabase/config.toml
       - supabase/migrations/**
       - supabase/functions/**
@@ -132,3 +133,16 @@ jobs:
           OWNER_PHONE: ${{ vars.OWNER_PHONE || secrets.OWNER_PHONE }}
           OWNER_INITIAL_PASSWORD: ${{ secrets.OWNER_INITIAL_PASSWORD }}
         run: python3 tool/supabase_bootstrap.py bootstrap
+
+      # مدرسة العرض فقط: فحوص تنشئ حساب أستاذ وصفوفاً مؤقتة وتحذفها، فلا تُشغَّل على مدرسة
+      # عميل حقيقية.
+      - name: Check the server contract (RLS, sync, functions, storage)
+        if: ${{ (inputs.school || 'demo') == 'demo' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          OWNER_PHONE: ${{ vars.OWNER_PHONE || secrets.OWNER_PHONE }}
+          OWNER_INITIAL_PASSWORD: ${{ secrets.OWNER_INITIAL_PASSWORD }}
+        run: python3 tool/server_check.py

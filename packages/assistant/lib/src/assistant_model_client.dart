@@ -65,6 +65,8 @@ class SupabaseAssistantModelClient implements AssistantModelClient {
       rethrow;
     } on FormatException {
       rethrow;
+    } on FunctionException catch (error) {
+      throw AssistantUnavailableException(_unavailableMessage(error.status));
     } on Object {
       throw const AssistantUnavailableException();
     }
@@ -94,6 +96,14 @@ class SupabaseAssistantModelClient implements AssistantModelClient {
     );
   }
 }
+
+/// رسالة تناسب رمز رد الدالة: حدّ طلبات المزوّد، ومهلة النموذج، وإعداد ناقص.
+String _unavailableMessage(int status) => switch (status) {
+  429 => 'تجاوز المساعد حدّ الطلبات المسموح به مؤقتاً. حاول بعد دقيقة.',
+  504 => 'تأخّر النموذج في الرد. حاول مرة أخرى.',
+  503 => 'المساعد غير مهيّأ في هذه المدرسة بعد.',
+  _ => 'المساعد غير متاح الآن. حاول لاحقاً.',
+};
 
 AssistantFunctionInvoker _supabaseInvoker(SupabaseClient client) =>
     (String functionName, Map<String, Object?> body) async =>

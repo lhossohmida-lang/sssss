@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_assistant/school_assistant.dart';
 import 'package:school_core/school_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 
 void main() {
   test(
@@ -62,6 +63,32 @@ void main() {
       throwsA(isA<AssistantUnavailableException>()),
     );
   });
+
+  test(
+    'explains rate limits, timeouts and an unconfigured assistant',
+    () async {
+      Future<String> messageFor(int status) async {
+        final client = SupabaseAssistantModelClient.withInvoker((_, _) async {
+          throw FunctionException(status: status);
+        });
+        try {
+          await client.complete(
+            role: UserRole.parent,
+            messages: const [AssistantMessage(role: 'user', content: 'مرحبا')],
+            tools: const [],
+          );
+        } on AssistantUnavailableException catch (error) {
+          return error.message;
+        }
+        fail('لم يُرمَ استثناء');
+      }
+
+      expect(await messageFor(429), contains('حدّ الطلبات'));
+      expect(await messageFor(503), contains('غير مهيّأ'));
+      expect(await messageFor(504), contains('تأخّر'));
+      expect(await messageFor(502), contains('غير متاح'));
+    },
+  );
 
   test('rejects malformed tool arguments', () async {
     final client = SupabaseAssistantModelClient.withInvoker((_, _) async {
