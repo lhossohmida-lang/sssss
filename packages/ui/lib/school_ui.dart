@@ -29,6 +29,7 @@ export 'src/shell/file_picking.dart';
 export 'src/shell/group_file_viewer.dart';
 export 'src/shell/keyboard_wedge.dart';
 export 'src/shell/list_page.dart';
+export 'src/shell/mobile_scanner_source.dart';
 export 'src/shell/notifications_screen.dart';
 export 'src/shell/pairing_screens.dart';
 export 'src/shell/pdf_viewer.dart';

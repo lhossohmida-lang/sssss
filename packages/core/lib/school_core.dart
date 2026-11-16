@@ -40,6 +40,7 @@ export 'src/domain/cycle_service.dart';
 export 'src/domain/dashboard_queries.dart';
 export 'src/domain/database_backup_service.dart';
 export 'src/domain/date_key.dart';
+export 'src/domain/device_preferences.dart';
 export 'src/domain/drive_queue_service.dart';
 export 'src/domain/dues_report.dart';
 export 'src/domain/dues_service.dart';

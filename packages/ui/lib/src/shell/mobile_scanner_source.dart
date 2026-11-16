@@ -2,7 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:school_ui/school_ui.dart';
+
+import '../clay/clay_display.dart';
+import '../clay/clay_icons.dart';
+import 'qr_scanning.dart';
 
 /// مسح رموز QR بكاميرا الهاتف الخلفية (Android). الكاميرا تبقى شغّالة طوال
 /// فتح الشاشة، فلا يُنتظر تشغيلها عند كل مسح.
@@ -44,5 +47,5 @@ class MobileScannerSource implements QrCodeSource {
   Future<void> dispose() => _controller.dispose();
 }
 
-/// هل يُفعَّل مسح الكاميرا على هذا النظام؟ (Android فقط.)
+/// هل يُفعَّل مسح الكاميرا على هذا النظام؟ (Android فقط؛ على Windows قارئ USB.)
 bool get cameraScanningSupported => Platform.isAndroid;

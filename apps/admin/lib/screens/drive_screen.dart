@@ -17,6 +17,12 @@ import 'package:school_ui/school_ui.dart';
 const String _driveScope = 'https://www.googleapis.com/auth/drive.file';
 const List<String> _driveScopes = [_driveScope];
 
+/// بريد المالك الافتراضي من وقت البناء (بناء خاص بمدرسة). الإصدار العام يتركه فارغاً فيضبطه المالك
+/// على جهازه، فلا يُضمَّن بريد شخصي في ملف APK علني.
+const String _buildOwnerEmail = String.fromEnvironment(
+  'GOOGLE_DRIVE_OWNER_EMAIL',
+);
+
 /// هوية حساب Drive الذي صودق به على الجهاز.
 class DriveAccount {
   const DriveAccount({
@@ -35,6 +41,12 @@ abstract interface class DriveController {
   bool get isConfigured;
   bool get canCreateBackup;
   String get configurationMessage;
+
+  /// بريد حساب Google المالك المعتمد لربط Drive على هذا الجهاز (فارغ إن لم يُضبط).
+  String get ownerEmail;
+
+  /// يحفظ بريد المالك لهذا الجهاز (لا يُزامَن)؛ يرمي [FormatException] إن لم يكن صالحاً.
+  Future<void> setOwnerEmail(String email);
   Stream<DriveAccount?> get accountChanges;
   Stream<List<UploadQueueRow>> get queueChanges;
   Stream<String?> get backupStatusChanges;
@@ -101,8 +113,7 @@ class _DriveBackupLifecycleState extends ConsumerState<DriveBackupLifecycle> {
 /// يُكتب في قاعدة التطبيق أو في سجل العمليات.
 class GoogleDriveController implements DriveController {
   GoogleDriveController(this.runtime)
-    : _ownerEmail = const String.fromEnvironment('GOOGLE_DRIVE_OWNER_EMAIL'),
-      _windowsClientId = const String.fromEnvironment(
+    : _windowsClientId = const String.fromEnvironment(
         'GOOGLE_DRIVE_WINDOWS_CLIENT_ID',
       ),
       _windowsClientSecret = const String.fromEnvironment(
@@ -111,6 +122,7 @@ class GoogleDriveController implements DriveController {
       _serverClientId = const String.fromEnvironment(
         'GOOGLE_SERVER_CLIENT_ID',
       ) {
+    _preferences = DevicePreferences(runtime.db);
     final staging = Directory(
       '${runtime.photosDirectory.parent.path}${Platform.pathSeparator}drive_uploads',
     );
@@ -131,7 +143,10 @@ class GoogleDriveController implements DriveController {
   }
 
   final AppRuntime runtime;
-  final String _ownerEmail;
+
+  /// بريد المالك المعتمد: ما ضبطه المالك على هذا الجهاز، وإلا الافتراضي من وقت البناء.
+  String _ownerEmail = _buildOwnerEmail;
+  late final DevicePreferences _preferences;
   final String _windowsClientId;
   final String _windowsClientSecret;
 
@@ -154,7 +169,9 @@ class GoogleDriveController implements DriveController {
   DriveAccount? _account;
   Future<void>? _initializing;
   Future<int>? _uploading;
+  Future<void>? _googleInit;
   bool _initialized = false;
+  bool _googleReady = false;
   bool _closed = false;
   bool _creatingBackup = false;
   String? _backupStatus;
@@ -173,7 +190,7 @@ class GoogleDriveController implements DriveController {
   @override
   String get configurationMessage {
     if (_ownerEmail.trim().isEmpty) {
-      return 'يُضبط بريد حساب Google المالك عند تجهيز مفاتيح المرحلة الأخيرة.';
+      return 'أدخل بريد حساب Google المالك (زر «ضبط البريد») لتفعيل الربط.';
     }
     if (Platform.isWindows &&
         (_windowsClientId.trim().isEmpty ||
@@ -184,6 +201,18 @@ class GoogleDriveController implements DriveController {
       return 'Google Drive متاح في تطبيق الإدارة على Android وWindows.';
     }
     return 'أضف إعداد OAuth الخاص بتطبيق Android إلى بناء الإدارة.';
+  }
+
+  @override
+  String get ownerEmail => _ownerEmail;
+
+  @override
+  Future<void> setOwnerEmail(String email) async {
+    final saved = await _preferences.saveDriveOwnerEmail(email);
+    _ownerEmail = saved ?? _buildOwnerEmail;
+    // أهلية الحساب المتصل تتبع البريد الجديد، ثم يُهيَّأ الربط إن صار ممكناً.
+    if (_googleAccount != null) _setAccount(_googleAccount);
+    await _ensureGoogle();
   }
 
   @override
@@ -208,15 +237,28 @@ class GoogleDriveController implements DriveController {
 
   Future<void> _initialize() async {
     if (_initialized) return;
+    _ownerEmail = await _preferences.driveOwnerEmail() ?? _buildOwnerEmail;
     await _maybeCreateDailyBackup();
     _dailyBackupTimer ??= Timer.periodic(
       const Duration(hours: 1),
       (_) => unawaited(_maybeCreateDailyBackup()),
     );
-    if (!isConfigured) {
-      _initialized = true;
-      return;
+    _initialized = true;
+    await _ensureGoogle();
+  }
+
+  /// يهيّئ Google Sign-In مرة واحدة حين يصير الربط ممكناً (بعد ضبط بريد المالك على الأقل).
+  Future<void> _ensureGoogle() async {
+    if (_googleReady || !isConfigured) return;
+    try {
+      await (_googleInit ??= _initializeGoogle());
+    } on Object {
+      _googleInit = null;
+      rethrow;
     }
+  }
+
+  Future<void> _initializeGoogle() async {
     final google = GoogleSignIn.instance;
     if (Platform.isWindows) {
       final platform = GoogleSignInPlatform.instance;
@@ -225,7 +267,10 @@ class GoogleDriveController implements DriveController {
       }
       platform
         ..clientSecret = _windowsClientSecret
-        ..tokenDataStore = _SecureDriveTokenStore(_secureStorage);
+        ..tokenDataStore = _SecureDriveTokenStore(
+          _secureStorage,
+          runtime.config.schoolKey,
+        );
     }
     await google.initialize(
       clientId: Platform.isWindows ? _windowsClientId : null,
@@ -247,7 +292,7 @@ class GoogleDriveController implements DriveController {
         }
       },
     );
-    _initialized = true;
+    _googleReady = true;
     final lightweight = google.attemptLightweightAuthentication();
     if (lightweight != null) {
       final account = await lightweight;
@@ -259,6 +304,7 @@ class GoogleDriveController implements DriveController {
   Future<void> signIn() async {
     if (!isConfigured) throw StateError(configurationMessage);
     await initialize();
+    await _ensureGoogle();
     if (_account case final current? when !current.isOwner) {
       await GoogleSignIn.instance.signOut();
     }
@@ -278,7 +324,7 @@ class GoogleDriveController implements DriveController {
   Future<void> signOut() async {
     _uploadTimer?.cancel();
     _uploadTimer = null;
-    if (_initialized) await GoogleSignIn.instance.signOut();
+    if (_googleReady) await GoogleSignIn.instance.signOut();
     _setAccount(null);
   }
 
@@ -509,10 +555,14 @@ class GoogleDriveController implements DriveController {
 
 class _SecureDriveTokenStore
     implements GoogleSignInDesktopStore<GoogleSignInDesktopTokenData> {
-  _SecureDriveTokenStore(this.storage);
+  _SecureDriveTokenStore(this.storage, String school)
+    : _key = school.isEmpty ? _baseKey : '${_baseKey}_$school';
 
   final FlutterSecureStorage storage;
-  static const String _key = 'google_drive_desktop_tokens';
+  static const String _baseKey = 'google_drive_desktop_tokens';
+
+  /// رموز كل مدرسة بمفتاح خاص بها، فلا يستعمل جهازٌ بُدّل ربطُه رموزَ مدرسة سابقة.
+  final String _key;
 
   @override
   Future<GoogleSignInDesktopTokenData?> get() async {
@@ -579,8 +629,20 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
     }
   }
 
-  String _userMessage(Object error) =>
-      error is StateError ? error.message.toString() : 'تعذّرت العملية: $error';
+  String _userMessage(Object error) => switch (error) {
+    StateError() => error.message.toString(),
+    FormatException() => error.message,
+    _ => 'تعذّرت العملية: $error',
+  };
+
+  Future<void> _editOwnerEmail() async {
+    final entered = await showDialog<String>(
+      context: context,
+      builder: (context) => _OwnerEmailDialog(initial: _controller.ownerEmail),
+    );
+    if (entered == null || !mounted) return;
+    await _run(() => _controller.setOwnerEmail(entered));
+  }
 
   Future<void> _pickFiles() async {
     final files = await FilePicker.pickFiles();
@@ -711,6 +773,27 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
                           ? 'حساب المالك: ${current.email}'
                           : 'الحساب غير مخوّل: ${current.email}',
                       style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _controller.ownerEmail.isEmpty
+                                ? 'بريد المالك غير مضبوط'
+                                : 'بريد المالك المعتمد: ${_controller.ownerEmail}',
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _busy ? null : _editOwnerEmail,
+                          icon: const Icon(Icons.edit_rounded),
+                          label: Text(
+                            _controller.ownerEmail.isEmpty
+                                ? 'ضبط البريد'
+                                : 'تغيير البريد',
+                          ),
+                        ),
+                      ],
                     ),
                     if (!_controller.isConfigured) ...[
                       const SizedBox(height: 8),
@@ -939,4 +1022,69 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
           ? 'بانتظار الاتصال'
           : 'إعادة المحاولة ${row.attempts} — ${row.lastError ?? ''}',
   };
+}
+
+/// نافذة ضبط بريد حساب Google المالك (يُتحقق منه هنا قبل الحفظ).
+class _OwnerEmailDialog extends StatefulWidget {
+  const _OwnerEmailDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_OwnerEmailDialog> createState() => _OwnerEmailDialogState();
+}
+
+class _OwnerEmailDialogState extends State<_OwnerEmailDialog> {
+  late final TextEditingController _text = TextEditingController(
+    text: widget.initial,
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    try {
+      Navigator.pop(context, GoogleAccountEmail.normalize(_text.text) ?? '');
+    } on FormatException catch (error) {
+      setState(() => _error = error.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('بريد حساب Google المالك'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'الحساب الذي تُحفظ فيه نسخ المدرسة الاحتياطية. يبقى على هذا الجهاز '
+          'ولا يراه المعلمون ولا الأولياء.',
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _text,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          textDirection: TextDirection.ltr,
+          decoration: InputDecoration(
+            labelText: 'البريد الإلكتروني',
+            errorText: _error,
+          ),
+          onSubmitted: (_) => _save(),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('إلغاء'),
+      ),
+      FilledButton(onPressed: _save, child: const Text('حفظ')),
+    ],
+  );
 }

@@ -11,6 +11,8 @@ Future<void> main() async {
       app: AppIdentity.teacher,
       tabs: teacherTabs,
       pages: teacherPages,
+      // مسح رمز ربط المدرسة بكاميرا الهاتف (Android).
+      cameraFactory: cameraScanningSupported ? MobileScannerSource.new : null,
     ),
   );
 }

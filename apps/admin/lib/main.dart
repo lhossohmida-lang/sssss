@@ -3,7 +3,6 @@ import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
 import 'admin_tabs.dart';
-import 'mobile_scanner_source.dart';
 import 'screens/drive_screen.dart';
 
 Future<void> main() async {

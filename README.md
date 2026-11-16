@@ -130,20 +130,36 @@ supabase functions deploy assistant
 
 | المتغير | الاستعمال |
 | --- | --- |
-| `GOOGLE_DRIVE_OWNER_EMAIL` | بريد صاحب المدرسة المسموح له بالربط |
+| `GOOGLE_DRIVE_OWNER_EMAIL` (اختياري) | بريد افتراضي لبناء خاص بمدرسة فقط؛ في النسخة العامة يضبطه المالك على جهازه |
 | `GOOGLE_DRIVE_WINDOWS_CLIENT_ID` و`GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET` | عميل OAuth لنسخة Windows (تدفق desktop PKCE) |
 
 يحتاج Android عميل OAuth من نوع Android في Google Cloud بصمةُ SHA-1 لمفتاح توقيع
 التطبيق (المهمة 8.4). في CI تُحفظ الأسرار في **Settings ← Secrets and variables ←
-Actions**: `GOOGLE_DESKTOP_CLIENT_SECRET` سرّ، و`GOOGLE_DRIVE_OWNER_EMAIL` و
-`GOOGLE_DRIVE_WINDOWS_CLIENT_ID` متغيّران.
+Actions**: `GOOGLE_DESKTOP_CLIENT_SECRET` سرّ، و`GOOGLE_DRIVE_WINDOWS_CLIENT_ID` و
+`GOOGLE_SERVER_CLIENT_ID` (عميل Web) متغيّران عامّان.
+
+بريد المالك لا يُضمَّن في الملف العلني: يضبطه صاحب المدرسة من شاشة Drive (زر «ضبط البريد») على كل
+جهاز، ويُحفظ محلياً في جدول `device_info` غير المتزامن (فلا يراه المعلمون ولا الأولياء، ويبقى عند
+استعادة نسخة احتياطية). ورموز ربط Windows في التخزين الآمن بمفتاح خاص بكل مدرسة.
 
 ## 7. إشعارات الدفع (Firebase)
 
-الإشعارات اللحظية داخل التطبيق تعمل عبر Realtime. إشعارات الدفع تُفعَّل بـ
-`--dart-define=FIREBASE_PUSH_ENABLED=true` مع ملف `google-services.json` لكل تطبيق في
-`apps/<التطبيق>/android/app/`، وهو مشروع Firebase يُنشأ بحساب صاحب المدرسة (المهمة 8.3).
-دون ذلك تبقى الإشعارات داخل التطبيق فقط.
+الإشعارات اللحظية داخل التطبيق تعمل عبر Realtime. إشعارات الدفع (والتطبيق مغلق) تمرّ بالخادم:
+مشغّلان في قاعدة المدرسة على `notifications` و`chat_messages` يستدعيان دالة `send-push` التي ترسل
+عبر FCM HTTP v1 إلى معرّفات تثبيت Firebase المسجَّلة للمستلمين، والإشعار الذي يصل (من النوع `chat` أو
+`notification`) يفتح شاشته. مشروع Firebase واحد للمطوّر يخدم كل المدارس، وقيمه أسرار على مستوى المستودع:
+
+| الاسم | النوع | محتواه |
+| --- | --- | --- |
+| `GOOGLE_SERVICES_JSON` | سرّ | ملف `google-services.json` الواحد بعد تسجيل التطبيقات الثلاثة `dz.school.admin` و`dz.school.teacher` و`dz.school.student`؛ أو لكل تطبيق سرّ `GOOGLE_SERVICES_ADMIN` و`GOOGLE_SERVICES_TEACHER` و`GOOGLE_SERVICES_STUDENT` |
+| `FIREBASE_SERVICE_ACCOUNT` | سرّ | مفتاح حساب الخدمة (Project settings ← Service accounts ← Generate new private key) |
+
+يضع مسار `build` الملف في `apps/<التطبيق>/android/app/google-services.json` ويفعّل
+`--dart-define=FIREBASE_PUSH_ENABLED=true`، فتُطبَّق إضافة `com.google.gms.google-services` (دون الملف لا
+تُطبَّق ويبقى التطبيق بلا دفع). ويضبط مسار `supabase-deploy` لكل مدرسة سرّ الدالة
+`FIREBASE_SERVICE_ACCOUNT` وسراً مشتركاً جديداً `PUSH_SECRET` في كل نشر. مهمة `android-firebase` في `check`
+تبني التطبيقات الثلاثة بملف اصطناعي لإثبات توافق الإضافة مع إصدار Android Gradle Plugin. فحص `preflight`
+يتحقق من صيغ هذه الأسرار دون طباعتها.
 
 ## 8. الرسائل القصيرة وصلاحياتها (Android)
 
@@ -185,12 +201,26 @@ cd apps/admin && flutter build windows --release
 تثبيت الـAPK من الهاتف: نزّله من صفحة **Releases** في GitHub ثم افتحه، وفعّل «تثبيت
 تطبيقات من مصادر غير معروفة» لمتصفح التنزيل إن طُلب.
 
+### ربط الجهاز بمدرسة وقت التشغيل
+
+النسخة المنشورة في Releases **عامة**: لا تضمّن خادم أي مدرسة، فملف واحد يخدم كل المدارس. عند أول
+تشغيل يطلب التطبيق «رمز المدرسة» (يبدأ بـ`SCH1.`) لصقاً أو مسحاً بالكاميرا ويحفظه على الجهاز. لكل
+مدرسة قاعدة محلية وصور خاصة بها، فلا تختلط بيانات مدرستين على جهاز واحد. تغيير المدرسة من شاشة الحساب
+← «تغيير المدرسة».
+
+- الرمز يحمل عنوان خادم المدرسة ومفتاحه **العام** واسمها (لا سرّ فيه)، ويرفض التطبيق أي رمز يحوي مفتاحاً
+  سرّياً. يعرضه تطبيق الإدارة نصاً وQR من الحساب ← «رمز ربط الأجهزة الأخرى».
+- لأول جهاز (قبل أن يوجد تطبيق إدارة مرتبط): `python3 tool/pairing_code.py --ref <معرّف مشروع Supabase>`
+  (يلزم `SUPABASE_ACCESS_TOKEN` في البيئة)، أو `--url` و`--key` و`--name`.
+- بناء خاص بمدرسة يضمّن إعدادها فيتخطى شاشة الربط: شغّل مسار `build` يدوياً بمدخل `school`.
+- تطبيق الإدارة يعمل «معاينة محلية» بلا خادم من شاشة الربط نفسها.
+
 ### مسارات GitHub Actions
 
 | المسار | متى يعمل | ماذا يفعل |
 | --- | --- | --- |
 | `check` | كل push وطلب دمج | التنسيق والتحليل الصارم ودالة المساعد وكل الاختبارات، ومهمة `server-sql` لاختبارات الخادم |
-| `build` | تغيّر محتوى `RELEASE_VERSION` أو يدوياً | يبني ثلاثة APK ونسخة Windows وينشرها في GitHub Releases باسم النسخة |
+| `build` | تغيّر محتوى `RELEASE_VERSION` أو يدوياً | يبني ثلاثة APK ونسخة Windows **عامة** (بلا إعداد مدرسة) وينشرها في GitHub Releases باسم النسخة؛ ويدوياً مع مدخل `school` يبني نسخة تلك المدرسة أرتيفاكتاً فقط |
 | `perf` | يدوياً أو عند تغيير اختبار القياس | قياس زمن الإطارات على محاكي Android (انظر `PERFORMANCE.md`) |
 
 إصدار نسخة: غيّر محتوى `RELEASE_VERSION` (مثل `preview-5`) وادفع، وتحقق من نجاح `build`.

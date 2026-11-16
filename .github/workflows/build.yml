@@ -1,9 +1,14 @@
 name: build
 
 # يُشغَّل عند تغيير ملف RELEASE_VERSION (محتواه هو وسم النسخة)، أو يدوياً.
-# إعداد الخادم (رابط Supabase والمفتاح العام وبريد Drive وملف Firebase) يُضمَّن وقت البناء
-# من Environment المدرسة (مدخل `school`، والافتراضي demo). لا تُنشر في Releases العامة
-# بناءات مدرسة عميل حقيقية؛ المرحلة 9 تجعل النسخة واحدة لكل المدارس تُربط بمدرسة وقت التشغيل.
+#
+# النسخة العامة (الافتراضية) لا تضمّن إعداد أي مدرسة: يفتح كل تطبيق على شاشة «ربط المدرسة» ويُربط برمزها
+# وقت التشغيل، فملف واحد يخدم كل المدارس. وهي وحدها التي تُنشر في Releases. وأسرار المطوّر المشتركة
+# (مفتاح التوقيع وإعدادات Firebase وGoogle) تُضمَّن فيها من مستوى المستودع. يعمل البناء العام داخل
+# Environment اسمه `public` دون أي قيم، فلا تتسرّب إليه قيمة مدرسة.
+#
+# أما بناء خاص بمدرسة (يدوياً مع مدخل `school`) فيضمّن رابط خادمها ومفتاحها العام من Environment باسمها،
+# ويبقى أرتيفاكتاً في التشغيل ولا يُنشر علناً.
 on:
   push:
     paths:
@@ -11,9 +16,9 @@ on:
   workflow_dispatch:
     inputs:
       school:
-        description: اسم المدرسة (اسم الـEnvironment)
-        required: true
-        default: demo
+        description: اسم المدرسة لبناء خاص بإعدادها (اسم الـEnvironment)؛ اتركه فارغاً للبناء العام
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -25,7 +30,7 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    environment: ${{ inputs.school || 'demo' }}
+    environment: ${{ inputs.school || 'public' }}
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +111,7 @@ jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
-    environment: ${{ inputs.school || 'demo' }}
+    environment: ${{ inputs.school || 'public' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -142,8 +147,10 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
 
+  # لا يُنشر علناً إلا البناء العام؛ بناء مدرسة خاص يبقى أرتيفاكتاً.
   release:
     needs: [android, windows]
+    if: ${{ !inputs.school }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -169,3 +176,7 @@ jobs:
             - `school-teacher.apk` تطبيق الأستاذ (Android)
             - `school-student.apk` تطبيق التلميذ والولي (Android)
             - `school-admin-windows.zip` تطبيق الإدارة (Windows): فك الضغط ثم شغّل `admin.exe`
+
+            عند أول تشغيل يطلب كل تطبيق رمز مدرستك (`SCH1.…`) لصقاً أو مسحاً بالكاميرا. يعطيك إياه صاحب
+            المدرسة من تطبيق الإدارة ← الحساب ← رمز ربط الأجهزة الأخرى. ويمكن لتطبيق الإدارة أن يعمل
+            «معاينة محلية» بلا خادم.
