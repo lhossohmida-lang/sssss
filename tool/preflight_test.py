@@ -239,7 +239,7 @@ class WorkflowFile(unittest.TestCase):
         with open(self.path, encoding="utf-8") as f:
             text = f.read()
         self.assertIsNone(re.search(r"\$\{\{[^}]*toJSON", text), "toJSON داخل تعبير")
-        parts = re.split(r"^  (repo-level|school):\n", text, flags=re.M)
+        parts = re.split(r"^  (repo-level|school|signing-key):\n", text, flags=re.M)
         return {parts[i]: parts[i + 1] for i in range(1, len(parts) - 1, 2)}
 
     def test_each_job_passes_exactly_its_names(self):
@@ -253,6 +253,23 @@ class WorkflowFile(unittest.TestCase):
             self.assertTrue(all(a == b for a, b in passed_vars), mode)
             self.assertEqual(sorted(a for a, _ in passed_secrets), sorted(names), mode)
             self.assertEqual(sorted(a for a, _ in passed_vars), sorted(names), mode)
+
+    def test_signing_key_job_reads_only_the_four_signing_secrets(self):
+        body = self.jobs()["signing-key"]
+        names = re.findall(
+            r"^\s+([A-Z0-9_]+): \$\{\{ secrets\.([A-Z0-9_]+) \}\}$", body, re.M
+        )
+        self.assertTrue(all(a == b for a, b in names))
+        self.assertEqual(
+            sorted(a for a, _ in names),
+            [
+                "SCHOOL_KEYSTORE_BASE64",
+                "SCHOOL_KEYSTORE_PASSWORD",
+                "SCHOOL_KEY_ALIAS",
+                "SCHOOL_KEY_PASSWORD",
+            ],
+        )
+        self.assertNotIn("environment:", body)
 
     def test_only_the_school_job_has_an_environment(self):
         jobs = self.jobs()

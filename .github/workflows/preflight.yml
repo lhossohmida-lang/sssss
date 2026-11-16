@@ -13,6 +13,7 @@ on:
     paths:
       - .github/workflows/preflight.yml
       - tool/preflight.py
+      - tool/signing/VERIFY
   workflow_dispatch:
     inputs:
       school:
@@ -111,3 +112,54 @@ jobs:
           GOOGLE_DRIVE_OWNER_EMAIL: ${{ secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           VAR_GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL }}
         run: python3 tool/preflight.py school
+
+  # يفتح مفتاح التوقيع النهائي بكلمتيه واسمه المستعار ويقرأ بصمته (غير سرّية) لتسجيلها في
+  # Google وFirebase. لا يُطبع إلا النجاح أو سبب الفشل والبصمة. لإعادة الفحص بعد تعديل
+  # الأسرار غيّر محتوى tool/signing/VERIFY.
+  signing-key:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open the signing key with its alias and passwords
+        shell: bash
+        env:
+          SCHOOL_KEYSTORE_BASE64: ${{ secrets.SCHOOL_KEYSTORE_BASE64 }}
+          SCHOOL_KEYSTORE_PASSWORD: ${{ secrets.SCHOOL_KEYSTORE_PASSWORD }}
+          SCHOOL_KEY_ALIAS: ${{ secrets.SCHOOL_KEY_ALIAS }}
+          SCHOOL_KEY_PASSWORD: ${{ secrets.SCHOOL_KEY_PASSWORD }}
+        run: |
+          set +e
+          if [ -z "$SCHOOL_KEYSTORE_BASE64" ]; then
+            echo "::notice title=preflight-signing::لا مفتاح توقيع نهائي بعد في أسرار المستودع (يُستعمل مفتاح التجربة)"
+            exit 0
+          fi
+          missing=""
+          for n in SCHOOL_KEYSTORE_PASSWORD SCHOOL_KEY_ALIAS SCHOOL_KEY_PASSWORD; do
+            if [ -z "${!n}" ]; then missing="$missing $n"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=preflight-signing::أسرار ناقصة:$missing"
+            exit 1
+          fi
+          printf '%s' "$SCHOOL_KEYSTORE_BASE64" | tr -d ' 
+' | base64 -d > "$RUNNER_TEMP/release.jks" 2>/dev/null
+          if [ ! -s "$RUNNER_TEMP/release.jks" ]; then
+            echo "::error title=preflight-signing::SCHOOL_KEYSTORE_BASE64 ليست base64 صالحة"
+            exit 1
+          fi
+          out=$(keytool -list -v -keystore "$RUNNER_TEMP/release.jks" -alias "$SCHOOL_KEY_ALIAS" -storepass:env SCHOOL_KEYSTORE_PASSWORD 2>&1)
+          status=$?
+          if [ "$status" != "0" ]; then
+            if echo "$out" | grep -qi "password was incorrect"; then reason="كلمة مرور الملف خاطئة"
+            elif echo "$out" | grep -qi "does not exist"; then reason="الاسم المستعار غير موجود في الملف"
+            else reason="تعذّر فتح الملف (ليس ملف مفاتيح صالحاً)"; fi
+            echo "::error title=preflight-signing::$reason"
+            exit 1
+          fi
+          sha1=$(echo "$out" | grep -m1 -E "SHA1:" | sed 's/^[[:space:]]*//')
+          keytool -certreq -alias "$SCHOOL_KEY_ALIAS" -keystore "$RUNNER_TEMP/release.jks" -storepass:env SCHOOL_KEYSTORE_PASSWORD -keypass:env SCHOOL_KEY_PASSWORD > /dev/null 2>&1
+          if [ "$?" != "0" ]; then
+            echo "::error title=preflight-signing::كلمة المرور SCHOOL_KEY_PASSWORD لا تفتح المفتاح الخاص"
+            exit 1
+          fi
+          echo "::notice title=preflight-signing::signing-key=ok alias=$SCHOOL_KEY_ALIAS $sha1"
