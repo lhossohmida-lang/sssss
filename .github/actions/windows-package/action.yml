@@ -1,0 +1,132 @@
+name: Package the Windows admin app
+description: >-
+  Bundles the Visual C++ runtime next to admin.exe, checks that no DLL is missing on a clean PC,
+  builds the Inno Setup installer and smoke-tests it (silent install, launch, uninstall).
+
+# يُستعمل من مساري build (الإصدار) وwindows-installer (التحقق دون نشر). يُنفَّذ بعد `flutter build windows`.
+# أي نقص هنا يفشل المسار بتعليق `windows-package` أو `windows-dll-check` العام.
+
+inputs:
+  app-dir:
+    description: Folder with admin.exe and its DLLs (the flutter build windows Release output)
+    required: true
+  version:
+    description: Version text shown by the installer
+    required: true
+  output-dir:
+    description: Where school-admin-setup.exe is written
+    required: false
+    default: dist
+
+runs:
+  using: composite
+  steps:
+    # مكتبات Visual C++ لا تأتي مع Windows: توجد على جهاز المطوّر والمشغّل لأن Visual Studio يثبّتها، فتبدو التجربة
+    # سليمة ثم يظهر على جهاز نظيف «VCRUNTIME140.dll was not found». تُنسخ بجانب admin.exe (نشر محلي للتطبيق).
+    - name: Bundle the Visual C++ runtime next to admin.exe
+      shell: pwsh
+      env:
+        APP_DIR: ${{ inputs.app-dir }}
+      run: |
+        function Fail([string]$Message) { Write-Host "::error title=windows-package::$Message"; exit 1 }
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+        # -all احتياطاً: النسخة غير المكتملة (state 5) لا يعيدها -latest.
+        $roots = @(& $vswhere -latest -products * -property installationPath)
+        if (-not $roots) { $roots = @(& $vswhere -all -products * -property installationPath) }
+        if (-not $roots) { Fail 'Visual Studio was not found on this runner' }
+        $crt = $null
+        foreach ($root in $roots) {
+          $redist = Join-Path $root 'VC\Redist\MSVC'
+          if (-not (Test-Path $redist)) { continue }
+          $versions = Get-ChildItem $redist -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } -Descending
+          foreach ($v in $versions) {
+            $crt = Get-ChildItem (Join-Path $v.FullName 'x64') -Directory -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -match '^Microsoft\.VC\d+\.CRT$' } | Select-Object -First 1
+            if ($crt) { break }
+          }
+          if ($crt) { break }
+        }
+        if (-not $crt) { Fail 'The Visual C++ runtime folder (Microsoft.VC*.CRT) was not found' }
+        Copy-Item (Join-Path $crt.FullName '*.dll') $env:APP_DIR -Force
+        Write-Host "Bundled from $($crt.FullName):"
+        Get-ChildItem $env:APP_DIR -Filter '*.dll' |
+          Where-Object { $_.Name -match '^(vcruntime|msvcp|concrt|vccorlib|vcomp)' } |
+          ForEach-Object { Write-Host "  $($_.Name)" }
+
+    # قائمة مكتبات Windows نفسه على هذا المشغّل: ما كان في System32 واسم منتجه «Operating System». أما مكتبات
+    # Visual C++ فاسم منتجها «Visual Studio» فلا تُحسب نظامية، ويجب أن تكون مجمَّعة.
+    - name: List the DLLs that come with Windows
+      shell: pwsh
+      run: |
+        $system = Join-Path $env:SystemRoot 'System32'
+        $names = Get-ChildItem $system -Filter '*.dll' -File |
+          Where-Object { $_.VersionInfo.ProductName -match 'Operating System' } |
+          ForEach-Object { $_.Name.ToLowerInvariant() }
+        $names | Set-Content -Encoding utf8 (Join-Path $env:RUNNER_TEMP 'os-dlls.txt')
+        Write-Host "$($names.Count) Windows DLLs listed"
+
+    # dartjni.dll: جسر JNI تجلبه مكتبات Android (path_provider_android وshared_preferences_android) فيُبنى مع
+    # التطبيق ويطلب jvm.dll، ولا يُحمَّل أبداً على Windows (لا شيفرة تستعمل JNI هنا)؛ فنقصه مسموح.
+    - name: Check that no DLL is missing on a clean PC
+      shell: pwsh
+      env:
+        APP_DIR: ${{ inputs.app-dir }}
+      run: |
+        python tool/windows_dll_check.py $env:APP_DIR --os-list (Join-Path $env:RUNNER_TEMP 'os-dlls.txt') --tolerate dartjni.dll:jvm.dll
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    - name: Build the installer
+      shell: pwsh
+      env:
+        APP_DIR: ${{ inputs.app-dir }}
+        VERSION: ${{ inputs.version }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        function Fail([string]$Message) { Write-Host "::error title=windows-package::$Message"; exit 1 }
+        $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+        if (-not (Test-Path $iscc)) {
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { Fail "Installing Inno Setup failed (exit code $LASTEXITCODE)" }
+        }
+        if (-not (Test-Path $iscc)) { Fail "ISCC.exe was not found at $iscc" }
+        New-Item -ItemType Directory -Force $env:OUTPUT_DIR | Out-Null
+        $source = (Resolve-Path $env:APP_DIR).Path
+        $out = (Resolve-Path $env:OUTPUT_DIR).Path
+        & $iscc "/DAppVersion=$env:VERSION" "/DSourceDir=$source" "/DOutputDir=$out" 'tool\installer\admin.iss'
+        if ($LASTEXITCODE -ne 0) { Fail "ISCC failed with exit code $LASTEXITCODE" }
+        $setup = Get-Item (Join-Path $out 'school-admin-setup.exe')
+        Write-Host ("{0} {1} MB" -f $setup.Name, [math]::Round($setup.Length / 1MB, 1))
+
+    # تثبيت صامت في مجلد مؤقت ثم تشغيل admin.exe والتأكد أنه يبقى حياً (انهياره فوراً بالرمز 0xC0000135 يعني DLL ناقصة)
+    # ثم إزالته. يكمّل الفحص السابق، لكنه لا يكشف نقص مكتبات Visual C++ وحده لأن المشغّل يثبّتها.
+    - name: Smoke-test the installer (silent install, launch, uninstall)
+      shell: pwsh
+      env:
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        function Fail([string]$Message) { Write-Host "::error title=windows-package::$Message"; exit 1 }
+        $setup = (Resolve-Path (Join-Path $env:OUTPUT_DIR 'school-admin-setup.exe')).Path
+        $dir = Join-Path $env:RUNNER_TEMP 'school-admin-installed'
+        $log = Join-Path $env:RUNNER_TEMP 'installer.log'
+        $install = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=`"$dir`"", "/LOG=`"$log`""
+        if ($install.ExitCode -ne 0) {
+          if (Test-Path $log) { Get-Content $log -Tail 30 | ForEach-Object { Write-Host $_ } }
+          Fail "The installer exited with code $($install.ExitCode)"
+        }
+        foreach ($f in 'admin.exe', 'flutter_windows.dll', 'vcruntime140.dll', 'msvcp140.dll', 'vcruntime140_1.dll', 'data\icudtl.dat', 'data\app.so') {
+          if (-not (Test-Path (Join-Path $dir $f))) { Fail "Missing after the install: $f" }
+        }
+        $app = Start-Process -FilePath (Join-Path $dir 'admin.exe') -PassThru
+        Start-Sleep -Seconds 15
+        if ($app.HasExited) {
+          Fail ('admin.exe exited within 15 s with code 0x{0:X} (0xC0000135 means a DLL was not found)' -f $app.ExitCode)
+        }
+        Write-Host "admin.exe is running (pid $($app.Id))"
+        Stop-Process -Id $app.Id -Force
+        $uninstall = Start-Process -FilePath (Join-Path $dir 'unins000.exe') -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+        if ($uninstall.ExitCode -ne 0) { Fail "The uninstaller exited with code $($uninstall.ExitCode)" }
+        for ($i = 0; $i -lt 40 -and (Test-Path (Join-Path $dir 'admin.exe')); $i++) { Start-Sleep -Seconds 1 }
+        if (Test-Path (Join-Path $dir 'admin.exe')) { Fail 'admin.exe is still there after the uninstall' }
+        Write-Host '::notice title=windows-package::installer ok: installs, starts and uninstalls'

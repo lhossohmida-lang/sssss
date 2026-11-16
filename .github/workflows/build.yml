@@ -136,6 +136,16 @@ jobs:
           --dart-define=GOOGLE_DRIVE_OWNER_EMAIL="$env:GOOGLE_DRIVE_OWNER_EMAIL"
           --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_ID="$env:GOOGLE_DRIVE_WINDOWS_CLIENT_ID"
           --dart-define=GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET="$env:GOOGLE_DESKTOP_CLIENT_SECRET"
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "tag=$(head -n 1 RELEASE_VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+      # مكتبات Visual C++ بجانب admin.exe + فحص اكتمال المكتبات + المثبّت واختباره (انظر الإجراء). تُنسخ المكتبات إلى
+      # مجلد Release نفسه فتحويها النسخة المضغوطة أيضاً، فلا تظهر رسائل DLL على جهاز نظيف بأي من الطريقتين.
+      - uses: ./.github/actions/windows-package
+        with:
+          app-dir: apps/admin/build/windows/x64/runner/Release
+          version: ${{ steps.version.outputs.tag }}
       - name: Zip
         shell: pwsh
         run: |
@@ -144,7 +154,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows-admin
-          path: dist/*.zip
+          path: |
+            dist/school-admin-windows.zip
+            dist/school-admin-setup.exe
           if-no-files-found: error
 
   # لا يُنشر علناً إلا البناء العام؛ بناء مدرسة خاص يبقى أرتيفاكتاً.
@@ -175,7 +187,10 @@ jobs:
             - `school-admin.apk` تطبيق الإدارة (Android)
             - `school-teacher.apk` تطبيق الأستاذ (Android)
             - `school-student.apk` تطبيق التلميذ والولي (Android)
-            - `school-admin-windows.zip` تطبيق الإدارة (Windows): فك الضغط ثم شغّل `admin.exe`
+            - `school-admin-setup.exe` مثبّت تطبيق الإدارة لـ Windows 10 وما بعده (الأسهل): يضمّ كل المكتبات اللازمة فلا تظهر
+              رسائل DLL على أي جهاز، ويُثبَّت لمستخدم واحد دون صلاحيات مدير. قد تعرض Windows تحذير SmartScreen لأن الملف
+              غير موقَّع: اختر «More info» ثم «Run anyway».
+            - `school-admin-windows.zip` النسخة المحمولة (تضمّ المكتبات نفسها): فك الضغط ثم شغّل `admin.exe`
 
             عند أول تشغيل يطلب كل تطبيق رمز مدرستك (`SCH1.…`) لصقاً أو مسحاً بالكاميرا. يعطيك إياه صاحب
             المدرسة من تطبيق الإدارة ← الحساب ← رمز ربط الأجهزة الأخرى. ويمكن لتطبيق الإدارة أن يعمل

@@ -1,0 +1,47 @@
+name: windows-installer
+
+# يبني مثبّت تطبيق الإدارة (school-admin-setup.exe) ويتحقق منه دون نشر شيء: ينسخ مكتبات Visual C++ بجانب
+# admin.exe، ويفحص جدول الاستيراد أن لا DLL ناقصة على جهاز نظيف، ثم يثبّته صامتاً ويشغّله ويزيله.
+# يعمل عند تغيير ملفاته أو يدوياً، والمثبّت يُحفظ أرتيفاكتاً أسبوعين (لا Release؛ الإصدار يتم بمسار build).
+on:
+  push:
+    paths:
+      - tool/installer/**
+      - tool/windows_dll_check.py
+      - .github/actions/windows-package/**
+      - .github/workflows/windows-installer.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.9"
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      # بناء عام: لا إعداد مدرسة ولا أسرار؛ المطلوب هنا مكتبات التطبيق فقط.
+      - name: Build Windows
+        working-directory: apps/admin
+        run: flutter build windows --release
+      - uses: ./.github/actions/windows-package
+        with:
+          app-dir: apps/admin/build/windows/x64/runner/Release
+          version: check-${{ github.run_number }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: school-admin-setup
+          path: dist/school-admin-setup.exe
+          retention-days: 14
+          if-no-files-found: error
