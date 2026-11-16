@@ -10,6 +10,7 @@ import '../clay/clay_inputs.dart';
 import '../clay/clay_overlays.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import 'pairing_screens.dart';
 import 'providers.dart';
 
 /// سطر في بطاقة الحساب: عنوانه وقيمته.
@@ -108,6 +109,7 @@ class AccountScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: ClaySpacing.xl),
+        const SchoolConnectionSection(),
         ClayButton(
           label: 'تغيير كلمة السر',
           icon: ClayIcons.edit,

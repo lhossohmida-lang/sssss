@@ -28,6 +28,7 @@ import '../data/remote/upload_worker.dart';
 import '../domain/settings_service.dart';
 import 'app_config.dart';
 import 'defaults_seeder.dart';
+import 'school_pairing.dart';
 
 /// يبني منسّق المزامنة لجلسة مسجَّلة. يُمرَّر في الاختبارات بنسخة وهمية.
 typedef SyncFactory = SyncCoordinator Function(AuthSession session);
@@ -90,6 +91,7 @@ class AppRuntime {
     required this.fileStore,
     required SyncLifecycle? syncLifecycle,
     required this._seeder,
+    required this._ownsSupabase,
   }) : _sync = syncLifecycle;
 
   final AppIdentity app;
@@ -120,6 +122,10 @@ class AppRuntime {
   final SyncLifecycle? _sync;
   final DefaultsSeeder? _seeder;
 
+  /// هل هيّأ هذا التشغيل `Supabase.instance`؟ فيفكّه [dispose] ليصح ربط الجهاز
+  /// بمدرسة أخرى في العملية نفسها (التهيئة الثانية تُتجاهل دون ذلك).
+  final bool _ownsSupabase;
+
   /// هل يعمل التطبيق بلا خادم (معاينة)؟
   bool get isLocalMode => localGateway != null;
 
@@ -144,15 +150,18 @@ class AppRuntime {
   }) async {
     final settings = config ?? AppConfig.fromEnvironment();
     final resolvedDatabaseFile =
-        databaseFile ?? (database == null ? await _databaseFile(app) : null);
+        databaseFile ??
+        (database == null ? await _databaseFile(app, settings) : null);
     final db = database ?? openAppDatabase(resolvedDatabaseFile!);
 
     SupabaseClient? client;
+    var ownsSupabase = false;
     if (gateway == null && settings.isConfigured) {
       await Supabase.initialize(
         url: settings.supabaseUrl,
         publishableKey: settings.supabaseAnonKey,
       );
+      ownsSupabase = true;
       client = Supabase.instance.client;
     }
 
@@ -214,7 +223,7 @@ class AppRuntime {
       auth: auth,
       writer: writer,
       localGateway: local,
-      photosDirectory: photosDirectory ?? await _photosDirectory(app),
+      photosDirectory: photosDirectory ?? await _photosDirectory(app, settings),
       fileStore: client == null ? null : SupabaseFileStore(client),
       provisioner:
           provisioner ??
@@ -237,6 +246,7 @@ class AppRuntime {
               coordinator: () => lifecycle?.coordinator,
             )
           : null,
+      ownsSupabase: ownsSupabase,
     );
   }
 
@@ -246,17 +256,33 @@ class AppRuntime {
     await _sync?.dispose();
     await auth.dispose();
     await db.close();
+    if (_ownsSupabase) await Supabase.instance.dispose();
   }
 
-  static Future<Directory> _photosDirectory(AppIdentity app) async {
+  /// مكان حفظ ربط هذا التطبيق بمدرسته على الجهاز.
+  static Future<PairingStore> pairingStore(AppIdentity app) async {
     final dir = await getApplicationSupportDirectory();
-    return Directory(p.join(dir.path, 'photos_${app.name}'));
+    return FilePairingStore(File(p.join(dir.path, 'pairing_${app.name}.json')));
   }
 
-  static Future<File> _databaseFile(AppIdentity app) async {
+  /// بادئة ملفات المدرسة المحلية: اسم التطبيق، ومعه مفتاح المدرسة حين يُربط
+  /// بخادم، فلا تختلط بيانات مدرستين على جهاز واحد (مزامنة قاعدة مدرسة بخادم
+  /// أخرى كارثة). الوضع المحلي للمعاينة يبقى باسمه القديم.
+  static String _scope(AppIdentity app, AppConfig config) =>
+      config.isConfigured ? '${app.name}_${config.schoolKey}' : app.name;
+
+  static Future<Directory> _photosDirectory(
+    AppIdentity app,
+    AppConfig config,
+  ) async {
+    final dir = await getApplicationSupportDirectory();
+    return Directory(p.join(dir.path, 'photos_${_scope(app, config)}'));
+  }
+
+  static Future<File> _databaseFile(AppIdentity app, AppConfig config) async {
     final dir = await getApplicationSupportDirectory();
     await dir.create(recursive: true);
-    return File(p.join(dir.path, 'school_${app.name}.sqlite'));
+    return File(p.join(dir.path, 'school_${_scope(app, config)}.sqlite'));
   }
 
   static RemoteRowQuery _remoteQuery(SupabaseClient client) =>

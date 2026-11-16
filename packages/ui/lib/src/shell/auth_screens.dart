@@ -11,98 +11,8 @@ import '../clay/clay_icons.dart';
 import '../clay/clay_inputs.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import 'auth_scaffold.dart';
 import 'providers.dart';
-
-/// هيكل شاشات الدخول: بطاقة في الوسط بعرض أقصى مريح للحاسوب.
-class _AuthScaffold extends StatelessWidget {
-  const _AuthScaffold({
-    required this.app,
-    required this.title,
-    required this.children,
-    this.subtitle,
-  });
-
-  final AppIdentity app;
-  final String title;
-  final String? subtitle;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final p = context.palette;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(ClaySpacing.xl),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: ClayContainer(
-                radius: ClayRadius.xl,
-                padding: const EdgeInsets.all(ClaySpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      app.displayName,
-                      textAlign: TextAlign.center,
-                      style: text.bodyMedium!.copyWith(color: p.accent),
-                    ),
-                    const SizedBox(height: ClaySpacing.xs),
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        style: text.headlineMedium,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: ClaySpacing.sm),
-                      Text(
-                        subtitle!,
-                        textAlign: TextAlign.center,
-                        style: text.bodyMedium!.copyWith(color: p.textMuted),
-                      ),
-                    ],
-                    const SizedBox(height: ClaySpacing.xl),
-                    ...children,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// رسالة خطأ عامة فوق الزر (خطأ الخادم أو الشبكة).
-class _FormError extends StatelessWidget {
-  const _FormError(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: ClaySpacing.md),
-      child: Semantics(
-        liveRegion: true,
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium!
-              .copyWith(color: p.status.danger),
-        ),
-      ),
-    );
-  }
-}
 
 /// شاشة البداية: اسم التطبيق واسم المدرسة، ثم تنتقل بعد لحظة.
 class SplashScreen extends ConsumerStatefulWidget {
@@ -271,7 +181,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       onPressed: () => setState(() => _showPassword = !_showPassword),
     );
 
-    return _AuthScaffold(
+    return AuthScaffold(
       app: widget.app,
       title: setup ? 'إعداد أول مرة' : 'تسجيل الدخول',
       subtitle: setup
@@ -319,7 +229,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ],
         const SizedBox(height: ClaySpacing.xl),
-        if (_formError != null) _FormError(_formError!),
+        if (_formError != null) FormErrorText(_formError!),
         ClayButton(
           label: setup ? 'إنشاء الحساب' : 'دخول',
           expand: true,
@@ -392,7 +302,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return _AuthScaffold(
+    return AuthScaffold(
       app: widget.app,
       title: 'اختر كلمة سر جديدة',
       subtitle:
@@ -428,7 +338,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           onSubmitted: (_) => _submit(),
         ),
         const SizedBox(height: ClaySpacing.xl),
-        if (_formError != null) _FormError(_formError!),
+        if (_formError != null) FormErrorText(_formError!),
         ClayButton(
           label: 'حفظ ومتابعة',
           expand: true,
