@@ -229,12 +229,27 @@ class Suite:
         self.cleanups.append(lambda: raw("DELETE", photo, self.admin()))
         status, _ = raw("POST", photo, {**teacher, "Content-Type": "application/octet-stream"}, b"x")
         assert status in (400, 401, 403), f"الأستاذ رفع صورة ({status})"
+        # حدّ مخزن الصور 10 MiB (الترحيل 0006: صور الفواتير تحتاج دقة أعلى من الوجوه).
         status, _ = raw(
-            "POST", photo, {**owner, "Content-Type": "application/octet-stream"}, b"\0" * (2 * 1024 * 1024 + 4096)
+            "POST", photo, {**owner, "Content-Type": "application/octet-stream"}, b"\0" * (10 * 1024 * 1024 + 4096)
         )
         assert status in (400, 413), f"حدّ حجم الصور لم يُطبَّق ({status})"
 
+    def housekeeping(self) -> None:
+        """يزيل ما خلّفته اختبارات Dart السابقة (لا يملك المالك حذف الملفات)."""
+        self.call("DELETE", "/rest/v1/rooms?id=like.srv-*", self.admin())
+        for bucket in ("files", "photos"):
+            status, listing = self.call(
+                "POST", f"/storage/v1/object/list/{bucket}", self.admin(), {"prefix": "integration", "limit": 1000}
+            )
+            if status == 200 and isinstance(listing, list):
+                for entry in listing:
+                    name = entry.get("name") if isinstance(entry, dict) else None
+                    if isinstance(name, str):
+                        raw("DELETE", f"{self.cfg.url}/storage/v1/object/{bucket}/integration/{name}", self.admin())
+
     def run_all(self) -> None:
+        self.housekeeping()
         self.check("anon-sees-nothing", self.anon_sees_nothing)
         self.check("owner-reads-own-account", self.owner_reads_own_account)
         self.check("sync-write-last-write-wins", self.sync_write_and_last_write_wins)

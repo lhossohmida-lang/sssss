@@ -126,25 +126,39 @@ class SupabaseFileStore implements FileStore {
 
 /// يبني مكوّنات الخادم الثلاثة (REST، البث، الملفات) من عميل Supabase واحد.
 class SupabaseBackend {
-  SupabaseBackend(this.client, {required AppDatabase db})
-    : remote = PostgrestRemoteStore(
-        restUrl: client.rest.url,
-        apiKey: client.rest.headers['apikey'] ?? '',
-        accessToken: () async => client.auth.currentSession?.accessToken,
-        primaryKeys: PostgrestRemoteStore.primaryKeysOf(db),
-      ),
-      realtime = SupabaseRealtimeSource(
-        client,
-        tables: [
-          for (final table in db.allTables)
-            if (!localOnlyTables.contains(table.actualTableName))
-              table.actualTableName,
-        ],
-      ),
-      files = SupabaseFileStore(client);
+  /// [apiKey] هو المفتاح العام نفسه الذي هُيِّئ به [client]. لا يُقرأ من ترويسات العميل:
+  /// مكتبة Supabase تضيف `apikey` لكل طلب في طبقتها ولا تضعه في `rest.headers`، فكان
+  /// المخزن يرسل مفتاحاً فارغاً ويرفضه الخادم بـ401 في كل طلب (كشفه اختبار الخادم
+  /// الحقيقي في 8.2).
+  SupabaseBackend(
+    this.client, {
+    required AppDatabase db,
+    required String apiKey,
+  }) : remote = PostgrestRemoteStore(
+         restUrl: client.rest.url,
+         apiKey: _requireKey(apiKey),
+         accessToken: () async => client.auth.currentSession?.accessToken,
+         primaryKeys: PostgrestRemoteStore.primaryKeysOf(db),
+       ),
+       realtime = SupabaseRealtimeSource(
+         client,
+         tables: [
+           for (final table in db.allTables)
+             if (!localOnlyTables.contains(table.actualTableName))
+               table.actualTableName,
+         ],
+       ),
+       files = SupabaseFileStore(client);
 
   final SupabaseClient client;
   final RemoteStore remote;
   final RealtimeSource realtime;
   final FileStore files;
+
+  static String _requireKey(String key) {
+    if (key.trim().isEmpty) {
+      throw ArgumentError.value(key, 'apiKey', 'المفتاح العام مطلوب');
+    }
+    return key;
+  }
 }

@@ -55,7 +55,7 @@ void main() {
         );
         expect(signedIn.session, isNotNull, reason: 'دخول المالك');
         db = AppDatabase(NativeDatabase.memory());
-        backend = SupabaseBackend(client, db: db);
+        backend = SupabaseBackend(client, db: db, apiKey: _anonKey);
       });
 
       tearDownAll(() async {
@@ -209,7 +209,7 @@ void main() {
         }
 
         final big = File('${dir.path}/big.bin')
-          ..writeAsBytesSync(List<int>.filled(2 * 1024 * 1024 + 4096, 0));
+          ..writeAsBytesSync(List<int>.filled(10 * 1024 * 1024 + 4096, 0));
         await expectLater(
           backend.files.upload(
             bucket: 'photos',

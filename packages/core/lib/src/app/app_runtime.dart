@@ -198,7 +198,13 @@ class AppRuntime {
         syncFactory ??
         (client == null
             ? null
-            : (session) => _supabaseSync(db, writer, client!, session));
+            : (session) => _supabaseSync(
+                db,
+                writer,
+                client!,
+                settings.supabaseAnonKey,
+                session,
+              ));
     final lifecycle = factory == null ? null : SyncLifecycle(auth, factory);
     return AppRuntime._(
       app: app,
@@ -272,9 +278,10 @@ class AppRuntime {
     AppDatabase db,
     SyncWriter writer,
     SupabaseClient client,
+    String apiKey,
     AuthSession session,
   ) {
-    final backend = SupabaseBackend(client, db: db);
+    final backend = SupabaseBackend(client, db: db, apiKey: apiKey);
     final engine = SyncEngine(
       db,
       backend.remote,
