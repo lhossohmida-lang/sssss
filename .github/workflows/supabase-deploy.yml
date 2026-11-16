@@ -96,23 +96,40 @@ jobs:
           fi
           exit "$status"
 
-      - name: Set the assistant secrets (when the school has them)
+      - name: Set the function secrets (assistant and push, when the school has them)
         shell: bash
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL || secrets.LLM_BASE_URL }}
-          MASK_ENV: SUPABASE_ACCESS_TOKEN,LLM_API_KEY
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          MASK_ENV: SUPABASE_ACCESS_TOKEN,LLM_API_KEY,FIREBASE_SERVICE_ACCOUNT,PUSH_SECRET
         run: |
           set +e
           args=()
           if [ -n "$LLM_API_KEY" ]; then args+=("LLM_API_KEY=$LLM_API_KEY"); fi
           if [ -n "$LLM_MODEL" ]; then args+=("LLM_MODEL=$LLM_MODEL"); fi
           if [ -n "$LLM_BASE_URL" ]; then args+=("LLM_BASE_URL=$LLM_BASE_URL"); fi
+          # الدفع: حساب خدمة Firebase (سرّ المطوّر) + سرّ مشترك جديد في كل نشر بين قاعدة المدرسة
+          # ودالة send-push، لا يُحفظ في أي مكان آخر ولا يُطبع.
+          push=false
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            compact="$(printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin), separators=(",", ":")))' 2>/dev/null)"
+            if [ -n "$compact" ]; then
+              PUSH_SECRET="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+              echo "::add-mask::$PUSH_SECRET"
+              export PUSH_SECRET
+              args+=("FIREBASE_SERVICE_ACCOUNT=$compact" "PUSH_SECRET=$PUSH_SECRET")
+              push=true
+            else
+              echo "::warning title=supabase-secrets::FIREBASE_SERVICE_ACCOUNT ليس JSON صالحاً فلا دفع في هذه المدرسة"
+            fi
+          fi
           if [ "${#args[@]}" = "0" ]; then
-            echo "::notice title=supabase-secrets::لا أسرار مساعد في هذه المدرسة بعد"
+            echo "::notice title=supabase-secrets::لا أسرار مساعد ولا دفع في هذه المدرسة بعد"
             exit 0
           fi
           supabase secrets set "${args[@]}" --remote="$SUPABASE_PROJECT_REF" --yes > supabase-secrets.log 2>&1
@@ -120,10 +137,14 @@ jobs:
           cat supabase-secrets.log
           if [ "$status" != "0" ]; then
             python3 tool/ci_error.py supabase-secrets supabase-secrets.log 30
-          else
-            echo "::notice title=supabase-secrets::ضُبطت أسرار المساعد (${#args[@]})"
+            exit "$status"
           fi
-          exit "$status"
+          echo "::notice title=supabase-secrets::ضُبطت أسرار الدوال (${#args[@]})"
+          if [ "$push" = "true" ]; then
+            python3 tool/supabase_bootstrap.py push-config
+            exit $?
+          fi
+          exit 0
 
       - name: Configure sign-in, create the owner, smoke test
         env:

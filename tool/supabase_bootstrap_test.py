@@ -37,6 +37,8 @@ class State:
         self.rows = []
         self.requests = []
         self.fail_rows = False
+        self.push = None
+        self.push_status = 204
 
 
 def make_handler(state):
@@ -134,6 +136,13 @@ def make_handler(state):
                 if self.headers.get("apikey") == ANON and bearer.startswith("Bearer user-token-"):
                     return self.send(200, [{"id": r["id"], "role": r["role"]} for r in state.rows])
                 return self.send(401, {"message": "no session"})
+            if path == "/rest/v1/rpc/set_push_config" and method == "POST":
+                if not admin:
+                    return self.send(401, {"message": "bad key"})
+                if state.push_status != 204:
+                    return self.send(state.push_status, {"message": "boom"})
+                state.push = self.body()
+                return self.send(204)
             self.send(404, {"message": "unknown"})
 
         def do_GET(self):
@@ -342,6 +351,45 @@ class Main(FakeServerCase):
         code, output = self.run_main("verify", env)
         self.assertEqual(code, 0)
         self.assertIn("project=ACTIVE_HEALTHY token=ok", output)
+
+
+
+class PushConfig(FakeServerCase):
+    PUSH_SECRET = "p" * 64
+
+    def run_main(self, **overrides):
+        env = self.environ(PUSH_SECRET=self.PUSH_SECRET, **overrides)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status = sb.main(["supabase_bootstrap.py", "push-config"], env)
+        return status, out.getvalue()
+
+    def test_sends_the_function_url_and_the_shared_secret_with_the_secret_key(self):
+        status, out = self.run_main()
+        self.assertEqual(status, 0, out)
+        self.assertEqual(
+            self.state.push,
+            {"p_url": f"{self.base}/functions/v1/send-push", "p_secret": self.PUSH_SECRET},
+        )
+        self.assertIn("push-config=ok", out)
+        self.assertNotIn(self.PUSH_SECRET, out)
+        self.assertNotIn(SECRET, out)
+
+    def test_a_missing_secret_is_named_and_nothing_is_sent(self):
+        env = self.environ()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status = sb.main(["supabase_bootstrap.py", "push-config"], env)
+        self.assertEqual(status, 1)
+        self.assertIn("PUSH_SECRET", out.getvalue())
+        self.assertIsNone(self.state.push)
+
+    def test_a_server_refusal_is_an_error_without_the_secret(self):
+        self.state.push_status = 500
+        status, out = self.run_main()
+        self.assertEqual(status, 1)
+        self.assertIn("::error", out)
+        self.assertNotIn(self.PUSH_SECRET, out)
 
 
 if __name__ == "__main__":

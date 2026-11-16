@@ -4,6 +4,7 @@
 الاستعمال:
   python3 tool/supabase_bootstrap.py verify      # وصول الرمز إلى المشروع وصلاحياته
   python3 tool/supabase_bootstrap.py bootstrap   # إعدادات الدخول + حساب المالك + دخول تجريبي
+  python3 tool/supabase_bootstrap.py push-config # عنوان دالة الدفع وسرّها في قاعدة المدرسة (PUSH_SECRET)
 
 المدخلات من البيئة: SUPABASE_ACCESS_TOKEN وSUPABASE_PROJECT_REF (verify)، ويضاف لها
 في bootstrap: SUPABASE_URL وSUPABASE_ANON_KEY وOWNER_PHONE وOWNER_INITIAL_PASSWORD.
@@ -90,6 +91,7 @@ class Config:
     anon_key: str = ""
     phone: str = ""
     password: str = ""
+    push_secret: str = ""
     api_base: str = "https://api.supabase.com"
 
     @staticmethod
@@ -101,6 +103,7 @@ class Config:
             anon_key=environ.get("SUPABASE_ANON_KEY", ""),
             phone=environ.get("OWNER_PHONE", ""),
             password=environ.get("OWNER_INITIAL_PASSWORD", ""),
+            push_secret=environ.get("PUSH_SECRET", ""),
             api_base=environ.get("SUPABASE_API_BASE", "https://api.supabase.com").rstrip("/"),
         )
 
@@ -158,6 +161,19 @@ class Bootstrap:
         if not re.fullmatch(r"[A-Za-z0-9_.\-]+", key):
             raise ApiError("المفتاح السرّي مخفي: امنح الرمز صلاحية API Key Secrets (قراءة)")
         return key
+
+    def push_config(self) -> list[str]:
+        """يضبط عنوان دالة الدفع وسرّها المشترك في قاعدة المدرسة (rpc لا يصله غير المفتاح السرّي)."""
+        key = self.secret_key()
+        status, payload = call(
+            "POST",
+            f"{self.cfg.url}/rest/v1/rpc/set_push_config",
+            self._admin(key),
+            {"p_url": f"{self.cfg.url}/functions/v1/send-push", "p_secret": self.cfg.push_secret},
+        )
+        if status in (200, 204):
+            return ["push-config=ok"]
+        raise ApiError(f"تعذّر ضبط إعداد الدفع ({status}) {reason(payload)}", status)
 
     def disable_signup(self) -> None:
         status, payload = call(
@@ -375,6 +391,7 @@ REQUIRED = {
         "OWNER_PHONE",
         "OWNER_INITIAL_PASSWORD",
     ),
+    "push-config": ("SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "SUPABASE_URL", "PUSH_SECRET"),
     "temp-owner-create": ("SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "SUPABASE_URL"),
     "temp-owner-delete": ("SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "SUPABASE_URL"),
 }
@@ -395,7 +412,7 @@ def export_to_github_env(exports: dict[str, str], environ: dict[str, str]) -> No
 def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
     environ = dict(os.environ) if environ is None else environ
     if len(argv) != 2 or argv[1] not in REQUIRED:
-        print("الاستعمال: supabase_bootstrap.py verify|bootstrap|temp-owner-create|temp-owner-delete", file=sys.stderr)
+        print("الاستعمال: supabase_bootstrap.py verify|bootstrap|push-config|temp-owner-create|temp-owner-delete", file=sys.stderr)
         return 2
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")

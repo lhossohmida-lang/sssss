@@ -29,6 +29,7 @@
 
 ## ما بعد الآن
 
+0. **Google Cloud (2026-11-16، عبر Chrome):** المشروع `gen-lang-client-0718247955` («Default Gemini Project»): Drive API مفعّلة، ومعالج Google Auth Platform ملأ الاسم `School Management` وبريد الدعم والجمهور «خارجي» وبريد الاتصال، **وتوقف عند خانة الموافقة على «Règlement sur les données utilisateur dans les services d'API Google»** (يؤشّرها صاحب المشروع ثم «Continuer» و«Créer»). بعدها: Accès aux données ← نطاق `drive.file`، وClients: Android (`dz.school.admin` وبصمة SHA-1 `E1:7E:1B:BF:00:5F:FA:EE:44:41:A8:25:56:55:47:31:9C:FA:08:CE`) وWeb وDesktop (سرّه يظهر مرة واحدة فينسخه صاحب المشروع)، ثم Audience ← Publish app بموافقته.
 1. **8.7 مبكراً (بموافقة صاحب المشروع):** مفتاح التوقيع النهائي جاهز و`build.yml` يضمّن إعداد demo، فيمكن بناء نسخة تجريبية متصلة بالخادم الحقيقي لتجربتها على هاتف. نشر Release عام يحتاج موافقته صراحةً.
 2. **8.5 منتهية.** للعرض أمام عميل يُنصح بنموذج مدفوع رخيص (رصيد بضعة دولارات) بتغيير `LLM_MODEL` فقط؛ وبيانات مدرسة حقيقية لا تُرسل إلى نموذج مجاني أبداً.
 3. **8.4 ثم 8.3:** Google Cloud (مشروع، Drive API، شاشة الموافقة ثم Publish app، عملاء Desktop وWeb وAndroid بحزمة `dz.school.admin` وبصمة المفتاح النهائي) وFirebase (ثلاثة تطبيقات Android وبصمة الإدارة وملفات google-services وحساب الخدمة)؛ وLLM_API_KEY. Claude in Chrome متصل بمتصفح صاحب المشروع (تحقق من `list_connected_browsers`). يتوقف المساعد عند: الموافقة على الشروط، وسرّ عميل Desktop (يظهر مرة واحدة)، وتنزيل الملفات الخاصة؛ وصاحب المشروع يلصق الأسرار بنفسه. كل الأسماء والخطوات في تعليقات الدليل في المحادثة و`QUESTIONS.md` المحدَّث.
