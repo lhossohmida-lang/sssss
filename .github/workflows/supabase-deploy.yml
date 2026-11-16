@@ -59,7 +59,8 @@ jobs:
           supabase link --project-ref "$SUPABASE_PROJECT_REF" > supabase-db.log 2>&1
           status=$?
           if [ "$status" = "0" ]; then
-            supabase db push --yes >> supabase-db.log 2>&1
+            # دون --remote يستهدف الأمر قاعدة محلية (Docker) لا المشروع المربوط.
+            supabase db push --yes --remote >> supabase-db.log 2>&1
             status=$?
           fi
           cat supabase-db.log
