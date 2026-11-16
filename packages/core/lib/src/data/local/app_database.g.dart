@@ -14957,6 +14957,719 @@ class TeacherPayoutsCompanion extends UpdateCompanion<TeacherPayoutRow> {
   }
 }
 
+class $StaffDebtsTable extends StaffDebts
+    with TableInfo<$StaffDebtsTable, StaffDebtRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StaffDebtsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _staffTypeMeta = const VerificationMeta(
+    'staffType',
+  );
+  @override
+  late final GeneratedColumn<String> staffType = GeneratedColumn<String>(
+    'staff_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _staffIdMeta = const VerificationMeta(
+    'staffId',
+  );
+  @override
+  late final GeneratedColumn<String> staffId = GeneratedColumn<String>(
+    'staff_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _amountMeta = const VerificationMeta('amount');
+  @override
+  late final GeneratedColumn<int> amount = GeneratedColumn<int>(
+    'amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<String> date = GeneratedColumn<String>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expenseIdMeta = const VerificationMeta(
+    'expenseId',
+  );
+  @override
+  late final GeneratedColumn<String> expenseId = GeneratedColumn<String>(
+    'expense_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    staffType,
+    staffId,
+    kind,
+    amount,
+    date,
+    note,
+    createdBy,
+    expenseId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'staff_debts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StaffDebtRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('staff_type')) {
+      context.handle(
+        _staffTypeMeta,
+        staffType.isAcceptableOrUnknown(data['staff_type']!, _staffTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_staffTypeMeta);
+    }
+    if (data.containsKey('staff_id')) {
+      context.handle(
+        _staffIdMeta,
+        staffId.isAcceptableOrUnknown(data['staff_id']!, _staffIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_staffIdMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('amount')) {
+      context.handle(
+        _amountMeta,
+        amount.isAcceptableOrUnknown(data['amount']!, _amountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdByMeta);
+    }
+    if (data.containsKey('expense_id')) {
+      context.handle(
+        _expenseIdMeta,
+        expenseId.isAcceptableOrUnknown(data['expense_id']!, _expenseIdMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  StaffDebtRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StaffDebtRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      staffType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}staff_type'],
+      )!,
+      staffId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}staff_id'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      amount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount'],
+      )!,
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}date'],
+      )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      )!,
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
+      expenseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expense_id'],
+      ),
+    );
+  }
+
+  @override
+  $StaffDebtsTable createAlias(String alias) {
+    return $StaffDebtsTable(attachedDatabase, alias);
+  }
+}
+
+class StaffDebtRow extends DataClass implements Insertable<StaffDebtRow> {
+  /// معرّف UUID يُولَّد على الجهاز.
+  final String id;
+  final int createdAt;
+  final int updatedAt;
+
+  /// وقت الحذف الناعم؛ `null` يعني أن السجل حيّ.
+  final int? deletedAt;
+
+  /// `teacher` / `worker`.
+  final String staffType;
+
+  /// معرّف الأستاذ أو العامل (بحسب [staffType]).
+  final String staffId;
+
+  /// `debt` دين أُضيف / `payment` تسديد.
+  final String kind;
+
+  /// المبلغ بالدينار (موجب).
+  final int amount;
+
+  /// تاريخ الدين أو التسديد بصيغة `YYYY-MM-DD`.
+  final String date;
+  final String note;
+
+  /// معرّف من سجّل العملية.
+  final String createdBy;
+
+  /// المصروف المقابل للتسديد؛ فارغ للدين.
+  final String? expenseId;
+  const StaffDebtRow({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.staffType,
+    required this.staffId,
+    required this.kind,
+    required this.amount,
+    required this.date,
+    required this.note,
+    required this.createdBy,
+    this.expenseId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['staff_type'] = Variable<String>(staffType);
+    map['staff_id'] = Variable<String>(staffId);
+    map['kind'] = Variable<String>(kind);
+    map['amount'] = Variable<int>(amount);
+    map['date'] = Variable<String>(date);
+    map['note'] = Variable<String>(note);
+    map['created_by'] = Variable<String>(createdBy);
+    if (!nullToAbsent || expenseId != null) {
+      map['expense_id'] = Variable<String>(expenseId);
+    }
+    return map;
+  }
+
+  StaffDebtsCompanion toCompanion(bool nullToAbsent) {
+    return StaffDebtsCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      staffType: Value(staffType),
+      staffId: Value(staffId),
+      kind: Value(kind),
+      amount: Value(amount),
+      date: Value(date),
+      note: Value(note),
+      createdBy: Value(createdBy),
+      expenseId: expenseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expenseId),
+    );
+  }
+
+  factory StaffDebtRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StaffDebtRow(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      staffType: serializer.fromJson<String>(json['staffType']),
+      staffId: serializer.fromJson<String>(json['staffId']),
+      kind: serializer.fromJson<String>(json['kind']),
+      amount: serializer.fromJson<int>(json['amount']),
+      date: serializer.fromJson<String>(json['date']),
+      note: serializer.fromJson<String>(json['note']),
+      createdBy: serializer.fromJson<String>(json['createdBy']),
+      expenseId: serializer.fromJson<String?>(json['expenseId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'staffType': serializer.toJson<String>(staffType),
+      'staffId': serializer.toJson<String>(staffId),
+      'kind': serializer.toJson<String>(kind),
+      'amount': serializer.toJson<int>(amount),
+      'date': serializer.toJson<String>(date),
+      'note': serializer.toJson<String>(note),
+      'createdBy': serializer.toJson<String>(createdBy),
+      'expenseId': serializer.toJson<String?>(expenseId),
+    };
+  }
+
+  StaffDebtRow copyWith({
+    String? id,
+    int? createdAt,
+    int? updatedAt,
+    Value<int?> deletedAt = const Value.absent(),
+    String? staffType,
+    String? staffId,
+    String? kind,
+    int? amount,
+    String? date,
+    String? note,
+    String? createdBy,
+    Value<String?> expenseId = const Value.absent(),
+  }) => StaffDebtRow(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    staffType: staffType ?? this.staffType,
+    staffId: staffId ?? this.staffId,
+    kind: kind ?? this.kind,
+    amount: amount ?? this.amount,
+    date: date ?? this.date,
+    note: note ?? this.note,
+    createdBy: createdBy ?? this.createdBy,
+    expenseId: expenseId.present ? expenseId.value : this.expenseId,
+  );
+  StaffDebtRow copyWithCompanion(StaffDebtsCompanion data) {
+    return StaffDebtRow(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      staffType: data.staffType.present ? data.staffType.value : this.staffType,
+      staffId: data.staffId.present ? data.staffId.value : this.staffId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      amount: data.amount.present ? data.amount.value : this.amount,
+      date: data.date.present ? data.date.value : this.date,
+      note: data.note.present ? data.note.value : this.note,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      expenseId: data.expenseId.present ? data.expenseId.value : this.expenseId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StaffDebtRow(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('staffType: $staffType, ')
+          ..write('staffId: $staffId, ')
+          ..write('kind: $kind, ')
+          ..write('amount: $amount, ')
+          ..write('date: $date, ')
+          ..write('note: $note, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('expenseId: $expenseId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    staffType,
+    staffId,
+    kind,
+    amount,
+    date,
+    note,
+    createdBy,
+    expenseId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StaffDebtRow &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.staffType == this.staffType &&
+          other.staffId == this.staffId &&
+          other.kind == this.kind &&
+          other.amount == this.amount &&
+          other.date == this.date &&
+          other.note == this.note &&
+          other.createdBy == this.createdBy &&
+          other.expenseId == this.expenseId);
+}
+
+class StaffDebtsCompanion extends UpdateCompanion<StaffDebtRow> {
+  final Value<String> id;
+  final Value<int> createdAt;
+  final Value<int> updatedAt;
+  final Value<int?> deletedAt;
+  final Value<String> staffType;
+  final Value<String> staffId;
+  final Value<String> kind;
+  final Value<int> amount;
+  final Value<String> date;
+  final Value<String> note;
+  final Value<String> createdBy;
+  final Value<String?> expenseId;
+  final Value<int> rowid;
+  const StaffDebtsCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.staffType = const Value.absent(),
+    this.staffId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.amount = const Value.absent(),
+    this.date = const Value.absent(),
+    this.note = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.expenseId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StaffDebtsCompanion.insert({
+    required String id,
+    required int createdAt,
+    required int updatedAt,
+    this.deletedAt = const Value.absent(),
+    required String staffType,
+    required String staffId,
+    required String kind,
+    required int amount,
+    required String date,
+    this.note = const Value.absent(),
+    required String createdBy,
+    this.expenseId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt),
+       staffType = Value(staffType),
+       staffId = Value(staffId),
+       kind = Value(kind),
+       amount = Value(amount),
+       date = Value(date),
+       createdBy = Value(createdBy);
+  static Insertable<StaffDebtRow> custom({
+    Expression<String>? id,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+    Expression<int>? deletedAt,
+    Expression<String>? staffType,
+    Expression<String>? staffId,
+    Expression<String>? kind,
+    Expression<int>? amount,
+    Expression<String>? date,
+    Expression<String>? note,
+    Expression<String>? createdBy,
+    Expression<String>? expenseId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (staffType != null) 'staff_type': staffType,
+      if (staffId != null) 'staff_id': staffId,
+      if (kind != null) 'kind': kind,
+      if (amount != null) 'amount': amount,
+      if (date != null) 'date': date,
+      if (note != null) 'note': note,
+      if (createdBy != null) 'created_by': createdBy,
+      if (expenseId != null) 'expense_id': expenseId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StaffDebtsCompanion copyWith({
+    Value<String>? id,
+    Value<int>? createdAt,
+    Value<int>? updatedAt,
+    Value<int?>? deletedAt,
+    Value<String>? staffType,
+    Value<String>? staffId,
+    Value<String>? kind,
+    Value<int>? amount,
+    Value<String>? date,
+    Value<String>? note,
+    Value<String>? createdBy,
+    Value<String?>? expenseId,
+    Value<int>? rowid,
+  }) {
+    return StaffDebtsCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      staffType: staffType ?? this.staffType,
+      staffId: staffId ?? this.staffId,
+      kind: kind ?? this.kind,
+      amount: amount ?? this.amount,
+      date: date ?? this.date,
+      note: note ?? this.note,
+      createdBy: createdBy ?? this.createdBy,
+      expenseId: expenseId ?? this.expenseId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (staffType.present) {
+      map['staff_type'] = Variable<String>(staffType.value);
+    }
+    if (staffId.present) {
+      map['staff_id'] = Variable<String>(staffId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (amount.present) {
+      map['amount'] = Variable<int>(amount.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<String>(date.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (expenseId.present) {
+      map['expense_id'] = Variable<String>(expenseId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StaffDebtsCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('staffType: $staffType, ')
+          ..write('staffId: $staffId, ')
+          ..write('kind: $kind, ')
+          ..write('amount: $amount, ')
+          ..write('date: $date, ')
+          ..write('note: $note, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('expenseId: $expenseId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ExpenseCategoriesTable extends ExpenseCategories
     with TableInfo<$ExpenseCategoriesTable, ExpenseCategoryRow> {
   @override
@@ -25110,6 +25823,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $TeacherPayoutsTable teacherPayouts = $TeacherPayoutsTable(this);
+  late final $StaffDebtsTable staffDebts = $StaffDebtsTable(this);
   late final $ExpenseCategoriesTable expenseCategories =
       $ExpenseCategoriesTable(this);
   late final $ExpensesTable expenses = $ExpensesTable(this);
@@ -25447,6 +26161,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_teacher_payouts_updated',
     'CREATE INDEX idx_teacher_payouts_updated ON teacher_payouts (updated_at)',
   );
+  late final Index idxStaffDebtsStaff = Index(
+    'idx_staff_debts_staff',
+    'CREATE INDEX idx_staff_debts_staff ON staff_debts (staff_type, staff_id)',
+  );
+  late final Index idxStaffDebtsDate = Index(
+    'idx_staff_debts_date',
+    'CREATE INDEX idx_staff_debts_date ON staff_debts (date)',
+  );
+  late final Index idxStaffDebtsUpdated = Index(
+    'idx_staff_debts_updated',
+    'CREATE INDEX idx_staff_debts_updated ON staff_debts (updated_at)',
+  );
   late final Index idxExpenseCategoriesName = Index(
     'idx_expense_categories_name',
     'CREATE INDEX idx_expense_categories_name ON expense_categories (name)',
@@ -25620,6 +26346,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     studentCredits,
     registrationFees,
     teacherPayouts,
+    staffDebts,
     expenseCategories,
     expenses,
     smsQueue,
@@ -25717,6 +26444,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxTeacherPayoutsTeacher,
     idxTeacherPayoutsGroupCycle,
     idxTeacherPayoutsUpdated,
+    idxStaffDebtsStaff,
+    idxStaffDebtsDate,
+    idxStaffDebtsUpdated,
     idxExpenseCategoriesName,
     idxExpenseCategoriesUpdated,
     idxExpensesCategoryDate,
@@ -40661,6 +41391,346 @@ typedef $$TeacherPayoutsTableProcessedTableManager =
       TeacherPayoutRow,
       PrefetchHooks Function({bool teacherId, bool groupId})
     >;
+typedef $$StaffDebtsTableCreateCompanionBuilder = StaffDebtsCompanion Function({
+  required String id,
+  required int createdAt,
+  required int updatedAt,
+  Value<int?> deletedAt,
+  required String staffType,
+  required String staffId,
+  required String kind,
+  required int amount,
+  required String date,
+  Value<String> note,
+  required String createdBy,
+  Value<String?> expenseId,
+  Value<int> rowid,
+});
+typedef $$StaffDebtsTableUpdateCompanionBuilder = StaffDebtsCompanion Function({
+  Value<String> id,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int?> deletedAt,
+  Value<String> staffType,
+  Value<String> staffId,
+  Value<String> kind,
+  Value<int> amount,
+  Value<String> date,
+  Value<String> note,
+  Value<String> createdBy,
+  Value<String?> expenseId,
+  Value<int> rowid,
+});
+
+class $$StaffDebtsTableFilterComposer
+    extends Composer<_$AppDatabase, $StaffDebtsTable> {
+  $$StaffDebtsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get staffType => $composableBuilder(
+    column: $table.staffType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get staffId => $composableBuilder(
+    column: $table.staffId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StaffDebtsTableOrderingComposer
+    extends Composer<_$AppDatabase, $StaffDebtsTable> {
+  $$StaffDebtsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get staffType => $composableBuilder(
+    column: $table.staffType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get staffId => $composableBuilder(
+    column: $table.staffId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amount => $composableBuilder(
+    column: $table.amount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StaffDebtsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StaffDebtsTable> {
+  $$StaffDebtsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get staffType =>
+      $composableBuilder(column: $table.staffType, builder: (column) => column);
+
+  GeneratedColumn<String> get staffId =>
+      $composableBuilder(column: $table.staffId, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<int> get amount =>
+      $composableBuilder(column: $table.amount, builder: (column) => column);
+
+  GeneratedColumn<String> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<String> get expenseId =>
+      $composableBuilder(column: $table.expenseId, builder: (column) => column);
+}
+
+class $$StaffDebtsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StaffDebtsTable,
+          StaffDebtRow,
+          $$StaffDebtsTableFilterComposer,
+          $$StaffDebtsTableOrderingComposer,
+          $$StaffDebtsTableAnnotationComposer,
+          $$StaffDebtsTableCreateCompanionBuilder,
+          $$StaffDebtsTableUpdateCompanionBuilder,
+          (
+            StaffDebtRow,
+            BaseReferences<_$AppDatabase, $StaffDebtsTable, StaffDebtRow>,
+          ),
+          StaffDebtRow,
+          PrefetchHooks Function()
+        > {
+  $$StaffDebtsTableTableManager(_$AppDatabase db, $StaffDebtsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StaffDebtsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StaffDebtsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StaffDebtsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<String> staffType = const Value.absent(),
+                Value<String> staffId = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<int> amount = const Value.absent(),
+                Value<String> date = const Value.absent(),
+                Value<String> note = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
+                Value<String?> expenseId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StaffDebtsCompanion(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                staffType: staffType,
+                staffId: staffId,
+                kind: kind,
+                amount: amount,
+                date: date,
+                note: note,
+                createdBy: createdBy,
+                expenseId: expenseId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required int createdAt,
+                required int updatedAt,
+                Value<int?> deletedAt = const Value.absent(),
+                required String staffType,
+                required String staffId,
+                required String kind,
+                required int amount,
+                required String date,
+                Value<String> note = const Value.absent(),
+                required String createdBy,
+                Value<String?> expenseId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StaffDebtsCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                staffType: staffType,
+                staffId: staffId,
+                kind: kind,
+                amount: amount,
+                date: date,
+                note: note,
+                createdBy: createdBy,
+                expenseId: expenseId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$StaffDebtsTable, StaffDebtRow>(table),
+                  BaseReferences<_$AppDatabase, $StaffDebtsTable, StaffDebtRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StaffDebtsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StaffDebtsTable,
+      StaffDebtRow,
+      $$StaffDebtsTableFilterComposer,
+      $$StaffDebtsTableOrderingComposer,
+      $$StaffDebtsTableAnnotationComposer,
+      $$StaffDebtsTableCreateCompanionBuilder,
+      $$StaffDebtsTableUpdateCompanionBuilder,
+      (
+        StaffDebtRow,
+        BaseReferences<_$AppDatabase, $StaffDebtsTable, StaffDebtRow>,
+      ),
+      StaffDebtRow,
+      PrefetchHooks Function()
+    >;
 typedef $$ExpenseCategoriesTableCreateCompanionBuilder =
     ExpenseCategoriesCompanion Function({
       required String id,
@@ -46933,6 +48003,8 @@ class $AppDatabaseManager {
       $$RegistrationFeesTableTableManager(_db, _db.registrationFees);
   $$TeacherPayoutsTableTableManager get teacherPayouts =>
       $$TeacherPayoutsTableTableManager(_db, _db.teacherPayouts);
+  $$StaffDebtsTableTableManager get staffDebts =>
+      $$StaffDebtsTableTableManager(_db, _db.staffDebts);
   $$ExpenseCategoriesTableTableManager get expenseCategories =>
       $$ExpenseCategoriesTableTableManager(_db, _db.expenseCategories);
   $$ExpensesTableTableManager get expenses =>

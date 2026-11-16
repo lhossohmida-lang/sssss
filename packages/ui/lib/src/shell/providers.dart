@@ -575,6 +575,18 @@ final Provider<AttendanceService> attendanceServiceProvider =
       );
     });
 
+/// تسجيل حصص الدورة الحالية التي انعقدت قبل استعمال النظام (تطبيق الإدارة).
+final Provider<PastSessionsService> pastSessionsServiceProvider =
+    Provider<PastSessionsService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return PastSessionsService(
+        runtime.db,
+        runtime.writer,
+        CycleService(runtime.db, runtime.writer),
+        ref.watch(attendanceServiceProvider),
+      );
+    });
+
 /// حصص يوم (مفتاحه `YYYY-MM-DD`) بعدّادات حضورها.
 final daySessionsProvider = StreamProvider.autoDispose
     .family<List<DaySession>, String>(
@@ -796,6 +808,28 @@ final payoutSummaryProvider = StreamProvider.autoDispose
 final payoutDetailProvider = FutureProvider.autoDispose
     .family<PayoutDetail?, String>(
       (ref, id) => ref.watch(payoutQueriesProvider).detail(id),
+    );
+
+/// ديون صاحب المدرسة لأساتذته وعماله (تطبيق الإدارة، لصاحب المدرسة وحده).
+final Provider<StaffDebtService> staffDebtServiceProvider =
+    Provider<StaffDebtService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return StaffDebtService(runtime.db, runtime.writer);
+    });
+
+typedef StaffDebtKey = ({StaffKind kind, String staffId});
+
+/// دفتر دين أستاذ أو عامل.
+final staffDebtProvider = StreamProvider.autoDispose
+    .family<StaffDebtSummary, StaffDebtKey>(
+      (ref, key) =>
+          ref.watch(staffDebtServiceProvider).watch(key.kind, key.staffId),
+    );
+
+/// كل من له دين متبقٍّ على المدرسة.
+final StreamProvider<List<StaffDebtBalance>> staffOutstandingProvider =
+    StreamProvider.autoDispose<List<StaffDebtBalance>>(
+      (ref) => ref.watch(staffDebtServiceProvider).watchOutstanding(),
     );
 
 /// أساتذة المدرسة للاختيار في المرشِّحات (قراءة خفيفة بلا خدمة الحسابات).

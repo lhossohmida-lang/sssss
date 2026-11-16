@@ -14,6 +14,7 @@ import 'screens/group_details_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/monthly_report_screen.dart';
 import 'screens/more_page.dart';
+import 'screens/past_sessions_screen.dart';
 import 'screens/payments_screens.dart';
 import 'screens/payouts_screens.dart';
 import 'screens/registration_screen.dart';
@@ -22,6 +23,7 @@ import 'screens/scanner_screen.dart';
 import 'screens/schedule_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/sms_screen.dart';
+import 'screens/staff_debts_card.dart';
 import 'screens/statistics_screen.dart';
 import 'screens/student_profile_screen.dart';
 import 'screens/students_screen.dart';
@@ -149,6 +151,12 @@ final List<AppPage> adminPages = [
     path: '/payouts',
     requires: PermissionModule.payouts,
     builder: (context, state) => const PayoutsScreen(),
+  ),
+  AppPage(
+    path: '/staff-debts',
+    requires: PermissionModule.payouts,
+    ownerOnly: true,
+    builder: (context, state) => const StaffDebtsScreen(),
   ),
   AppPage(
     path: '/payouts/:id',
@@ -304,6 +312,13 @@ final List<AppPage> adminPages = [
     action: PermissionAction.edit,
     builder: (context, state) =>
         GroupFormScreen(groupId: state.pathParameters['id']),
+  ),
+  AppPage(
+    path: '/groups/:id/past',
+    requires: PermissionModule.attendance,
+    action: PermissionAction.edit,
+    builder: (context, state) =>
+        PastSessionsScreen(groupId: state.pathParameters['id']!),
   ),
   // بعد `/groups/new` حتى لا يُقرأ «new» معرّفاً لمجموعة.
   AppPage(

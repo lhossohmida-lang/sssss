@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'staff_debts_card.dart';
 import 'teachers_screens.dart' show showCredentialsDialog;
 
 /// قائمة العمال: اسم وأيام عمل وأجر اليوم، وإضافة عامل.
@@ -469,6 +470,12 @@ class WorkerProfileScreen extends ConsumerWidget {
                       ),
                   ],
                 ),
+              ),
+              const SizedBox(height: ClaySpacing.md),
+              StaffDebtsCard(
+                kind: StaffKind.worker,
+                staffId: w.id,
+                staffName: w.name,
               ),
               const SizedBox(height: ClaySpacing.md),
               ClayCard(

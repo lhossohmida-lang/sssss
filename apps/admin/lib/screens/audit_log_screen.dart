@@ -38,6 +38,7 @@ const Map<String, String> _auditEntityLabels = {
   'student_credits': 'أرصدة التلاميذ',
   'registration_fees': 'حقوق التسجيل',
   'teacher_payouts': 'خلاص الأساتذة',
+  'staff_debts': 'ديون الأساتذة والعمال',
   'expense_categories': 'أنواع المصاريف',
   'expenses': 'المصاريف',
   'sms_templates': 'قوالب الرسائل',

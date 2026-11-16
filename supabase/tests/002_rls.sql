@@ -129,6 +129,11 @@ insert into teacher_payouts (id, created_at, updated_at, teacher_id, group_id,
 values ('po1', 1, 1, 't1', 'g1', 1, 'cycle', 1000, '[]'),
        ('po2', 1, 1, 't2', 'g2', 1, 'cycle', 1200, '[]');
 
+insert into staff_debts (id, created_at, updated_at, staff_type, staff_id,
+                         kind, amount, date, note, created_by)
+values ('sd1', 1, 1, 'teacher', 't1', 'debt', 5000, '2026-10-01', '', 'acc-owner'),
+       ('sd2', 1, 1, 'worker', 'w1', 'debt', 3000, '2026-10-01', '', 'acc-owner');
+
 insert into expense_categories (id, created_at, updated_at, name, is_wages)
 values ('ec1', 1, 1, 'كهرباء', false);
 
@@ -206,6 +211,16 @@ select test.sees('select 1 from workers', 2, 'المالك: العمال');
 select test.sees('select 1 from payments', 2, 'المالك: المدفوعات');
 select test.sees('select 1 from user_accounts', 7, 'المالك: الحسابات');
 select test.sees('select 1 from teacher_payouts', 2, 'المالك: الخلاص');
+select test.sees('select 1 from staff_debts', 2, 'المالك: ديون الموظفين');
+select test.allowed(
+  $$insert into staff_debts (id, created_at, updated_at, staff_type, staff_id,
+      kind, amount, date, note, created_by)
+    values ('sd3', 1, 1, 'worker', 'w1', 'payment', 1000, '2026-11-01', '',
+            'acc-owner')$$,
+  'المالك يسجّل تسديد دين');
+select test.allowed(
+  $$update staff_debts set deleted_at = 4, updated_at = 4 where id = 'sd3'$$,
+  'المالك يحذف تسديداً حذفاً ناعماً');
 select test.allowed(
   $$insert into students (id, created_at, updated_at, first_name, last_name,
       parent_phone, uses_transport, transport_price, qr_code)
@@ -231,6 +246,16 @@ select test.logout();
 -- عامل بصلاحيات: عرض وإضافة التلاميذ، الماسح، استلام المال
 -- ---------------------------------------------------------------------------
 select test.login('acc-w1');
+select test.sees('select 1 from staff_debts', 0, 'العامل 1: لا ديون موظفين');
+select test.denied(
+  $$insert into staff_debts (id, created_at, updated_at, staff_type, staff_id,
+      kind, amount, date, note, created_by)
+    values ('sd4', 1, 1, 'worker', 'w1', 'debt', 100, '2026-11-01', '',
+            'acc-w1')$$,
+  'العامل 1 يضيف ديناً');
+select test.denied(
+  $$update staff_debts set amount = 1, updated_at = 5 where id = 'sd2'$$,
+  'العامل 1 يعدّل دين نفسه');
 select test.sees('select 1 from students where deleted_at is null', 2,
   'العامل 1: التلاميذ');
 select test.allowed(
@@ -290,6 +315,7 @@ select test.logout();
 
 -- عامل بلا أي صلاحية.
 select test.login('acc-w2');
+select test.sees('select 1 from staff_debts', 0, 'العامل 2: لا ديون موظفين');
 select test.sees('select 1 from students', 0, 'العامل 2: التلاميذ');
 select test.sees('select 1 from subjects', 1, 'العامل 2: المواد مراجع عامة');
 select test.denied(
@@ -331,6 +357,10 @@ select test.sees('select 1 from group_students', 1, 'الأستاذ 1: انتس�
 select test.sees('select 1 from sessions', 1, 'الأستاذ 1: حصصه');
 select test.sees('select 1 from parents', 1, 'الأستاذ 1: أولياء تلاميذه');
 select test.sees('select 1 from teacher_payouts', 1, 'الأستاذ 1: خلاصه');
+select test.sees('select 1 from staff_debts', 0, 'الأستاذ 1: لا يرى ديونه');
+select test.denied(
+  $$update staff_debts set amount = 1, updated_at = 5 where id = 'sd1'$$,
+  'الأستاذ 1 يعدّل دينه');
 select test.sees('select 1 from payments', 0, 'الأستاذ 1: لا مدفوعات');
 select test.sees('select 1 from workers', 0, 'الأستاذ 1: لا عمال');
 select test.sees('select 1 from user_accounts', 1, 'الأستاذ 1: حسابه فقط');
@@ -491,6 +521,7 @@ select test.sees(
   'select 1 from group_cards where rate_per_student is null', 1,
   'الوليّ يرى مجموعة ابنه دون مبلغ الأستاذ');
 select test.sees('select 1 from teacher_payouts', 0, 'الوليّ: لا خلاص');
+select test.sees('select 1 from staff_debts', 0, 'الوليّ: لا ديون موظفين');
 select test.sees('select 1 from workers', 0, 'الوليّ: لا عمال');
 select test.sees('select 1 from sms_queue', 0, 'الوليّ: لا طابور رسائل');
 select test.sees('select 1 from audit_log', 0, 'الوليّ: لا سجل عمليات');

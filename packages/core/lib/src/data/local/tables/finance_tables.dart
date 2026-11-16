@@ -124,6 +124,40 @@ class TeacherPayouts extends Table with SyncColumns {
   TextColumn get paidBy => text().nullable()();
 }
 
+/// دفتر ديون صاحب المدرسة لأساتذته وعماله (السائق عامل).
+///
+/// كل سجل إما «دين» أُضيف (مبلغ مستحق للأستاذ أو العامل، كأجر لم يُسلَّم قبل
+/// استعمال النظام) وإما «تسديد» سلّمه المدير. المتبقي = مجموع الديون ناقص مجموع
+/// التسديدات. لكل تسديد مصروف مقابل في المصاريف ليظهر في التقرير المالي.
+@DataClassName('StaffDebtRow')
+@TableIndex(name: 'idx_staff_debts_staff', columns: {#staffType, #staffId})
+@TableIndex(name: 'idx_staff_debts_date', columns: {#date})
+@TableIndex(name: 'idx_staff_debts_updated', columns: {#updatedAt})
+class StaffDebts extends Table with SyncColumns {
+  /// `teacher` / `worker`.
+  TextColumn get staffType => text()();
+
+  /// معرّف الأستاذ أو العامل (بحسب [staffType]).
+  TextColumn get staffId => text()();
+
+  /// `debt` دين أُضيف / `payment` تسديد.
+  TextColumn get kind => text()();
+
+  /// المبلغ بالدينار (موجب).
+  IntColumn get amount => integer()();
+
+  /// تاريخ الدين أو التسديد بصيغة `YYYY-MM-DD`.
+  TextColumn get date => text()();
+
+  TextColumn get note => text().withDefault(const Constant(''))();
+
+  /// معرّف من سجّل العملية.
+  TextColumn get createdBy => text()();
+
+  /// المصروف المقابل للتسديد؛ فارغ للدين.
+  TextColumn get expenseId => text().nullable()();
+}
+
 /// أنواع المصاريف.
 @DataClassName('ExpenseCategoryRow')
 @TableIndex(name: 'idx_expense_categories_name', columns: {#name})

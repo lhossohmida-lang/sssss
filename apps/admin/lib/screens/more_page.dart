@@ -139,6 +139,14 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.payouts,
   ),
   MoreEntry(
+    label: 'ديون الأساتذة والعمال',
+    icon: ClayIcons.dues,
+    path: '/staff-debts',
+    section: MoreSection.finance,
+    requires: PermissionModule.payouts,
+    ownerOnly: true,
+  ),
+  MoreEntry(
     label: 'المحادثات',
     icon: ClayIcons.chat,
     path: '/chat',

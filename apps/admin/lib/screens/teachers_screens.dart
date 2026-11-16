@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'staff_debts_card.dart';
+
 /// يعرض بيانات دخول حساب أُنشئ أو أُعيد توليده. كلمة السر تظهر هنا مرة
 /// واحدة فقط، وتُرسل لصاحبها برسالة قصيرة.
 Future<void> showCredentialsDialog(
@@ -498,6 +500,12 @@ class TeacherProfileScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: ClaySpacing.lg),
+                  StaffDebtsCard(
+                    kind: StaffKind.teacher,
+                    staffId: t.id,
+                    staffName: t.name,
                   ),
                   const SizedBox(height: ClaySpacing.lg),
                   ClayCard(

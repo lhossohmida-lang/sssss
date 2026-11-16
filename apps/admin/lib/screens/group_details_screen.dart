@@ -17,11 +17,18 @@ class GroupDetailsScreen extends ConsumerWidget {
     final p = context.palette;
     final item = ref.watch(groupItemProvider(groupId));
     final canEdit = ref.can(PermissionModule.groups, PermissionAction.edit);
+    final canPast = ref.can(PermissionModule.attendance, PermissionAction.edit);
     return Scaffold(
       appBar: ClayAppBar(
         title: item == null ? 'الفوج' : 'الفوج ${item.number}',
         showBack: true,
         actions: [
+          if (canPast && item != null)
+            IconButton(
+              tooltip: 'تسجيل الحضور السابق',
+              icon: const Icon(ClayIcons.attendance),
+              onPressed: () => context.push('/groups/${item.id}/past'),
+            ),
           if (canEdit && item != null)
             IconButton(
               tooltip: 'تعديل الفوج',
@@ -52,6 +59,17 @@ class GroupDetailsScreen extends ConsumerWidget {
                       item.scheduleText,
                       style: text.bodySmall!.copyWith(color: p.textMuted),
                     ),
+                    if (canPast) ...[
+                      const SizedBox(height: ClaySpacing.md),
+                      ClayButton(
+                        label: 'تسجيل الحضور السابق',
+                        icon: ClayIcons.attendance,
+                        kind: ClayButtonKind.secondary,
+                        expand: true,
+                        onPressed: () =>
+                            context.push('/groups/${item.id}/past'),
+                      ),
+                    ],
                   ],
                 ),
               ),

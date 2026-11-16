@@ -309,6 +309,15 @@ class AttendanceService {
     });
   }
 
+  /// يكتب حالة [studentId] في حصة مضت قبل استعمال النظام، دون أي رسالة أو
+  /// تنبيه، ويُنشئ رصيد الغياب برخصة إن لزم. لا يتحقق من الانتساب (تتحقق
+  /// خدمة الحصص السابقة قبل أن تستدعيه).
+  Future<void> writeHistorical(
+    SessionRow session,
+    String studentId,
+    AttendanceStatus status,
+  ) => _write(session, studentId, status);
+
   /// يمسح تسجيل التلميذ في حصة لم تُغلق (تراجعاً عن خطأ).
   Future<void> clear({required String sessionId, required String studentId}) {
     return db.transaction(() async {

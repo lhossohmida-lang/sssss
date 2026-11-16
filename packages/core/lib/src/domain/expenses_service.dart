@@ -72,7 +72,11 @@ class ExpenseService {
   /// الأنواع غير المحذوفة، مرتبة بالاسم.
   Stream<List<ExpenseCategory>> watchCategories() =>
       (db.select(db.expenseCategories)
-            ..where((category) => category.deletedAt.isNull())
+            ..where(
+              (category) =>
+                  category.deletedAt.isNull() &
+                  category.id.isNotValue(StableId.staffDebtCategory()),
+            )
             ..orderBy([(category) => OrderingTerm.asc(category.name)]))
           .watch()
           .map(
@@ -110,6 +114,7 @@ class ExpenseService {
 
   /// يعيد تسمية نوع من دون تغيير معرّفه، فتحافظ المصروفات السابقة على ربطها.
   Future<void> renameCategory(String id, String name) async {
+    _rejectDebtCategory(id);
     final cleanName = _categoryName(name);
     await _ensureUniqueCategoryName(cleanName, exceptId: id);
     final category = await _category(id);
@@ -123,6 +128,7 @@ class ExpenseService {
 
   /// حذف ناعم لنوع لم يُستخدم في مصروف قائم.
   Future<void> deleteCategory(String id) async {
+    _rejectDebtCategory(id);
     final category = await _category(id);
     if (category == null) return;
     final expenses =
@@ -151,6 +157,7 @@ class ExpenseService {
       throw const FormatException('المبلغ يجب أن يكون أكبر من صفر');
     }
     _validateDate(date);
+    _rejectDebtCategory(categoryId);
     final category = await _category(categoryId);
     if (category == null) throw StateError('اختر نوع مصروف متاحاً');
     if (category.isWages != (workerId != null)) {
@@ -204,6 +211,7 @@ class ExpenseService {
       throw const FormatException('المبلغ يجب أن يكون أكبر من صفر');
     }
     _validateDate(date);
+    _rejectDebtCategory(categoryId);
     final category = await _category(categoryId);
     if (category == null || category.isWages) {
       throw StateError('اختر نوع مصروف عادي متاحاً');
@@ -213,6 +221,7 @@ class ExpenseService {
               ..where((row) => row.id.equals(id) & row.deletedAt.isNull()))
             .getSingleOrNull();
     if (expense == null) throw StateError('المصروف غير موجود');
+    _rejectDebtCategory(expense.categoryId);
     if (expense.workerId != null) {
       throw StateError('تُعدّل أجور العمال من كشف العامل');
     }
@@ -235,6 +244,7 @@ class ExpenseService {
               ..where((row) => row.id.equals(id) & row.deletedAt.isNull()))
             .getSingleOrNull();
     if (expense == null) return;
+    _rejectDebtCategory(expense.categoryId);
     if (expense.workerId != null) {
       throw StateError('تُدار أجور العمال من كشف العامل');
     }
@@ -317,6 +327,13 @@ class ExpenseService {
             monthCount: row.read<int>('month_count'),
           );
         });
+  }
+
+  /// نوع تسديد الديون محجوز: يُدار من ملف الأستاذ أو العامل لا من المصاريف.
+  void _rejectDebtCategory(String categoryId) {
+    if (categoryId == StableId.staffDebtCategory()) {
+      throw StateError('تُدار تسديدات الديون من ملف الأستاذ أو العامل');
+    }
   }
 
   Future<ExpenseCategoryRow?> _category(String id) =>

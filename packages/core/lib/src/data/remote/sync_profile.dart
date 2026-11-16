@@ -45,6 +45,7 @@ abstract final class SyncProfile {
     'teacher_payouts',
     'expense_categories',
     'expenses',
+    'staff_debts',
     'sms_templates',
     'sms_queue',
     'chat_rooms',

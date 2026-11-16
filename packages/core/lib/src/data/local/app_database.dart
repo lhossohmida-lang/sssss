@@ -35,6 +35,7 @@ part 'app_database.g.dart';
     StudentCredits,
     RegistrationFees,
     TeacherPayouts,
+    StaffDebts,
     ExpenseCategories,
     Expenses,
     SmsQueue,
@@ -59,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -71,6 +72,13 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.addColumn(smsQueue, smsQueue.eventKey);
         await m.createIndex(idxSmsQueueEventKey);
+      }
+      // 4: ديون صاحب المدرسة لأساتذته وعماله وتسديدها.
+      if (from < 4) {
+        await m.createTable(staffDebts);
+        await m.createIndex(idxStaffDebtsStaff);
+        await m.createIndex(idxStaffDebtsDate);
+        await m.createIndex(idxStaffDebtsUpdated);
       }
     },
     beforeOpen: (details) async {

@@ -521,6 +521,30 @@ drop trigger if exists trg_sync_stamp on public."sms_templates";
 create trigger trg_sync_stamp before insert or update on public."sms_templates"
   for each row execute function public.sync_stamp();
 
+create table if not exists public."staff_debts" (
+  "id" text not null,
+  "created_at" bigint not null,
+  "updated_at" bigint not null,
+  "deleted_at" bigint,
+  "staff_type" text not null,
+  "staff_id" text not null,
+  "kind" text not null,
+  "amount" bigint not null,
+  "date" text not null,
+  "note" text not null,
+  "created_by" text not null,
+  "expense_id" text,
+  "synced_at" bigint not null default 0,
+  primary key ("id")
+);
+create index if not exists "idx_staff_debts_date" on public."staff_debts" (date);
+create index if not exists "idx_staff_debts_staff" on public."staff_debts" (staff_type, staff_id);
+create index if not exists "idx_staff_debts_updated" on public."staff_debts" (updated_at);
+create index if not exists "idx_staff_debts_synced" on public."staff_debts" (synced_at);
+drop trigger if exists trg_sync_stamp on public."staff_debts";
+create trigger trg_sync_stamp before insert or update on public."staff_debts"
+  for each row execute function public.sync_stamp();
+
 create table if not exists public."student_credits" (
   "id" text not null,
   "created_at" bigint not null,
@@ -838,6 +862,7 @@ begin
       'settings',
       'sms_queue',
       'sms_templates',
+      'staff_debts',
       'student_credits',
       'students',
       'subjects',
