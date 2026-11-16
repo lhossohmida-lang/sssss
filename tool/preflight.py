@@ -5,10 +5,10 @@
   python3 tool/preflight.py school   (داخل Environment المدرسة)
   python3 tool/preflight.py repo     (دون Environment: مستوى المستودع فقط)
 
-المدخلات من البيئة: ALL_SECRETS وALL_VARS (محتوى toJSON(secrets) وtoJSON(vars))،
-وSCHOOL لاسم المدرسة (للعرض). لا تُطبع قيمة سرّية أبداً: الرسائل فيها الأسماء
-والأسباب فقط. ولا تُطبع أسماء غير معروفة (قد يلصق مستخدم سرّاً في خانة الاسم)؛
-يُطبع عددها فقط.
+المدخلات من البيئة: لكل اسم N المتغير N (من secrets.N) والمتغير VAR_N (من vars.N)،
+وSCHOOL لاسم المدرسة (للعرض). تُسمّى الأسماء صراحةً في المسار ولا يُستعمل
+toJSON(secrets) (يعدّه GitHub نمطاً مشبوهاً ويوقف التشغيل لموافقة يدوية). لا
+تُطبع قيمة سرّية أبداً: الرسائل فيها الأسماء والأسباب فقط.
 """
 
 from __future__ import annotations
@@ -260,7 +260,6 @@ class Report:
     rows: list[tuple[str, str]] = field(default_factory=list)  # (اسم، حالة)
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    unknown: int = 0
 
 
 def firebase_project_id(name: str, raw: str) -> Optional[str]:
@@ -320,9 +319,6 @@ def evaluate(mode: str, secrets: dict[str, str], variables: dict[str, str]) -> R
         if len(projects) > 1:
             report.errors.append("ملفات Firebase وحساب الخدمة من مشاريع مختلفة")
 
-    known = {i.name for i in SCHOOL_ITEMS} | {i.name for i in DEVELOPER_ITEMS}
-    names = set(values.secrets) | set(values.variables)
-    report.unknown = len(names - known - {"GITHUB_TOKEN"})
     return report
 
 
@@ -342,8 +338,6 @@ def render(report: Report, mode: str, school: str) -> str:
         lines += ["", "**أخطاء:**"] + [f"- {e}" for e in report.errors]
     if report.warnings:
         lines += ["", "**تحذيرات:**"] + [f"- {w}" for w in report.warnings]
-    if report.unknown:
-        lines += ["", f"أسماء أخرى غير معروفة للمشروع: {report.unknown} (لا تُعرض أسماؤها)."]
     return "\n".join(lines)
 
 
@@ -361,6 +355,19 @@ def annotations(report: Report, mode: str) -> list[str]:
     return out
 
 
+def names_for(mode: str) -> list[str]:
+    """الأسماء التي يفحصها المسار في [mode]، وكلها تُمرَّر صراحةً من ملف المسار."""
+    school = [item.name for item in SCHOOL_ITEMS]
+    developer = [item.name for item in DEVELOPER_ITEMS]
+    return school if mode == "school" else developer + school
+
+
+def collect(names: list[str], environ: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+    secrets = {name: environ.get(name, "") for name in names}
+    variables = {name: environ.get("VAR_" + name, "") for name in names}
+    return secrets, variables
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2 or argv[1] not in ("school", "repo"):
         print("الاستعمال: preflight.py school|repo", file=sys.stderr)
@@ -368,8 +375,7 @@ def main(argv: list[str]) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     mode = argv[1]
-    secrets = json.loads(os.environ.get("ALL_SECRETS") or "{}")
-    variables = json.loads(os.environ.get("ALL_VARS") or "{}")
+    secrets, variables = collect(names_for(mode), dict(os.environ))
     school = re.sub(r"[^A-Za-z0-9_-]", "", os.environ.get("SCHOOL", ""))[:40]
     report = evaluate(mode, secrets, variables)
     text = render(report, mode, school)

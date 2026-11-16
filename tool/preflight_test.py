@@ -3,6 +3,7 @@
 import base64
 import json
 import os
+import re
 import sys
 import unittest
 
@@ -193,7 +194,6 @@ class NothingSecretIsPrinted(unittest.TestCase):
                 "SCHOOL_KEY_PASSWORD": "SENTINEL-OTHER",
                 "FIREBASE_SERVICE_ACCOUNT": service_account(),
                 "GOOGLE_SERVICES_ADMIN": services("dz.school.teacher"),
-                "SECRET_PASTED_AS_NAME_SENTINEL": "x",
             }
         )
         variables["OWNER_PHONE"] = "0450000000"
@@ -202,19 +202,62 @@ class NothingSecretIsPrinted(unittest.TestCase):
             output = preflight.render(report, mode, "demo") + "\n".join(
                 preflight.annotations(report, mode)
             )
-            for value in list(secrets.values()) + ["SENTINEL"]:
-                if value in ("x",):
-                    continue
+            for value in secrets.values():
                 self.assertNotIn(value, output, mode)
             self.assertNotIn("SENTINEL", output)
-            self.assertNotIn("SECRET_PASTED_AS_NAME_SENTINEL", output)
-            self.assertGreaterEqual(report.unknown, 1)
 
     def test_annotation_text_is_escaped_to_one_line(self):
         report = preflight.Report(errors=["a\nb%c"])
         line = preflight.annotations(report, "school")[1]
         self.assertNotIn("\n", line)
         self.assertIn("a%0Ab%25c", line)
+
+
+class Collection(unittest.TestCase):
+    def test_values_come_from_named_env_vars(self):
+        names = preflight.names_for("school")
+        environ = {"SUPABASE_URL": "u", "VAR_OWNER_PHONE": "p", "UNRELATED": "z"}
+        secrets, variables = preflight.collect(names, environ)
+        self.assertEqual(secrets["SUPABASE_URL"], "u")
+        self.assertEqual(variables["OWNER_PHONE"], "p")
+        self.assertNotIn("UNRELATED", secrets)
+
+    def test_repo_mode_covers_every_name(self):
+        every = {i.name for i in preflight.SCHOOL_ITEMS} | {i.name for i in preflight.DEVELOPER_ITEMS}
+        self.assertEqual(set(preflight.names_for("repo")), every)
+        self.assertEqual(len(preflight.names_for("repo")), len(every))
+
+
+class WorkflowFile(unittest.TestCase):
+    """ملف المسار يمرّر كل اسم صراحةً (وبلا toJSON(secrets) الذي يوقفه GitHub)."""
+
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", ".github", "workflows", "preflight.yml"
+    )
+
+    def jobs(self) -> dict[str, str]:
+        with open(self.path, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIsNone(re.search(r"\$\{\{[^}]*toJSON", text), "toJSON داخل تعبير")
+        parts = re.split(r"^  (repo-level|school):\n", text, flags=re.M)
+        return {parts[i]: parts[i + 1] for i in range(1, len(parts) - 1, 2)}
+
+    def test_each_job_passes_exactly_its_names(self):
+        jobs = self.jobs()
+        for mode, job in (("repo-level", "repo"), ("school", "school")):
+            names = preflight.names_for(job)
+            body = jobs[mode]
+            passed_secrets = re.findall(r"^\s+([A-Z0-9_]+): \$\{\{ secrets\.([A-Z0-9_]+) \}\}$", body, re.M)
+            passed_vars = re.findall(r"^\s+VAR_([A-Z0-9_]+): \$\{\{ vars\.([A-Z0-9_]+) \}\}$", body, re.M)
+            self.assertTrue(all(a == b for a, b in passed_secrets), mode)
+            self.assertTrue(all(a == b for a, b in passed_vars), mode)
+            self.assertEqual(sorted(a for a, _ in passed_secrets), sorted(names), mode)
+            self.assertEqual(sorted(a for a, _ in passed_vars), sorted(names), mode)
+
+    def test_only_the_school_job_has_an_environment(self):
+        jobs = self.jobs()
+        self.assertNotIn("environment:", jobs["repo-level"])
+        self.assertIn("environment: ${{ inputs.school || 'demo' }}", jobs["school"])
 
 
 if __name__ == "__main__":
