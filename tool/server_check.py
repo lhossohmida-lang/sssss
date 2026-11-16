@@ -37,6 +37,10 @@ def raw(method: str, url: str, headers: dict[str, str], data: Optional[bytes] = 
         raise sb.ApiError("تعذّر الاتصال بالخادم") from None
 
 
+class Skip(Exception):
+    """فحص لا ينطبق الآن (لا مفتاح نموذج، أو المزوّد مشغول): ليس نجاحاً ولا فشلاً."""
+
+
 class Suite:
     def __init__(self, config: sb.Config, secret_key: str):
         self.cfg = config
@@ -59,8 +63,10 @@ class Suite:
     def admin(self) -> dict[str, str]:
         return sb.Bootstrap._admin(self.secret)
 
-    def call(self, method: str, path: str, headers: dict[str, str], body: Any = None) -> tuple[int, Any]:
-        return sb.call(method, f"{self.cfg.url}{path}", headers, body)
+    def call(
+        self, method: str, path: str, headers: dict[str, str], body: Any = None, timeout: float = 30
+    ) -> tuple[int, Any]:
+        return sb.call(method, f"{self.cfg.url}{path}", headers, body, timeout=timeout)
 
     def sign_in(self, email: str, password: str) -> Optional[str]:
         status, payload = self.call(
@@ -85,6 +91,8 @@ class Suite:
     def check(self, name: str, fn: Callable[[], None]) -> None:
         try:
             fn()
+        except Skip as error:
+            self.results.append((name, "skip", str(error)))
         except AssertionError as error:
             self.results.append((name, "fail", str(error)))
         except sb.ApiError as error:
@@ -235,6 +243,33 @@ class Suite:
         )
         assert status in (400, 413), f"حدّ حجم الصور لم يُطبَّق ({status})"
 
+    def assistant_live(self) -> None:
+        """طلب حقيقي إلى دالة المساعد بنموذج المدرسة (بلا بيانات تلاميذ، وطلب واحد لكل نشر)."""
+        body = {
+            "role": "owner",
+            "messages": [{"role": "user", "content": "اكتب كلمة واحدة فقط: جاهز"}],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "my_children",
+                        "description": "أبناء الحساب",
+                        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+                    },
+                }
+            ],
+        }
+        status, payload = self.call(
+            "POST", "/functions/v1/assistant", self.user(self.owner), body, timeout=90
+        )
+        code = payload.get("error") if isinstance(payload, dict) else None
+        if status == 503 and code == "assistant_not_configured":
+            raise Skip("لا مفتاح نموذج في هذه المدرسة بعد")
+        if status in (429, 504):
+            raise Skip(f"النموذج مشغول أو بطيء الآن ({code})")
+        assert status == 200 and isinstance(payload, dict), f"الدالة أعادت {status} {code or sb.reason(payload)}"
+        assert payload.get("content") or payload.get("toolCalls"), "رد النموذج فارغ"
+
     def housekeeping(self) -> None:
         """يزيل ما خلّفته اختبارات Dart السابقة (لا يملك المالك حذف الملفات)."""
         self.call("DELETE", "/rest/v1/rooms?id=like.srv-*", self.admin())
@@ -256,6 +291,7 @@ class Suite:
         self.check("provisioning-and-roles", self.provisioning_and_roles)
         self.check("teacher-limited-by-rls", self.teacher_is_limited_by_rls)
         self.check("storage-policies", self.storage_policies)
+        self.check("assistant-live", self.assistant_live)
 
 
 def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:

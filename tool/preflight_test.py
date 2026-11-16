@@ -141,6 +141,13 @@ class RepoMode(unittest.TestCase):
         self.assertEqual(len(report.errors), len(secrets) + len(variables))
         self.assertTrue(all("Environment" in e for e in report.errors))
 
+    def test_llm_values_at_repo_level_only_warn_but_school_values_still_fail(self):
+        secrets = {"LLM_API_KEY": "sk-or-sentinel-key", "SUPABASE_DB_PASSWORD": "Sentinel-DB-Pass-9876"}
+        variables = {"LLM_MODEL": "google/model:free"}
+        report = preflight.evaluate("repo", secrets, variables)
+        self.assertEqual([e.split(":")[0] for e in report.errors], ["SUPABASE_DB_PASSWORD"])
+        self.assertEqual(sorted(w.split(":")[0] for w in report.warnings), ["LLM_API_KEY", "LLM_MODEL"])
+
     def test_good_developer_values(self):
         keystore = base64.b64encode(b"\x30\x82" + b"x" * 600).decode()
         secrets = {

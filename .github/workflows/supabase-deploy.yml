@@ -12,6 +12,7 @@ on:
       - tool/supabase_bootstrap.py
       - tool/ci_error.py
       - tool/server_check.py
+      - supabase/DEPLOY
       - supabase/config.toml
       - supabase/migrations/**
       - supabase/functions/**

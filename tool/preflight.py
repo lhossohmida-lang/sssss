@@ -49,6 +49,9 @@ class Item:
     required: bool  # مطلوب في مدرسة الآن؟
     secret_only: bool  # يجب أن يكون في Secrets لا Variables
     check: Optional[Check] = None
+    # قيمة افتراضية للمطوّر يجوز أن تكون على مستوى المستودع (تحذير لا خطأ): يسقط عليها مسار مدرسة
+    # لا تضع قيمتها في Environment، وضررها حساب فوترة لا قاعدة بيانات مدرسة أخرى.
+    repo_default_ok: bool = False
 
 
 def jwt_payload(token: str) -> Optional[dict]:
@@ -226,9 +229,9 @@ SCHOOL_ITEMS: list[Item] = [
     Item("SUPABASE_DB_PASSWORD", True, True, check_db_password),
     Item("OWNER_PHONE", True, False, check_phone),
     Item("OWNER_INITIAL_PASSWORD", True, True, check_owner_password),
-    Item("LLM_API_KEY", False, True, check_llm_key),
-    Item("LLM_MODEL", False, False, None),
-    Item("LLM_BASE_URL", False, False, check_https_url),
+    Item("LLM_API_KEY", False, True, check_llm_key, repo_default_ok=True),
+    Item("LLM_MODEL", False, False, None, repo_default_ok=True),
+    Item("LLM_BASE_URL", False, False, check_https_url, repo_default_ok=True),
     Item("GOOGLE_DRIVE_OWNER_EMAIL", False, False, check_email),
 ]
 
@@ -305,7 +308,14 @@ def evaluate(mode: str, secrets: dict[str, str], variables: dict[str, str]) -> R
 
     if mode == "repo":
         for item in SCHOOL_ITEMS:
-            if values.get(item.name):
+            if not values.get(item.name):
+                continue
+            if item.repo_default_ok:
+                report.warnings.append(
+                    f"{item.name}: على مستوى المستودع فتستعمله كل مدرسة لا تضع قيمتها في "
+                    "Environment؛ ضع قيمة كل مدرسة في Environment عند إضافة مدرسة ثانية"
+                )
+            else:
                 report.errors.append(
                     f"{item.name}: قيمة خاصة بمدرسة على مستوى المستودع؛ "
                     "انقلها إلى Environment المدرسة"
