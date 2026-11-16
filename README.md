@@ -245,4 +245,5 @@ cd apps/admin && flutter build windows --release
 
 `PLAN.md` الخطة، `PROGRESS.md` حالة كل مهمة، `ANSWERS.md` المواصفات المعتمدة،
 `DECISIONS.md` كل قرار وسببه، `QUESTIONS.md` الأسئلة والبيانات المؤجَّلة،
-`OPERATIONS.md` تشغيل المدارس (إضافة مدرسة والكلفة والأمان)، `PERFORMANCE.md` الأداء، `HANDOFF.md` و`LOCAL_PROMPT.md` للتناوب بين أدوات العمل.
+`OPERATIONS.md` تشغيل المدارس (إضافة مدرسة والكلفة والأمان)، `PRIVACY.md` سياسة الخصوصية (تُربط من شاشة موافقة
+Google)، `PERFORMANCE.md` الأداء، `HANDOFF.md` و`LOCAL_PROMPT.md` للتناوب بين أدوات العمل.
