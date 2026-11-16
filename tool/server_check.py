@@ -262,7 +262,13 @@ def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
     environ = dict(os.environ) if environ is None else environ
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    missing = [n for n in sb.REQUIRED["bootstrap"] if not environ.get(n)]
+    # مالك مؤقت أنشأته الخطوة السابقة في المسار (الأفضل: لا يتأثر بتغيير كلمة سر المالك
+    # الحقيقي)، وإلا يُستعمل مالك المدرسة بهاتفه وكلمة سره الأولى.
+    ci_email, ci_password = environ.get("CI_OWNER_EMAIL", ""), environ.get("CI_OWNER_PASSWORD", "")
+    needed = ["SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "SUPABASE_URL", "SUPABASE_ANON_KEY"]
+    if not (ci_email and ci_password):
+        needed += ["OWNER_PHONE", "OWNER_INITIAL_PASSWORD"]
+    missing = [n for n in needed if not environ.get(n)]
     if missing:
         print(f"::error title=server-check::{sb.escape('متغيرات ناقصة: ' + ', '.join(missing))}")
         return 1
@@ -270,9 +276,12 @@ def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
     try:
         secret = sb.Bootstrap(config).secret_key()
         probe = Suite(config, secret)
-        token = probe.sign_in(probe_email(config), config.password)
+        token = probe.sign_in(ci_email or probe_email(config), ci_password or config.password)
         if token is None:
-            print("::notice title=server-check::تُخطّي الفحص: كلمة سر المالك غُيّرت منذ الإنشاء")
+            if ci_email:
+                print("::error title=server-check::فشل دخول مالك الفحوص المؤقت")
+                return 1
+            print("::notice title=server-check::تُخطّى الفحص: كلمة سر المالك غُيّرت منذ الإنشاء")
             return 0
         probe.owner = token
         try:

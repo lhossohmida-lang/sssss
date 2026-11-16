@@ -16,15 +16,20 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets as randomness
 import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from dataclasses import dataclass
 from typing import Any, Optional
 
 EMAIL_DOMAIN = "school.local"
 OWNER_DISPLAY_NAME = "صاحب المدرسة"
+# حسابات مالك مؤقتة للفحوص الآلية: لا تمسّ مالك المدرسة الحقيقي ولا كلمة سره (التي
+# يغيّرها عند أول دخول فتفشل فحوص تعتمد عليها).
+TEMP_OWNER_PREFIX = "ci-owner-"
 
 
 class ApiError(Exception):
@@ -103,6 +108,8 @@ class Config:
 class Bootstrap:
     def __init__(self, config: Config):
         self.cfg = config
+        # متغيرات تُصدَّر للخطوات التالية في GitHub Actions (انظر main).
+        self.exports: dict[str, str] = {}
 
     # ---- Management API (برمز الوصول الشخصي)
 
@@ -273,6 +280,64 @@ class Bootstrap:
             )
         return "ok"
 
+    # ---- مالك مؤقت للفحوص
+
+    def _delete_user(self, key: str, uid: str) -> None:
+        call("DELETE", f"{self.cfg.url}/rest/v1/user_accounts?id=eq.{uid}", self._admin(key))
+        call("DELETE", f"{self.cfg.url}/auth/v1/admin/users/{uid}", self._admin(key))
+
+    def temp_owner_create(self) -> list[str]:
+        """ينشئ مالكاً مؤقتاً (مستخدم Auth وصف user_accounts) ويصدّر بياناته للخطوات التالية."""
+        key = self.secret_key()
+        email = f"{TEMP_OWNER_PREFIX}{uuid.uuid4().hex[:12]}@{EMAIL_DOMAIN}"
+        password = randomness.token_urlsafe(24)
+        status, payload = call(
+            "POST",
+            f"{self.cfg.url}/auth/v1/admin/users",
+            self._admin(key),
+            {"email": email, "password": password, "email_confirm": True},
+        )
+        if status not in (200, 201) or not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
+            raise ApiError(f"تعذّر إنشاء مالك الفحوص ({status}) {reason(payload)}", status)
+        uid = payload["id"]
+        now = int(time.time() * 1000)
+        status, payload = call(
+            "POST",
+            f"{self.cfg.url}/rest/v1/user_accounts",
+            {**self._admin(key), "Prefer": "return=minimal"},
+            {
+                "id": uid, "created_at": now, "updated_at": now, "email": email, "role": "owner",
+                "entity_id": None, "display_name": "فحص آلي", "must_change_password": False,
+            },
+        )
+        if status not in (200, 201, 204):
+            self._delete_user(key, uid)  # لا يُترك مستخدم بلا صف
+            raise ApiError(f"تعذّر إضافة صف مالك الفحوص ({status}) {reason(payload)}", status)
+        self.exports = {"CI_OWNER_EMAIL": email, "CI_OWNER_PASSWORD": password, "CI_OWNER_ID": uid}
+        return ["temp-owner=created"]
+
+    def temp_owner_delete(self) -> list[str]:
+        """يحذف كل المالكين المؤقتين (ومنهم ما خلّفه تشغيل أُلغي قبل تنظيفه)."""
+        key = self.secret_key()
+        removed = 0
+        for page in range(1, 51):
+            status, payload = call(
+                "GET",
+                f"{self.cfg.url}/auth/v1/admin/users?page={page}&per_page=200",
+                self._admin(key),
+            )
+            if status != 200 or not isinstance(payload, dict):
+                raise ApiError(f"تعذّرت قراءة المستخدمين ({status}) {reason(payload)}", status)
+            users = payload.get("users") or []
+            for user in users:
+                email = str(user.get("email", "")) if isinstance(user, dict) else ""
+                if email.startswith(TEMP_OWNER_PREFIX) and email.endswith(f"@{EMAIL_DOMAIN}"):
+                    self._delete_user(key, str(user.get("id")))
+                    removed += 1
+            if len(users) < 200:
+                break
+        return [f"temp-owners-removed={removed}"]
+
     # ---- الأوامر
 
     def verify(self) -> list[str]:
@@ -310,13 +375,27 @@ REQUIRED = {
         "OWNER_PHONE",
         "OWNER_INITIAL_PASSWORD",
     ),
+    "temp-owner-create": ("SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "SUPABASE_URL"),
+    "temp-owner-delete": ("SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "SUPABASE_URL"),
 }
+
+
+def export_to_github_env(exports: dict[str, str], environ: dict[str, str]) -> None:
+    """يصدّر المتغيرات للخطوات التالية؛ كلمة السر تُخفى من السجل قبل كتابتها."""
+    for name, value in exports.items():
+        if name.endswith("PASSWORD"):
+            print(f"::add-mask::{value}")
+    path = environ.get("GITHUB_ENV")
+    if path:
+        with open(path, "a", encoding="utf-8") as f:
+            for name, value in exports.items():
+                f.write(f"{name}={value}\n")
 
 
 def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
     environ = dict(os.environ) if environ is None else environ
     if len(argv) != 2 or argv[1] not in REQUIRED:
-        print("الاستعمال: supabase_bootstrap.py verify|bootstrap", file=sys.stderr)
+        print("الاستعمال: supabase_bootstrap.py verify|bootstrap|temp-owner-create|temp-owner-delete", file=sys.stderr)
         return 2
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -326,11 +405,13 @@ def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
     if missing:
         print(f"::error title={title}::{escape('متغيرات ناقصة: ' + ', '.join(missing))}")
         return 1
+    bootstrap = Bootstrap(Config.from_env(environ))
     try:
-        lines = getattr(Bootstrap(Config.from_env(environ)), command)()
+        lines = getattr(bootstrap, command.replace("-", "_"))()
     except ApiError as error:
         print(f"::error title={title}::{escape(str(error))}")
         return 1
+    export_to_github_env(bootstrap.exports, environ)
     for line in lines:
         print(f"::notice title={title}::{escape(line)}")
     return 0

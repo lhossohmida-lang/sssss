@@ -8,6 +8,7 @@ import sys
 import threading
 import unittest
 import urllib.parse
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +36,7 @@ class State:
         self.users = {}  # email -> {"id", "password"}
         self.rows = []
         self.requests = []
+        self.fail_rows = False
 
 
 def make_handler(state):
@@ -76,6 +78,15 @@ def make_handler(state):
                 state.patches.append(self.body())
                 return self.send(200, {})
 
+            if path.startswith("/auth/v1/admin/users/") and method == "DELETE":
+                if not admin:
+                    return self.send(401, {"message": "bad key"})
+                uid = path.rsplit("/", 1)[1]
+                for email, user in list(state.users.items()):
+                    if user["id"] == uid:
+                        del state.users[email]
+                return self.send(200, {})
+
             if path == "/auth/v1/admin/users":
                 if not admin:
                     return self.send(401, {"message": "bad key"})
@@ -98,9 +109,17 @@ def make_handler(state):
                 return self.send(400, {"error_code": "invalid_credentials", "msg": "Invalid login"})
 
             if path == "/rest/v1/user_accounts":
+                if method == "DELETE":
+                    if not admin:
+                        return self.send(401, {"message": "bad key"})
+                    wanted = query["id"][0].removeprefix("eq.")
+                    state.rows = [r for r in state.rows if r["id"] != wanted]
+                    return self.send(204)
                 if method == "POST":
                     if not admin:
                         return self.send(401, {"message": "bad key"})
+                    if state.fail_rows:
+                        return self.send(500, {"message": "boom"})
                     row = self.body()
                     if any(r["email"] == row["email"] for r in state.rows):
                         return self.send(409, {"message": "duplicate"})
@@ -125,6 +144,9 @@ def make_handler(state):
 
         def do_PATCH(self):
             self.handle_any("PATCH")
+
+        def do_DELETE(self):
+            self.handle_any("DELETE")
 
     return Handler
 
@@ -231,6 +253,58 @@ class Refusals(FakeServerCase):
         down = sb.Config(**{**self.config.__dict__, "api_base": "http://127.0.0.1:9"})
         with self.assertRaisesRegex(sb.ApiError, "تعذّر الاتصال"):
             sb.Bootstrap(down).verify()
+
+
+class TempOwner(FakeServerCase):
+    def test_create_makes_a_working_owner_account(self):
+        bootstrap = sb.Bootstrap(self.config)
+        self.assertEqual(bootstrap.temp_owner_create(), ["temp-owner=created"])
+        exports = bootstrap.exports
+        email = exports["CI_OWNER_EMAIL"]
+        self.assertTrue(email.startswith("ci-owner-") and email.endswith("@school.local"))
+        self.assertEqual(self.state.users[email]["password"], exports["CI_OWNER_PASSWORD"])
+        (row,) = self.state.rows
+        self.assertEqual((row["id"], row["role"]), (exports["CI_OWNER_ID"], "owner"))
+        self.assertFalse(row["must_change_password"])
+
+    def test_delete_removes_every_temp_owner_and_keeps_the_real_one(self):
+        sb.Bootstrap(self.config).bootstrap()
+        for _ in range(2):
+            sb.Bootstrap(self.config).temp_owner_create()
+        self.assertEqual((len(self.state.users), len(self.state.rows)), (3, 3))
+        self.assertEqual(sb.Bootstrap(self.config).temp_owner_delete(), ["temp-owners-removed=2"])
+        self.assertEqual(list(self.state.users), ["0550000000@school.local"])
+        self.assertEqual([r["email"] for r in self.state.rows], ["0550000000@school.local"])
+
+    def test_a_failed_row_insert_leaves_no_orphan_user(self):
+        self.state.fail_rows = True
+        with self.assertRaisesRegex(sb.ApiError, "صف مالك الفحوص"):
+            sb.Bootstrap(self.config).temp_owner_create()
+        self.assertEqual(self.state.users, {})
+
+    def test_main_exports_to_github_env_and_masks_only_the_password(self):
+        env_file = os.path.join(os.environ.get("TEMP", "/tmp"), f"gh-env-{uuid.uuid4().hex}")
+        self.addCleanup(lambda: os.path.exists(env_file) and os.remove(env_file))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = sb.main(["x", "temp-owner-create"], {**self.environ(), "GITHUB_ENV": env_file})
+        self.assertEqual(code, 0)
+        with open(env_file, encoding="utf-8") as f:
+            written = dict(line.split("=", 1) for line in f.read().splitlines())
+        self.assertEqual(sorted(written), ["CI_OWNER_EMAIL", "CI_OWNER_ID", "CI_OWNER_PASSWORD"])
+        password = written["CI_OWNER_PASSWORD"]
+        masked = [line for line in out.getvalue().splitlines() if password in line]
+        self.assertEqual(masked, [f"::add-mask::{password}"])
+        for secret in (TOKEN, SECRET, ANON):
+            self.assertNotIn(secret, out.getvalue())
+
+    def test_delete_command_needs_no_owner_credentials(self):
+        env = {k: v for k, v in self.environ().items() if k in ("SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF", "SUPABASE_URL", "SUPABASE_API_BASE")}
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = sb.main(["x", "temp-owner-delete"], env)
+        self.assertEqual(code, 0)
+        self.assertIn("temp-owners-removed=0", out.getvalue())
 
 
 class Main(FakeServerCase):

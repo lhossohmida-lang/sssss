@@ -13,13 +13,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// ودونها تُتخطّى فلا تفشل اختبارات المطوّر المحلية ولا مسار `check`.
 const _url = String.fromEnvironment('SUPABASE_URL');
 const _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-const _phone = String.fromEnvironment('OWNER_PHONE');
-const _password = String.fromEnvironment('OWNER_INITIAL_PASSWORD');
+
+/// مالك مؤقت ينشئه المسار قبل الاختبارات ويحذفه بعدها، فلا تتأثر بكلمة سر مالك
+/// المدرسة الحقيقي (يغيّرها عند أول دخول).
+const _email = String.fromEnvironment('SERVER_TEST_EMAIL');
+const _password = String.fromEnvironment('SERVER_TEST_PASSWORD');
 
 bool get _enabled =>
     _url.isNotEmpty &&
     _anonKey.isNotEmpty &&
-    _phone.isNotEmpty &&
+    _email.isNotEmpty &&
     _password.isNotEmpty;
 
 Map<String, Object?> _room(
@@ -50,7 +53,7 @@ void main() {
         HttpOverrides.global = null;
         client = SupabaseClient(_url, _anonKey);
         final signedIn = await client.auth.signInWithPassword(
-          email: '$_phone@school.local',
+          email: _email,
           password: _password,
         );
         expect(signedIn.session, isNotNull, reason: 'دخول المالك');
