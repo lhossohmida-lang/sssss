@@ -4,7 +4,7 @@
 
 ## حالة Git والفرع
 
-- المستودع: `lhossohmida-lang/sssss` (عام). فرع العمل `ccr-c8bf7c2f-275xsh`، والدفع بـ`git push upstream HEAD:ccr-c8bf7c2f-275xsh`. يُدفع إلى `main` عند نهاية مرحلة كاملة فقط (آخر مرة نهاية المرحلة 7، والوسم `preview-5` عند `0c22988`).
+- المستودع: `lhossohmida-lang/sssss` (عام). فرع العمل `ccr-c8bf7c2f-275xsh`، والدفع بـ`git push upstream HEAD:ccr-c8bf7c2f-275xsh`. يُدفع إلى `main` عند نهاية مرحلة كاملة فقط (آخر مرة نهاية المرحلة 8: `main` عند `29bf60c`، والإصدار المنشور `preview-7` على `42f11db`). يُدفع بتقديم التزام فارغ رسالته `[skip ci]` فوق فرع العمل ثم `git push upstream HEAD:main` و`HEAD:ccr-c8bf7c2f-275xsh`، وإلا أعاد `build` بناء الإصدار الحالي ونشره.
 - العمل من worktree Claude `C:\anis broger\SHOOL\.claude\worktrees\school-management-continuation-2f02fd` لا من `C:\anis broger\SHOOL` مباشرة (قفل يمنع التعديل هناك من الجلسة).
 - لا تبدّل الفرع ولا تنفّذ `pull` أو `reset` أو `checkout` قبل فحص `git status`. قبل أي commit نفّذ `git checkout -- apps/admin/windows` إن غيّرته `pub get` بمسافات فقط. لا تحذف تغييرات أو APKات يدوياً.
 - هوية الـcommit: `git -c user.name=Claude -c user.email=noreply@anthropic.com commit` وتنتهي الرسالة بـ`Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
