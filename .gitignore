@@ -9,3 +9,19 @@ coverage/
 *.log
 .DS_Store
 **/test/**/failures/
+
+# مفاتيح وأسرار لا تدخل المستودع أبداً (المستودع عام). مفتاح النسخ التجريبية
+# tool/signing/preview.jks وحده غير سرّي ومتتبَّع عمداً.
+*.jks
+!tool/signing/preview.jks
+*.keystore
+*.p12
+*.pfx
+google-services.json
+GoogleService-Info.plist
+**/service-account*.json
+**/*adminsdk*.json
+client_secret*.json
+.env
+.env.*
+!.env.example

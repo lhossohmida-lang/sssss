@@ -1,0 +1,47 @@
+name: preflight
+
+# فحص ما قبل النشر: يتحقق بالأسماء والصيغ فقط (لا تُطبع أي قيمة سرّية) من أسرار
+# ومتغيرات المستودع ومن Environment المدرسة. يعمل عند تغيير ملفّيه أو يدوياً بمدخل
+# `school` (اسم الـEnvironment، والافتراضي demo). النتيجة في ملخص التشغيل وفي
+# تعليقات `preflight-*` العامة.
+on:
+  push:
+    paths:
+      - .github/workflows/preflight.yml
+      - tool/preflight.py
+  workflow_dispatch:
+    inputs:
+      school:
+        description: اسم المدرسة (اسم الـEnvironment)
+        required: true
+        default: demo
+
+permissions:
+  contents: read
+
+jobs:
+  # دون Environment لا يرى المسار إلا قيم المستودع: فما خاص بمدرسة وُجد هنا فهو في
+  # مكان خاطئ، وإلا سقط مسار مدرسة على قيمة مدرسة أخرى.
+  repo-level:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check repository-level names
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+          ALL_VARS: ${{ toJSON(vars) }}
+        run: python3 tool/preflight.py repo
+
+  school:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ inputs.school || 'demo' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the school environment
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+          ALL_VARS: ${{ toJSON(vars) }}
+          SCHOOL: ${{ inputs.school || 'demo' }}
+        run: python3 tool/preflight.py school
