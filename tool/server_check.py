@@ -88,9 +88,9 @@ class Suite:
 
     # ---- المشغّل
 
-    def check(self, name: str, fn: Callable[[], None]) -> None:
+    def check(self, name: str, fn: Callable[[], Optional[str]]) -> None:
         try:
-            fn()
+            detail = fn()
         except Skip as error:
             self.results.append((name, "skip", str(error)))
         except AssertionError as error:
@@ -100,7 +100,7 @@ class Suite:
         except Exception as error:  # noqa: BLE001  (خطأ برمجي في الفحص نفسه)
             self.results.append((name, "fail", f"{type(error).__name__}: {error}"[:200]))
         else:
-            self.results.append((name, "ok", ""))
+            self.results.append((name, "ok", detail or ""))
 
     def cleanup(self) -> None:
         for step in reversed(self.cleanups):
@@ -243,7 +243,7 @@ class Suite:
         )
         assert status in (400, 413), f"حدّ حجم الصور لم يُطبَّق ({status})"
 
-    def assistant_live(self) -> None:
+    def assistant_live(self) -> Optional[str]:
         """طلب حقيقي إلى دالة المساعد بنموذج المدرسة (بلا بيانات تلاميذ، وطلب واحد لكل نشر)."""
         body = {
             "role": "owner",
@@ -274,6 +274,8 @@ class Suite:
             raise Skip(f"النموذج مشغول أو بطيء الآن ({status} {code})")
         assert status == 200 and isinstance(payload, dict), f"الدالة أعادت {status} {code or sb.reason(payload)}"
         assert payload.get("content") or payload.get("toolCalls"), "رد النموذج فارغ"
+        model = payload.get("model")
+        return model if isinstance(model, str) and model else None  # النموذج الذي أجاب فعلاً
 
     def housekeeping(self) -> None:
         """يزيل ما خلّفته اختبارات Dart السابقة (لا يملك المالك حذف الملفات)."""
@@ -333,7 +335,7 @@ def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
         print(f"::error title=server-check::{sb.escape(str(error))}")
         return 1
     failed = [(n, d) for n, s, d in probe.results if s == "fail"]
-    states = " ".join(f"{n}={s}" for n, s, _ in probe.results)
+    states = " ".join(f"{n}={s}" + (f"({d})" if s == "ok" and d else "") for n, s, d in probe.results)
     print(f"::notice title=server-check::{sb.escape(states)}")
     skipped = [(n, d) for n, s, d in probe.results if s == "skip"]
     if skipped:

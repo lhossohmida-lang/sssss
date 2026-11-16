@@ -2,6 +2,11 @@
 // متوافقة مع OpenAI (OpenRouter افتراضياً). مفتاح النموذج سرٌّ على الخادم ولا يصل إلى أي
 // تطبيق. تغيير النموذج أو المزوّد يكون بتغيير LLM_MODEL أو LLM_BASE_URL دون إعادة بناء أي
 // تطبيق. لا تُسجَّل هنا نصوص المحادثة ولا نتائج الأدوات ولا الرموز.
+//
+// LLM_MODEL قد يحوي عدة نماذج مفصولة بفواصل (الأول أولاً): يُجرَّب التالي حين يردّ السابق 429
+// أو ينقطع أو يعطي ردّاً غير صالح. نموذج مجاني (يُختم بـ :free) يعود عند فشله إلى المسار
+// المجاني openrouter/free تلقائياً، أما النموذج المدفوع فلا يسقط أبداً إلى نموذج مجاني لأن
+// المجانية قد تسجّل المحادثات وتتدرّب عليها.
 import {
   corsHeaders,
   getCaller,
@@ -14,6 +19,9 @@ import {
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_MODEL = "openrouter/free";
 const MODEL_TIMEOUT_MS = 45_000;
+const TOTAL_BUDGET_MS = 100_000;
+const MIN_ATTEMPT_MS = 5_000;
+const MAX_LISTED_MODELS = 3;
 
 const toolPermission: Record<string, string[]> = {
   my_children: [],
@@ -102,11 +110,14 @@ export type ModelReply = {
 export class ProviderError extends Error {
   readonly status: number;
   readonly code: string;
+  /** حالة HTTP التي ردّ بها المزوّد؛ للقرار الداخلي بتجربة النموذج التالي، ولا تصل للتطبيق. */
+  readonly upstream?: number;
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, upstream?: number) {
     super(code);
     this.status = status;
     this.code = code;
+    this.upstream = upstream;
   }
 }
 
@@ -241,12 +252,81 @@ export function readCompletion(payload: unknown, allowed: Set<string>): ModelRep
 
 export type ModelConfig = { baseUrl: string; apiKey: string; model: string };
 
+/**
+ * النماذج بالترتيب من قيمة LLM_MODEL (فاصلة بين النماذج، ثلاثة على الأكثر). دونها: المسار
+ * المجاني. وعلى OpenRouter تُلحَق openrouter/free بسلسلة كلها مجانية دون سواها.
+ */
+export function modelChain(configured: string | undefined, baseUrl: string): string[] {
+  const listed = [
+    ...new Set(
+      (configured ?? "").split(",").map((m) => m.trim()).filter((m) => m.length > 0 && m.length <= 120),
+    ),
+  ].slice(0, MAX_LISTED_MODELS);
+  if (listed.length === 0) return [DEFAULT_MODEL];
+  let host = "";
+  try {
+    host = new URL(baseUrl).hostname;
+  } catch {
+    // عنوان غير صالح: لا بديل مجانياً.
+  }
+  const allFree = listed.every((m) => m.endsWith(":free") || m === DEFAULT_MODEL);
+  if (host === "openrouter.ai" && allFree && !listed.includes(DEFAULT_MODEL)) {
+    return [...listed, DEFAULT_MODEL];
+  }
+  return listed;
+}
+
+/** هل يُجرَّب النموذج التالي بعد هذا الفشل؟ أخطاء المفتاح والرصيد (401/402/403) لا تتغير بتغيير النموذج. */
+export function canTryNext(error: ProviderError): boolean {
+  if (error.code !== "model_rejected") return true; // 429 أو مهلة أو تعذّر اتصال أو ردّ غير صالح
+  const status = error.upstream ?? 0;
+  return status >= 500 || status === 400 || status === 404 || status === 408;
+}
+
+export type ChainReply = ModelReply & { model: string };
+
+/** يسأل النماذج بالترتيب ويعيد ردّ أول ناجح مع اسمه؛ وإن فشلت كلها يُرمى آخر فشل. */
+export async function askModels(
+  config: { baseUrl: string; apiKey: string; models: string[] },
+  system: string,
+  messages: ChatMessage[],
+  tools: ChatTool[],
+  allowed: Set<string>,
+  budgetMs = TOTAL_BUDGET_MS,
+): Promise<ChainReply> {
+  const started = Date.now();
+  let last: ProviderError | undefined;
+  for (const model of config.models) {
+    const remaining = budgetMs - (Date.now() - started);
+    if (last !== undefined && remaining < MIN_ATTEMPT_MS) break;
+    try {
+      const reply = await askModel(
+        { baseUrl: config.baseUrl, apiKey: config.apiKey, model },
+        system,
+        messages,
+        tools,
+        allowed,
+        Math.min(MODEL_TIMEOUT_MS, Math.max(remaining, MIN_ATTEMPT_MS)),
+      );
+      return { ...reply, model };
+    } catch (error) {
+      if (!(error instanceof ProviderError)) throw error;
+      last = error;
+      // اسم النموذج إعداد لا سرّ؛ يُسجَّل لتشخيص بدائله دون أي نص محادثة.
+      console.error("Assistant model attempt failed", model, error.code);
+      if (!canTryNext(error)) throw error;
+    }
+  }
+  throw last ?? new ProviderError(502, "model_unreachable");
+}
+
 export async function askModel(
   config: ModelConfig,
   system: string,
   messages: ChatMessage[],
   tools: ChatTool[],
   allowed: Set<string>,
+  timeoutMs = MODEL_TIMEOUT_MS,
 ): Promise<ModelReply> {
   let response: Response;
   try {
@@ -263,7 +343,7 @@ export async function askModel(
         max_tokens: 1200,
         ...(tools.length > 0 ? { tools, tool_choice: "auto", parallel_tool_calls: false } : {}),
       }),
-      signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "TimeoutError") {
@@ -273,8 +353,8 @@ export async function askModel(
   }
   if (!response.ok) {
     await response.body?.cancel();
-    if (response.status === 429) throw new ProviderError(429, "model_rate_limited");
-    throw new ProviderError(502, "model_rejected");
+    if (response.status === 429) throw new ProviderError(429, "model_rate_limited", 429);
+    throw new ProviderError(502, "model_rejected", response.status);
   }
   let payload: unknown;
   try {
@@ -299,7 +379,6 @@ export async function handle(req: Request): Promise<Response> {
   const publishable = publishableKey();
   const llmKey = Deno.env.get("LLM_API_KEY");
   const baseUrl = (Deno.env.get("LLM_BASE_URL") || DEFAULT_BASE_URL).replace(/\/$/, "");
-  const model = Deno.env.get("LLM_MODEL") || DEFAULT_MODEL;
   if (!supabaseUrl || !publishable || !llmKey || !baseUrl.startsWith("https://")) {
     return json(503, { error: "assistant_not_configured" });
   }
@@ -335,14 +414,14 @@ export async function handle(req: Request): Promise<Response> {
       return json(413, { error: "conversation_too_large" });
     }
 
-    const reply = await askModel(
-      { baseUrl, apiKey: llmKey, model },
+    const reply = await askModels(
+      { baseUrl, apiKey: llmKey, models: modelChain(Deno.env.get("LLM_MODEL"), baseUrl) },
       systemPrompt(caller.role),
       messages,
       tools,
       allowed,
     );
-    return json(200, { content: reply.content, toolCalls: reply.toolCalls });
+    return json(200, { content: reply.content, toolCalls: reply.toolCalls, model: reply.model });
   } catch (error) {
     if (error instanceof Response) return rejection(error);
     if (error instanceof ProviderError) {

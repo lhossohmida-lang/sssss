@@ -1,6 +1,10 @@
 import {
   allowedTools,
+  askModels,
+  canTryNext,
   handle,
+  modelChain,
+  ProviderError,
   readCompletion,
   systemPrompt,
   toChatMessages,
@@ -403,4 +407,180 @@ Deno.test("a forbidden tool in the request is refused before the model is called
     return answer(u, init);
   }, () => handle(request));
   assert(response.status === 403 && !called, `status ${response.status}, called ${called}`);
+});
+
+// ---- سلسلة بدائل النموذج
+
+const OPENROUTER = "https://openrouter.ai/api/v1";
+
+Deno.test("the model chain: default, free fallback, paid never falls to free", () => {
+  assert(JSON.stringify(modelChain(undefined, OPENROUTER)) === '["openrouter/free"]', "default");
+  assert(JSON.stringify(modelChain("  ", OPENROUTER)) === '["openrouter/free"]', "blank");
+  assert(
+    JSON.stringify(modelChain("google/gemma-4-31b-it:free", OPENROUTER)) ===
+      '["google/gemma-4-31b-it:free","openrouter/free"]',
+    "a free model must fall back to the free router",
+  );
+  assert(JSON.stringify(modelChain("openrouter/free", OPENROUTER)) === '["openrouter/free"]', "router twice");
+  assert(
+    JSON.stringify(modelChain("anthropic/claude-sonnet-5-5", OPENROUTER)) === '["anthropic/claude-sonnet-5-5"]',
+    "a paid model fell back to a free one",
+  );
+  assert(
+    JSON.stringify(modelChain("anthropic/claude-sonnet-5-5,vendor/x:free", OPENROUTER)) ===
+      '["anthropic/claude-sonnet-5-5","vendor/x:free"]',
+    "a chain holding a paid model got a free fallback appended",
+  );
+});
+
+Deno.test("the model chain: dedupes, caps the list, and needs OpenRouter for the free router", () => {
+  assert(
+    JSON.stringify(modelChain("a:free, a:free ,b:free,c:free,d:free", OPENROUTER)) ===
+      '["a:free","b:free","c:free","openrouter/free"]',
+    "dedupe and cap",
+  );
+  assert(
+    JSON.stringify(modelChain("a:free", "https://llm.example.com/v1")) === '["a:free"]',
+    "another provider has no free router",
+  );
+  assert(JSON.stringify(modelChain("a:free", "not a url")) === '["a:free"]', "invalid base URL");
+  assert(modelChain("x".repeat(200), OPENROUTER)[0] === "openrouter/free", "an oversize name is ignored");
+});
+
+Deno.test("only failures a different model can fix move on to the next model", () => {
+  assert(canTryNext(new ProviderError(429, "model_rate_limited", 429)), "429");
+  assert(canTryNext(new ProviderError(504, "model_timeout")), "timeout");
+  assert(canTryNext(new ProviderError(502, "model_unreachable")), "unreachable");
+  assert(canTryNext(new ProviderError(502, "model_bad_response")), "bad response");
+  for (const upstream of [400, 404, 408, 500, 503]) {
+    assert(canTryNext(new ProviderError(502, "model_rejected", upstream)), `upstream ${upstream}`);
+  }
+  for (const upstream of [401, 402, 403, undefined]) {
+    assert(!canTryNext(new ProviderError(502, "model_rejected", upstream)), `upstream ${upstream}`);
+  }
+});
+
+function withProvider<T>(provider: (model: string) => Response | Promise<Response>, run: () => Promise<T>) {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  console.error = () => {};
+  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => {
+    const model = JSON.parse(String(init?.body)).model as string;
+    return Promise.resolve(provider(model));
+  }) as typeof fetch;
+  return run().finally(() => {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  });
+}
+
+const okReply = (text: string) => Response.json({ choices: [{ message: { content: text } }] });
+const chain = (...models: string[]) => ({ baseUrl: OPENROUTER, apiKey: LLM_KEY, models });
+const noTools = new Set<string>();
+const hello: { role: "user"; content: string }[] = [{ role: "user", content: "سلام" }];
+
+Deno.test("a rate-limited first model falls through to the next one and names the answerer", async () => {
+  const asked: string[] = [];
+  const reply = await withProvider((model) => {
+    asked.push(model);
+    return model === "a:free" ? new Response("slow down", { status: 429 }) : okReply("جاهز");
+  }, () => askModels(chain("a:free", "openrouter/free"), "s", hello, [], noTools));
+  assert(reply.content === "جاهز" && reply.model === "openrouter/free", `answered by ${reply.model}`);
+  assert(asked.join() === "a:free,openrouter/free", `asked ${asked.join()}`);
+});
+
+Deno.test("the first model's answer ends the chain", async () => {
+  const asked: string[] = [];
+  const reply = await withProvider((model) => {
+    asked.push(model);
+    return okReply("أول");
+  }, () => askModels(chain("a:free", "openrouter/free"), "s", hello, [], noTools));
+  assert(reply.model === "a:free" && asked.length === 1, `asked ${asked.join()}`);
+});
+
+Deno.test("a key or credit failure stops the chain at once", async () => {
+  for (const status of [401, 402, 403]) {
+    const asked: string[] = [];
+    let error: unknown;
+    await withProvider((model) => {
+      asked.push(model);
+      return new Response("denied", { status });
+    }, async () => {
+      try {
+        await askModels(chain("a:free", "openrouter/free"), "s", hello, [], noTools);
+      } catch (e) {
+        error = e;
+      }
+    });
+    assert(error instanceof ProviderError && error.code === "model_rejected", `status ${status}`);
+    assert(asked.length === 1, `status ${status} still asked ${asked.join()}`);
+  }
+});
+
+Deno.test("when every model fails the last failure is reported", async () => {
+  let error: unknown;
+  const asked: string[] = [];
+  await withProvider((model) => {
+    asked.push(model);
+    return model === "a:free" ? new Response("limit", { status: 429 }) : new Response("boom", { status: 503 });
+  }, async () => {
+    try {
+      await askModels(chain("a:free", "openrouter/free"), "s", hello, [], noTools);
+    } catch (e) {
+      error = e;
+    }
+  });
+  assert(asked.length === 2, `asked ${asked.join()}`);
+  assert(error instanceof ProviderError && error.code === "model_rejected" && error.status === 502, "last error lost");
+});
+
+Deno.test("an exhausted time budget skips the remaining models", async () => {
+  const asked: string[] = [];
+  let error: unknown;
+  await withProvider((model) => {
+    asked.push(model);
+    return new Response("limit", { status: 429 });
+  }, async () => {
+    try {
+      await askModels(chain("a:free", "b:free", "openrouter/free"), "s", hello, [], noTools, 1);
+    } catch (e) {
+      error = e;
+    }
+  });
+  assert(asked.length === 1, `asked ${asked.join()}`);
+  assert(error instanceof ProviderError && error.status === 429, "the first failure should be reported");
+});
+
+Deno.test("the whole function uses the free router when a free model is overloaded", async () => {
+  const asked: string[] = [];
+  const result = await withServer("parent", { LLM_MODEL: "google/gemma-4-31b-it:free" }, (_u, init) => {
+    const model = JSON.parse(String(init.body)).model as string;
+    asked.push(model);
+    return model === "openrouter/free" ? okReply("أهلاً") : new Response("limit", { status: 429 });
+  }, async () => {
+    const response = await handle(ask("parent"));
+    return { status: response.status, body: await response.json() };
+  });
+  assert(result.status === 200 && result.body.content === "أهلاً", `status ${result.status}`);
+  assert(result.body.model === "openrouter/free", `model ${result.body.model}`);
+  assert(asked.join() === "google/gemma-4-31b-it:free,openrouter/free", `asked ${asked.join()}`);
+});
+
+Deno.test("the whole function never gives a paid model's conversation to a free one", async () => {
+  const asked: string[] = [];
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const result = await withServer("parent", { LLM_MODEL: "anthropic/claude-sonnet-5-5" }, (_u, init) => {
+      asked.push(JSON.parse(String(init.body)).model as string);
+      return new Response("limit", { status: 429 });
+    }, async () => {
+      const response = await handle(ask("parent"));
+      return { status: response.status, body: await response.json() };
+    });
+    assert(result.status === 429 && result.body.error === "model_rate_limited", `status ${result.status}`);
+  } finally {
+    console.error = original;
+  }
+  assert(asked.join() === "anthropic/claude-sonnet-5-5", `asked ${asked.join()}`);
 });
