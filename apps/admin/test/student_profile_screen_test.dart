@@ -151,7 +151,8 @@ void main() {
     expect(find.text('ملف التلميذ'), findsOneWidget);
     expect(find.text('أحمد بن علي'), findsOneWidget);
     expect(find.text('علي بن علي'), findsOneWidget);
-    expect(find.text('0550123456@school.local'), findsOneWidget);
+    expect(find.text('رقم الدخول'), findsOneWidget);
+    expect(find.textContaining('@school.local'), findsNothing);
     expect(find.text('رياضيات · الفوج 1'), findsOneWidget);
     expect(find.text('كمال · 2 000 دج للدورة'), findsOneWidget);
     expect(find.text('حاضر 0'), findsOneWidget);

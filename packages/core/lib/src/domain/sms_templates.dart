@@ -22,12 +22,12 @@ abstract final class SmsTemplateKeys {
   static const Map<String, String> defaults = {
     accountCreated:
         'مرحباً {name}، تم إنشاء حسابك في {school}.\n'
-        'البريد: {email}\n'
+        'رقم الدخول: {phone}\n'
         'كلمة السر: {password}\n'
         'غيّر كلمة السر عند أول دخول.',
     passwordReset:
         '{school}: كلمة سر جديدة لحسابك.\n'
-        'البريد: {email}\n'
+        'رقم الدخول: {phone}\n'
         'كلمة السر: {password}\n'
         'غيّرها عند الدخول.',
     attendanceAbsent: '{school}: لم يحضر {name} حصة {subject} يوم {date}.',

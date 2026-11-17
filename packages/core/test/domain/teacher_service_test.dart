@@ -53,7 +53,9 @@ void main() {
       expect(queued.status, 'pending');
       expect(queued.kind, SmsTemplateKeys.accountCreated);
       expect(queued.message, contains('مدرسة النجاح'));
-      expect(queued.message, contains(result.email));
+      // الرسالة تحمل رقم الدخول (الهاتف) لا بريد الدخول المولَّد منه.
+      expect(queued.message, contains('رقم الدخول: 0550123456'));
+      expect(queued.message, isNot(contains('@school.local')));
       expect(queued.message, contains(result.password));
       expect(queued.message, contains('الأستاذ كمال'));
       expect(queued.createdBy, 'u1');

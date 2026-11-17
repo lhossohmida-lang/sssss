@@ -19,12 +19,12 @@ abstract final class SmsTemplateCatalog {
     SmsTemplateDefinition(
       key: SmsTemplateKeys.accountCreated,
       title: 'بيانات الحساب الجديد',
-      variables: {'name', 'school', 'email', 'password'},
+      variables: {'name', 'school', 'phone', 'email', 'password'},
     ),
     SmsTemplateDefinition(
       key: SmsTemplateKeys.passwordReset,
       title: 'كلمة السر الجديدة',
-      variables: {'school', 'email', 'password'},
+      variables: {'school', 'phone', 'email', 'password'},
     ),
     SmsTemplateDefinition(
       key: SmsTemplateKeys.attendanceAbsent,

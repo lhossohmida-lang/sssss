@@ -99,7 +99,7 @@ Future<void> loginWith(
         .first,
     matching: find.byType(TextField),
   );
-  await tester.enterText(field('البريد'), email);
+  await tester.enterText(field('رقم الهاتف'), email);
   await tester.enterText(field('كلمة السر'), password);
   await tester.tap(find.widgetWithText(ClayButton, 'دخول'));
   await tester.pumpAndSettle();

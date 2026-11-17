@@ -88,7 +88,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 }
 
-/// تسجيل الدخول بالبريد وكلمة السر. وفي الوضع المحلي على جهاز بلا حسابات
+/// تسجيل الدخول برقم الهاتف وكلمة السر. وفي الوضع المحلي على جهاز بلا حسابات
 /// يتحول إلى إنشاء حساب صاحب المدرسة.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({required this.app, super.key});
@@ -124,7 +124,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _validate({required bool setup}) {
     final nameEmpty = _name.text.trim().isEmpty;
-    final emailProblem = LoginCredentials.emailProblem(_email.text);
+    final emailProblem = LoginCredentials.identifierProblem(_email.text);
     final passwordProblem = setup
         ? LoginCredentials.passwordProblem(_password.text)
         : (_password.text.isEmpty ? 'أدخل كلمة السر' : null);
@@ -186,7 +186,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       title: setup ? 'إعداد أول مرة' : 'تسجيل الدخول',
       subtitle: setup
           ? 'أنشئ حساب صاحب المدرسة على هذا الجهاز'
-          : 'أدخل البريد وكلمة السر اللذين وصلاك برسالة قصيرة',
+          : 'أدخل رقم هاتفك وكلمة السر اللذين وصلاك برسالة قصيرة',
       children: [
         if (setup) ...[
           ClayTextField(
@@ -199,9 +199,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ],
         ClayTextField(
           controller: _email,
-          label: 'البريد',
+          label: 'رقم الهاتف',
+          hint: '0550123456',
           error: _emailError,
-          keyboardType: TextInputType.emailAddress,
+          keyboardType: TextInputType.phone,
           textDirection: TextDirection.ltr,
           textInputAction: TextInputAction.next,
         ),

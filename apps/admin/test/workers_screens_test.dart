@@ -111,7 +111,15 @@ void main() {
     await submit(tester);
 
     expect(find.text('بيانات دخول سمير حداد'), findsOneWidget);
-    expect(find.text('0660123456@school.local'), findsOneWidget);
+    expect(find.text('رقم الدخول'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ClayDialog),
+        matching: find.text('0660123456'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('@school.local'), findsNothing);
     expect(o.provisioner.created.values.single.role, UserRole.worker);
     await tester.tap(find.widgetWithText(ClayButton, 'تم'));
     await tester.pumpAndSettle();

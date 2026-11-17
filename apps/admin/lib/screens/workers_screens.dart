@@ -445,7 +445,11 @@ class WorkerProfileScreen extends ConsumerWidget {
                     Text(w.name, style: text.titleLarge),
                     const SizedBox(height: ClaySpacing.md),
                     row('الهاتف', w.phone, ltr: true),
-                    row('البريد', w.email, ltr: true),
+                    row(
+                      'رقم الدخول',
+                      LoginCredentials.displayLogin(w.email),
+                      ltr: true,
+                    ),
                     row('أجر اليوم الكامل', Money.format(w.fullDayWage)),
                     row('أجر نصف اليوم', Money.format(w.halfDayWage)),
                     row(

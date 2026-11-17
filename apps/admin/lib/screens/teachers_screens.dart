@@ -72,7 +72,7 @@ class _CredentialsDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          row('البريد', account.email),
+          row('رقم الدخول', LoginCredentials.displayLogin(account.email)),
           if (account.password.isNotEmpty) row('كلمة السر', account.password),
           Text(
             account.smsQueued
@@ -490,8 +490,8 @@ class TeacherProfileScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _InfoRow(
-                          label: 'بريد الدخول',
-                          value: t.email,
+                          label: 'رقم الدخول',
+                          value: LoginCredentials.displayLogin(t.email),
                           ltr: true,
                         ),
                         _InfoRow(

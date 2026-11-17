@@ -17,14 +17,14 @@ import 'providers.dart';
 /// سطر في بطاقة الحساب: عنوانه وقيمته.
 typedef AccountDetail = ({String label, String value});
 
-/// «حسابي»: بيانات صاحب الجلسة (الاسم والدور والبريد وما تضيفه الشاشة
+/// «حسابي»: بيانات صاحب الجلسة (الاسم والدور ورقم الدخول وما تضيفه الشاشة
 /// المستضيفة)، وتغيير كلمة السر بعد التحقق من الحالية، والخروج.
 ///
 /// مشتركة بين التطبيقات الثلاثة؛ كل تطبيق يمرّر [details] و[photo] من بياناته.
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({this.details = const [], this.photo, super.key});
 
-  /// بيانات إضافية تُعرض بعد البريد (هاتف، أبناء...).
+  /// بيانات إضافية تُعرض بعد رقم الدخول (هاتف، أبناء...).
   final List<AccountDetail> details;
 
   /// صورة صاحب الحساب إن وُجدت.
@@ -46,7 +46,7 @@ class AccountScreen extends ConsumerWidget {
     final ok = await showClayConfirm(
       context,
       title: 'الخروج',
-      message: 'سيُطلب منك البريد وكلمة السر عند الدخول من جديد.',
+      message: 'سيُطلب منك رقم الهاتف وكلمة السر عند الدخول من جديد.',
       confirmLabel: 'خروج',
     );
     if (ok) await ref.read(pushNotificationsProvider).signOut();
@@ -60,7 +60,10 @@ class AccountScreen extends ConsumerWidget {
     final school = ref.watch(schoolNameProvider).value ?? '';
     if (session == null) return const SizedBox.shrink();
     final rows = <AccountDetail>[
-      (label: 'البريد', value: session.email),
+      (
+        label: 'رقم الدخول',
+        value: LoginCredentials.displayLogin(session.email),
+      ),
       ...details,
       if (school.isNotEmpty) (label: 'المدرسة', value: school),
     ];

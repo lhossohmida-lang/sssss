@@ -73,7 +73,10 @@ class AuthService {
     return session;
   }
 
-  /// يسجّل الدخول بالبريد وكلمة السر.
+  /// يسجّل الدخول برقم الهاتف وكلمة السر.
+  ///
+  /// [email] هو ما كتبه المستخدم في خانة الدخول: رقم هاتف جزائري بأي صيغة
+  /// (يُبنى منه بريد الدخول)، أو بريد كامل.
   ///
   /// يرمي [AuthFailureException] إن رُفضت البيانات، أو لم يوجد حساب
   /// للمستخدم، أو كان دوره لا يدخل من هذا التطبيق.
@@ -81,8 +84,8 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final address = LoginCredentials.normalizeEmail(email);
-    if (LoginCredentials.emailProblem(address) != null) {
+    final address = LoginCredentials.emailFromIdentifier(email);
+    if (address == null) {
       throw const AuthFailureException(AuthFailure.invalidEmail);
     }
     if (password.isEmpty) {

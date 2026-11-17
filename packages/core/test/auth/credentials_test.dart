@@ -83,4 +83,82 @@ void main() {
       expect(LoginCredentials.emailProblem('a@b.com'), isNull);
     });
   });
+
+  group('خانة الدخول: رقم الهاتف أو البريد', () {
+    test('الهاتف بكل صيغه يصير بريد الدخول', () {
+      for (final input in [
+        '0550123456',
+        ' 0550123456 ',
+        '055 012 34 56',
+        '+213550123456',
+        '00213550123456',
+        '0550-12-34-56',
+        '٠٥٥٠١٢٣٤٥٦', // أرقام عربية-هندية
+        '۰۵۵۰۱۲۳۴۵۶', // أرقام فارسية
+        '\u{200E}0550123456\u{200F}', // علامات اتجاه خفية من النسخ
+      ]) {
+        expect(
+          LoginCredentials.emailFromIdentifier(input),
+          '0550123456@school.local',
+          reason: input,
+        );
+        expect(LoginCredentials.identifierProblem(input), isNull);
+      }
+    });
+
+    test('البريد الكامل يبقى بريداً موحَّداً', () {
+      expect(
+        LoginCredentials.emailFromIdentifier('  Owner@School.com '),
+        'owner@school.com',
+      );
+      expect(
+        LoginCredentials.emailFromIdentifier('0550123456@school.local'),
+        '0550123456@school.local',
+      );
+    });
+
+    test('المدخل الخاطئ يعطي null وسبباً بالعربية', () {
+      for (final bad in [
+        '',
+        '   ',
+        '12345',
+        '0150123456',
+        'abc',
+        'a@b',
+        '@x.com',
+      ]) {
+        expect(LoginCredentials.emailFromIdentifier(bad), isNull, reason: bad);
+        expect(LoginCredentials.identifierProblem(bad), isNotNull, reason: bad);
+      }
+      expect(LoginCredentials.identifierProblem(''), 'أدخل رقم الهاتف');
+      expect(
+        LoginCredentials.identifierProblem('12345'),
+        contains('يبدأ بـ 05 أو 06 أو 07'),
+      );
+    });
+
+    test('اسم الدخول المعروض: الهاتف للبريد المولَّد وإلا البريد نفسه', () {
+      expect(
+        LoginCredentials.displayLogin('0550123456@school.local'),
+        '0550123456',
+      );
+      expect(
+        LoginCredentials.displayLogin('0550123456@SCHOOL.local'),
+        '0550123456',
+      );
+      expect(
+        LoginCredentials.displayLogin('owner@school.com'),
+        'owner@school.com',
+      );
+      expect(
+        LoginCredentials.displayLogin('abc@school.local'),
+        'abc@school.local',
+      );
+      expect(
+        LoginCredentials.phoneOfEmail('0550123456@school.local'),
+        '0550123456',
+      );
+      expect(LoginCredentials.phoneOfEmail('owner@school.com'), isNull);
+    });
+  });
 }

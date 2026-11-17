@@ -100,7 +100,15 @@ void main() {
 
     // نافذة بيانات الدخول.
     expect(find.text('بيانات دخول كمال بن علي'), findsOneWidget);
-    expect(find.text('0550123456@school.local'), findsOneWidget);
+    expect(find.text('رقم الدخول'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ClayDialog),
+        matching: find.text('0550123456'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('@school.local'), findsNothing);
     final password = o.provisioner.created.values.single.password;
     expect(find.text(password), findsOneWidget);
     expect(find.textContaining('طابور الإرسال إلى 0550123456'), findsOneWidget);
@@ -222,7 +230,8 @@ void main() {
     appTest('يعرض البيانات ورمز QR', (tester) async {
       final (_, teacher) = await withTeacher(tester);
       expect(find.text('ملف الأستاذ'), findsOneWidget);
-      expect(find.text('0550123456@school.local'), findsOneWidget);
+      expect(find.text('رقم الدخول'), findsOneWidget);
+      expect(find.textContaining('@school.local'), findsNothing);
       expect(find.text('800 دج'), findsOneWidget);
       expect(find.byType(ClayQrCode), findsOneWidget);
       expect(find.text(teacher.qrCode), findsOneWidget);

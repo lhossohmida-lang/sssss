@@ -207,6 +207,7 @@ class AccountService {
     return SmsTemplateRenderer(db).render(key, {
       'name': name,
       'school': schoolName.isEmpty ? 'المدرسة' : schoolName,
+      'phone': LoginCredentials.displayLogin(credentials.email),
       'email': credentials.email,
       'password': credentials.password,
     });

@@ -61,6 +61,44 @@ abstract final class LoginCredentials {
     return '$local@$emailDomain';
   }
 
+  /// يحوّل ما كتبه المستخدم في خانة الدخول إلى بريد الدخول الفعلي.
+  ///
+  /// رقم هاتف جزائري صالح بأي صيغة (`0550 12 34 56` أو `+213550123456` أو
+  /// بأرقام عربية) يصير `0550123456@school.local`، والبريد الكامل الصالح يُعاد
+  /// موحَّداً، وغير ذلك `null`.
+  static String? emailFromIdentifier(String input) {
+    final text = input.trim();
+    if (text.isEmpty) return null;
+    if (text.contains('@')) {
+      final email = normalizeEmail(text);
+      return isValidEmail(email) ? email : null;
+    }
+    return PhoneNumbers.isValid(text) ? emailForPhone(text) : null;
+  }
+
+  /// رقم الهاتف الذي بُني منه بريد الدخول المولَّد، أو `null` إن كان البريد
+  /// عادياً (مثل بريد صاحب مدرسة في الوضع المحلي).
+  static String? phoneOfEmail(String email) {
+    final address = normalizeEmail(email);
+    const suffix = '@$emailDomain';
+    if (!address.endsWith(suffix)) return null;
+    final local = address.substring(0, address.length - suffix.length);
+    return PhoneNumbers.isValid(local) ? PhoneNumbers.normalize(local) : null;
+  }
+
+  /// ما يُعرض لصاحب الحساب كاسم دخول: رقم هاتفه إن كان بريده مولَّداً منه،
+  /// وإلا البريد نفسه.
+  static String displayLogin(String email) => phoneOfEmail(email) ?? email;
+
+  /// سبب رفض خانة الدخول (هاتف أو بريد) بالعربية، أو `null` إن كانت مقبولة.
+  static String? identifierProblem(String input) {
+    if (input.trim().isEmpty) return 'أدخل رقم الهاتف';
+    if (emailFromIdentifier(input) == null) {
+      return 'رقم الهاتف غير صحيح: يبدأ بـ 05 أو 06 أو 07 ويتبعه 8 أرقام';
+    }
+    return null;
+  }
+
   /// كلمة سر عشوائية من [generatedPasswordLength] رمزاً.
   static String generatePassword({Random? random}) {
     final source = random ?? Random.secure();

@@ -204,8 +204,8 @@ class StudentProfileScreen extends ConsumerWidget {
                     _InfoRow(label: 'الهاتف', value: s.parentPhone, ltr: true),
                     if (parent != null)
                       _InfoRow(
-                        label: 'بريد الدخول',
-                        value: parent.email,
+                        label: 'رقم الدخول',
+                        value: LoginCredentials.displayLogin(parent.email),
                         ltr: true,
                       ),
                   ]),

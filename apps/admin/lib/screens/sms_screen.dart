@@ -702,7 +702,8 @@ class _SmsTemplatesTabState extends ConsumerState<_SmsTemplatesTab> {
 String _sampleVariable(String key) => switch (key) {
   'school' => 'مدرسة النجاح',
   'name' => 'سمير بن علي',
-  'email' => 'student@school.local',
+  'phone' => '0550123456',
+  'email' => '0550123456@school.local',
   'password' => '••••••••',
   'subject' => 'الرياضيات',
   'group' => 'الفوج 1',

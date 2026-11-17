@@ -157,29 +157,58 @@ void main() {
       await boot(tester);
       await passSplash(tester);
       await tapButton(tester, 'دخول');
-      expect(find.text('أدخل البريد'), findsOneWidget);
+      expect(find.text('أدخل رقم الهاتف'), findsOneWidget);
       expect(find.text('أدخل كلمة السر'), findsOneWidget);
     });
 
     shellTest('كلمة سر خاطئة: رسالة واضحة وبقاء في الشاشة', (tester) async {
       await boot(tester);
       await passSplash(tester);
-      await fillField(tester, 'البريد', 'owner@school.local');
+      await fillField(tester, 'رقم الهاتف', 'owner@school.local');
       await fillField(tester, 'كلمة السر', 'wrong-password');
       await tapButton(tester, 'دخول');
-      expect(find.text('البريد أو كلمة السر غير صحيحة'), findsOneWidget);
+      expect(find.text('رقم الهاتف أو كلمة السر غير صحيحة'), findsOneWidget);
       expect(find.text('تسجيل الدخول'), findsOneWidget);
     });
 
     shellTest('دخول صحيح ينقل إلى أول تبويب', (tester) async {
       final runtime = await boot(tester);
       await passSplash(tester);
-      await fillField(tester, 'البريد', 'owner@school.local');
+      await fillField(tester, 'رقم الهاتف', 'owner@school.local');
       await fillField(tester, 'كلمة السر', 'owner-pass-1');
       await tapButton(tester, 'دخول');
       expect(runtime.auth.current?.role, UserRole.owner);
       expect(find.text('صفحة الرئيسية'), findsOneWidget);
       expect(find.text('تسجيل الدخول'), findsNothing);
+    });
+
+    shellTest('الدخول برقم الهاتف بأي صيغة يبني البريد تلقائياً', (
+      tester,
+    ) async {
+      const phoneOwner = TestAccount(
+        id: 'u-phone-owner',
+        email: '0550123456@school.local',
+        password: 'owner-pass-1',
+        role: UserRole.owner,
+        displayName: 'صاحب المدرسة',
+      );
+      final runtime = await boot(tester, accounts: [phoneOwner]);
+      await passSplash(tester);
+      await fillField(tester, 'رقم الهاتف', '+213 550 12 34 56');
+      await fillField(tester, 'كلمة السر', 'owner-pass-1');
+      await tapButton(tester, 'دخول');
+      expect(runtime.auth.current?.email, '0550123456@school.local');
+      expect(find.text('صفحة الرئيسية'), findsOneWidget);
+    });
+
+    shellTest('رقم هاتف غير صالح: رسالة تشرح الصيغة دون اتصال', (tester) async {
+      await boot(tester);
+      await passSplash(tester);
+      await fillField(tester, 'رقم الهاتف', '12345');
+      await fillField(tester, 'كلمة السر', 'whatever-1');
+      await tapButton(tester, 'دخول');
+      expect(find.textContaining('يبدأ بـ 05 أو 06 أو 07'), findsOneWidget);
+      expect(find.text('تسجيل الدخول'), findsOneWidget);
     });
 
     shellTest('الجلسة المحفوظة تتجاوز الدخول', (tester) async {
@@ -227,7 +256,7 @@ void main() {
     ) async {
       final runtime = await boot(tester, accounts: [newWorker]);
       await passSplash(tester);
-      await fillField(tester, 'البريد', 'worker@school.local');
+      await fillField(tester, 'رقم الهاتف', 'worker@school.local');
       await fillField(tester, 'كلمة السر', 'temp-pass-1');
       await tapButton(tester, 'دخول');
       expect(find.text('اختر كلمة سر جديدة'), findsOneWidget);
@@ -420,7 +449,7 @@ void main() {
       expect(find.text('وضع محلي: دون خادم'), findsOneWidget);
 
       await fillField(tester, 'اسمك', 'مدير المدرسة');
-      await fillField(tester, 'البريد', 'owner@school.com');
+      await fillField(tester, 'رقم الهاتف', 'owner@school.com');
       await fillField(tester, 'كلمة السر', 'owner-pass-1');
       await fillField(tester, 'تأكيد كلمة السر', 'owner-pass-1');
       await tester.runAsync(() async {

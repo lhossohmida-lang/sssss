@@ -144,12 +144,11 @@ class LocalAuthGateway implements AuthGateway {
     required String displayName,
     required String password,
   }) async {
-    final address = LoginCredentials.normalizeEmail(email);
-    final emailProblem = LoginCredentials.emailProblem(address);
-    if (emailProblem != null) {
+    final address = LoginCredentials.emailFromIdentifier(email);
+    if (address == null) {
       throw AuthFailureException(
         AuthFailure.invalidEmail,
-        message: emailProblem,
+        message: LoginCredentials.identifierProblem(email),
       );
     }
     final name = displayName.trim();

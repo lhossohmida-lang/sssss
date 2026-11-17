@@ -202,7 +202,16 @@ void main() {
     await submit(tester);
 
     expect(find.text('بيانات دخول علي بن علي'), findsOneWidget);
-    expect(find.text('0550123456@school.local'), findsOneWidget);
+    // رقم الدخول هو هاتف الوليّ لا البريد المولَّد منه.
+    expect(find.text('رقم الدخول'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ClayDialog),
+        matching: find.text('0550123456'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('@school.local'), findsNothing);
     expect(
       find.text(o.provisioner.created.values.single.password),
       findsOneWidget,
