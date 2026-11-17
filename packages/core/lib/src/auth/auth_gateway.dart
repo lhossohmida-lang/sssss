@@ -76,4 +76,14 @@ abstract interface class AuthGateway {
 
   /// يغيّر كلمة سر المستخدم الحالي.
   Future<void> changePassword({required String newPassword});
+
+  /// يغيّر بريد دخول المستخدم الحالي (رقم هاتفه) بعد التحقق من كلمة سره الحالية،
+  /// ويعيد هويته الجديدة.
+  ///
+  /// يرمي [AuthFailureException]: `invalidCredentials` إن أخطأ في كلمة السر،
+  /// و`notSignedIn` دون جلسة، و`unknown` برسالة إن كان الرقم لحساب آخر.
+  Future<AuthIdentity> changeEmail({
+    required String currentPassword,
+    required String newEmail,
+  });
 }

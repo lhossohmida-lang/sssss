@@ -591,6 +591,209 @@ void main() {
     });
   });
 
+  group('تغيير رقم الدخول من «حسابي»', () {
+    Future<AuthSession> signInOwner() =>
+        service.signIn(email: 'owner@school.local', password: 'ownerpass1');
+
+    test('بكلمة السر الصحيحة: يتغير الرقم في الجلسة والصف والبوابة', () async {
+      await signInOwner();
+      final session = await service.changeLoginPhone(
+        currentPassword: 'ownerpass1',
+        newPhone: '0550 12 34 56',
+      );
+
+      expect(session.email, '0550123456@school.local');
+      expect(service.current?.email, '0550123456@school.local');
+      expect(gateway.lastEmailSet, '0550123456@school.local');
+      final row = await (env.db.select(
+        env.db.userAccounts,
+      )..where((t) => t.id.equals('u-owner'))).getSingle();
+      expect(row.email, '0550123456@school.local');
+      final queued = await (env.db.select(
+        env.db.outbox,
+      )..where((o) => o.targetTable.equals('user_accounts'))).get();
+      expect(queued, isNotEmpty, reason: 'يصل الخادم بالمزامنة');
+    });
+
+    test('الرقم الجديد يدخل به ولا يدخل بالقديم، والجلسة تُستعاد به', () async {
+      await signInOwner();
+      await service.changeLoginPhone(
+        currentPassword: 'ownerpass1',
+        newPhone: '+213550123456',
+      );
+      await service.signOut();
+
+      await expectLater(
+        service.signIn(email: 'owner@school.local', password: 'ownerpass1'),
+        throwsA(isA<AuthFailureException>()),
+      );
+      final again = await service.signIn(
+        email: '0550123456',
+        password: 'ownerpass1',
+      );
+      expect(again.email, '0550123456@school.local');
+
+      final restored = build();
+      addTearDown(restored.dispose);
+      expect((await restored.restore())?.email, '0550123456@school.local');
+    });
+
+    test('العامل يغيّر رقمه بنفسه أيضاً', () async {
+      await service.signIn(email: 'w@school.local', password: 'workerpass');
+      final session = await service.changeLoginPhone(
+        currentPassword: 'workerpass',
+        newPhone: '0661234567',
+      );
+      expect(session.email, '0661234567@school.local');
+      expect(session.role, UserRole.worker);
+    });
+
+    test('كلمة السر الحالية خاطئة: رفض برسالة ودون تغيير', () async {
+      await signInOwner();
+      await expectLater(
+        service.changeLoginPhone(
+          currentPassword: 'wrong-pass',
+          newPhone: '0550123456',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.failure,
+            'failure',
+            AuthFailure.invalidCredentials,
+          ),
+        ),
+      );
+      expect(service.current?.email, 'owner@school.local');
+      expect(gateway.lastEmailSet, isNull);
+    });
+
+    test('مدخل غير صالح يُرفض قبل أي اتصال', () async {
+      await signInOwner();
+      Future<void> rejected(String phone, String password, String message) =>
+          expectLater(
+            service.changeLoginPhone(
+              currentPassword: password,
+              newPhone: phone,
+            ),
+            throwsA(
+              isA<AuthFailureException>().having(
+                (e) => e.message,
+                'message',
+                contains(message),
+              ),
+            ),
+          );
+      await rejected('12345', 'ownerpass1', 'يبدأ بـ 05 أو 06 أو 07');
+      await rejected('', 'ownerpass1', 'أدخل رقم الهاتف');
+      await rejected('a@b.com', 'ownerpass1', 'رقم هاتف لا بريداً');
+      await rejected('0550123456', '', 'كلمة السر الحالية');
+      expect(gateway.lastEmailSet, isNull);
+    });
+
+    test('الرقم الحالي نفسه يُرفض', () async {
+      gateway.accounts['0771111111@school.local'] = (
+        id: 'u-phone',
+        password: 'phonepass1',
+      );
+      await addAccount(
+        'u-phone',
+        '0771111111@school.local',
+        UserRole.owner,
+        mustChange: false,
+      );
+      await service.signIn(email: '0771111111', password: 'phonepass1');
+      await expectLater(
+        service.changeLoginPhone(
+          currentPassword: 'phonepass1',
+          newPhone: '0771 11 11 11',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.message,
+            'message',
+            contains('رقم دخولك الحالي'),
+          ),
+        ),
+      );
+    });
+
+    test('رقم حساب آخر يُرفض برسالة ويبقى الدخول القديم', () async {
+      gateway.accounts['0660000000@school.local'] = (
+        id: 'u-other',
+        password: 'otherpass1',
+      );
+      await signInOwner();
+      await expectLater(
+        service.changeLoginPhone(
+          currentPassword: 'ownerpass1',
+          newPhone: '0660000000',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.message,
+            'message',
+            contains('مستعمل في حساب آخر'),
+          ),
+        ),
+      );
+      expect(service.current?.email, 'owner@school.local');
+    });
+
+    test('الأستاذ لا يغيّر رقمه بنفسه، ودون دخول يُرفض', () async {
+      await expectLater(
+        service.changeLoginPhone(currentPassword: 'x', newPhone: '0550123456'),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.failure,
+            'failure',
+            AuthFailure.notSignedIn,
+          ),
+        ),
+      );
+      final teacherService = build();
+      addTearDown(teacherService.dispose);
+      await teacherService.signIn(
+        email: 't@school.local',
+        password: 'teacherpass',
+      );
+      await expectLater(
+        teacherService.changeLoginPhone(
+          currentPassword: 'teacherpass',
+          newPhone: '0550123456',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.message,
+            'message',
+            contains('لصاحب المدرسة والعمال'),
+          ),
+        ),
+      );
+    });
+
+    test('انقطاع الاتصال: خطأ شبكة ودون تغيير محلي', () async {
+      await signInOwner();
+      gateway.offline = true;
+      await expectLater(
+        service.changeLoginPhone(
+          currentPassword: 'ownerpass1',
+          newPhone: '0550123456',
+        ),
+        throwsA(
+          isA<AuthFailureException>().having(
+            (e) => e.failure,
+            'failure',
+            AuthFailure.network,
+          ),
+        ),
+      );
+      final row = await (env.db.select(
+        env.db.userAccounts,
+      )..where((t) => t.id.equals('u-owner'))).getSingle();
+      expect(row.email, 'owner@school.local');
+    });
+  });
+
   group('تحديث الجلسة بعد المزامنة', () {
     test('تغيّر صلاحيات العامل يصل إلى الجلسة ويُبث', () async {
       await service.signIn(email: 'w@school.local', password: 'workerpass');

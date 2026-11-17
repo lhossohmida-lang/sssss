@@ -73,6 +73,55 @@ class SupabaseAuthGateway implements AuthGateway {
     }
   }
 
+  @override
+  Future<AuthIdentity> changeEmail({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    final user = client.auth.currentUser;
+    if (user == null || client.auth.currentSession == null) {
+      throw const AuthFailureException(AuthFailure.notSignedIn);
+    }
+    try {
+      await client.functions.invoke(
+        'change-login',
+        body: {'new_email': newEmail, 'current_password': currentPassword},
+      );
+      // الجلسة القديمة تحمل البريد القديم: تُجدَّد ليصير بريدها الجديد.
+      await client.auth.refreshSession();
+    } on FunctionException catch (e) {
+      throw _mapChange(e);
+    } on AuthException catch (e) {
+      throw _map(e);
+    } on SocketException {
+      throw const AuthFailureException(AuthFailure.network);
+    } on TimeoutException {
+      throw const AuthFailureException(AuthFailure.network);
+    }
+    return AuthIdentity(id: user.id, email: newEmail);
+  }
+
+  static AuthFailureException _mapChange(FunctionException e) {
+    return switch (e.status) {
+      403 => const AuthFailureException(
+        AuthFailure.invalidCredentials,
+        message: 'كلمة السر الحالية غير صحيحة',
+      ),
+      409 => const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'رقم الهاتف مستعمل في حساب آخر',
+      ),
+      >= 500 => const AuthFailureException(
+        AuthFailure.network,
+        message: 'تعذّر تغيير رقم الدخول الآن، أعد المحاولة بعد قليل',
+      ),
+      _ => const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'تعذّر تغيير رقم الدخول',
+      ),
+    };
+  }
+
   static AuthFailureException _map(AuthException e) {
     final status = int.tryParse(e.statusCode ?? '');
     final code = e.code ?? '';

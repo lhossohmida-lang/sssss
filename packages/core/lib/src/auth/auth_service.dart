@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../app_identity.dart';
 import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
+import '../domain/enums.dart';
 import 'account_directory.dart';
 import 'auth_gateway.dart';
 import 'auth_session.dart';
@@ -189,6 +190,63 @@ class AuthService {
       );
     }
     return changePassword(newPassword: newPassword);
+  }
+
+  /// يغيّر رقم دخول صاحب الجلسة (هاتفه) بعد التحقق من كلمة سره الحالية.
+  ///
+  /// لصاحب المدرسة والعمال وحدهم (يدخلون من تطبيق الإدارة)؛ أرقام الأساتذة
+  /// والأولياء تديرها الإدارة. يرمي [AuthFailureException] برسالة عربية إن كان
+  /// الرقم غير صالح أو هو الحالي أو لحساب آخر أو كانت كلمة السر خاطئة. يُحدَّث
+  /// صف الحساب محلياً فيصل الخادم بالمزامنة، وتبقى الجلسة مفتوحة بالرقم الجديد.
+  Future<AuthSession> changeLoginPhone({
+    required String currentPassword,
+    required String newPhone,
+  }) async {
+    final session = _current;
+    if (session == null) {
+      throw const AuthFailureException(AuthFailure.notSignedIn);
+    }
+    if (session.role != UserRole.owner && session.role != UserRole.worker) {
+      throw const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'تغيير رقم الدخول لصاحب المدرسة والعمال؛ أرقام غيرهم تديرها الإدارة',
+      );
+    }
+    if (currentPassword.isEmpty) {
+      throw const AuthFailureException(
+        AuthFailure.invalidCredentials,
+        message: 'أدخل كلمة السر الحالية',
+      );
+    }
+    final problem = newPhone.contains('@')
+        ? 'أدخل رقم هاتف لا بريداً إلكترونياً'
+        : LoginCredentials.identifierProblem(newPhone);
+    if (problem != null) {
+      throw AuthFailureException(AuthFailure.invalidEmail, message: problem);
+    }
+    final newEmail = LoginCredentials.emailForPhone(newPhone);
+    if (newEmail == session.email) {
+      throw const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'هذا هو رقم دخولك الحالي',
+      );
+    }
+    final identity = await gateway.changeEmail(
+      currentPassword: currentPassword,
+      newEmail: newEmail,
+    );
+    final sync = writer();
+    await sync.patch(
+      sync.db.userAccounts,
+      key: {'id': session.accountId},
+      values: {'email': identity.email},
+    );
+    final updated = AuthSession(
+      session.account.copyWith(email: identity.email),
+    );
+    await store.write(updated);
+    _emit(updated);
+    return updated;
   }
 
   /// يعيد قراءة الحساب محلياً بعد المزامنة (تغيّر صلاحيات أو اسم أو حذف).

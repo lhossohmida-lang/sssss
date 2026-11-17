@@ -12,6 +12,7 @@ class FakeAuthGateway implements AuthGateway {
   bool offline = false;
   int signOuts = 0;
   String? lastPasswordSet;
+  String? lastEmailSet;
 
   /// يحاكي جلسة محفوظة من تشغيل سابق.
   void restoreIdentity(AuthIdentity? identity) => _identity = identity;
@@ -47,5 +48,32 @@ class FakeAuthGateway implements AuthGateway {
     }
     accounts[identity.email] = (id: identity.id, password: newPassword);
     lastPasswordSet = newPassword;
+  }
+
+  @override
+  Future<AuthIdentity> changeEmail({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    if (offline) throw const AuthFailureException(AuthFailure.network);
+    final identity = _identity;
+    if (identity == null) {
+      throw const AuthFailureException(AuthFailure.notSignedIn);
+    }
+    final account = accounts[identity.email];
+    if (account == null || account.password != currentPassword) {
+      throw const AuthFailureException(AuthFailure.invalidCredentials);
+    }
+    if (accounts.containsKey(newEmail)) {
+      throw const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'رقم الهاتف مستعمل في حساب آخر',
+      );
+    }
+    accounts
+      ..remove(identity.email)
+      ..[newEmail] = account;
+    lastEmailSet = newEmail;
+    return _identity = AuthIdentity(id: identity.id, email: newEmail);
   }
 }

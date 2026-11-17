@@ -135,6 +135,37 @@ class LocalAuthGateway implements AuthGateway {
     await setPassword(identity.id, newPassword);
   }
 
+  @override
+  Future<AuthIdentity> changeEmail({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    final identity = _identity;
+    if (identity == null) {
+      throw const AuthFailureException(AuthFailure.notSignedIn);
+    }
+    // يتحقق من كلمة السر الحالية ببريد الحساب الحالي.
+    await signIn(email: identity.email, password: currentPassword);
+    final taken = await db
+        .customSelect(
+          'SELECT 1 FROM user_accounts WHERE email = ? AND id <> ? '
+          'AND deleted_at IS NULL',
+          variables: [
+            Variable<String>(newEmail),
+            Variable<String>(identity.id),
+          ],
+          readsFrom: {db.userAccounts},
+        )
+        .getSingleOrNull();
+    if (taken != null) {
+      throw const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'رقم الهاتف مستعمل في حساب آخر',
+      );
+    }
+    return _identity = AuthIdentity(id: identity.id, email: newEmail);
+  }
+
   /// ينشئ حساب صاحب المدرسة عند الإعداد الأول على الجهاز (مرة واحدة).
   ///
   /// يرمي [AuthFailureException] إن وُجد حساب مسبقاً أو كانت البيانات غير
@@ -213,4 +244,10 @@ class UnconfiguredAuthGateway implements AuthGateway {
   @override
   Future<void> changePassword({required String newPassword}) async =>
       throw const AuthFailureException(AuthFailure.notSignedIn);
+
+  @override
+  Future<AuthIdentity> changeEmail({
+    required String currentPassword,
+    required String newEmail,
+  }) async => throw const AuthFailureException(AuthFailure.notSignedIn);
 }

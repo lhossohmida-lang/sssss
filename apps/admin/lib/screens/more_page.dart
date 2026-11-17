@@ -278,10 +278,48 @@ class _Entry extends _Row {
   final MoreEntry entry;
 }
 
+/// بطاقة «حسابي» أعلى القائمة لكل مستخدم: اسمه ودوره، وفيها كلمة السر ورقم الدخول
+/// والتحديث والخروج.
+class _AccountRow extends _Row {
+  const _AccountRow(this.name, this.role);
+
+  final String name;
+  final String role;
+}
+
 /// قائمة «المزيد»: الأقسام التي لا يتسع لها الشريط السفلي مجمّعة بعناوين،
 /// وتظهر لكل مستخدم ما يملك صلاحيته فقط، والمجموعة الفارغة تختفي بعنوانها.
+/// وأعلاها بطاقة «حسابي» لكل مستخدم.
 class MorePage extends ConsumerWidget {
   const MorePage({super.key});
+
+  static Widget _accountTile(
+    BuildContext context,
+    _AccountRow row, {
+    bool padded = true,
+  }) {
+    final tile = ClayListTile(
+      leading: Icon(
+        Icons.account_circle_outlined,
+        color: context.palette.accent,
+      ),
+      title: 'حسابي',
+      subtitle: row.name.isEmpty ? row.role : '${row.name} · ${row.role}',
+      onTap: () => context.push(AppRoutes.account),
+      trailing: const [Icon(Icons.chevron_left_rounded)],
+    );
+    return padded
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(
+              ClaySpacing.screenPadding,
+              ClaySpacing.screenPadding,
+              ClaySpacing.screenPadding,
+              0,
+            ),
+            child: tile,
+          )
+        : tile;
+  }
 
   static const double _headerExtent = 48;
   static const double _entryExtent = 84;
@@ -290,7 +328,9 @@ class MorePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider.select((s) => s.value));
     final pendingRequests = ref.watch(pendingRequestsCountProvider).value ?? 0;
-    final rows = <_Row>[];
+    final rows = <_Row>[
+      if (session != null) _AccountRow(session.displayName, session.role.label),
+    ];
     for (final section in MoreSection.values) {
       final visible = [
         for (final entry in moreEntries)
@@ -318,10 +358,17 @@ class MorePage extends ConsumerWidget {
         ..add(_Header(section.title))
         ..addAll(visible.map(_Entry.new));
     }
-    if (rows.isEmpty) {
-      return const ClayEmptyView(
-        title: 'لا توجد أقسام متاحة',
-        message: 'اطلب من الإدارة تفعيل الصلاحيات لحسابك',
+    if (rows.whereType<_Entry>().isEmpty) {
+      return Column(
+        children: [
+          if (rows.isNotEmpty) _accountTile(context, rows.first as _AccountRow),
+          const Expanded(
+            child: ClayEmptyView(
+              title: 'لا توجد أقسام متاحة',
+              message: 'اطلب من الإدارة تفعيل الصلاحيات لحسابك',
+            ),
+          ),
+        ],
       );
     }
     return ListView.builder(
@@ -331,6 +378,9 @@ class MorePage extends ConsumerWidget {
           rows[i] is _Header ? _headerExtent : _entryExtent,
       itemBuilder: (context, i) {
         final row = rows[i];
+        if (row is _AccountRow) {
+          return _accountTile(context, row, padded: false);
+        }
         if (row is _Header) {
           return Align(
             alignment: AlignmentDirectional.bottomStart,

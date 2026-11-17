@@ -11,6 +11,7 @@ import '../clay/clay_icons.dart';
 import '../clay/clay_navigation.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import 'account_screen.dart';
 import 'app_page.dart';
 import 'app_tab.dart';
 import 'app_updater.dart';
@@ -41,6 +42,10 @@ abstract final class AppRoutes {
   static const String changePassword = '/change-password';
   static const String notifications = '/notifications';
   static const String assistant = '/assistant';
+
+  /// «حسابي» كصفحة كاملة (يصل إليه تطبيق الإدارة من «المزيد»). مساره غير
+  /// `/account` لأن تبويب «حسابي» في تطبيقي الأستاذ والوليّ يحمل ذلك المسار.
+  static const String account = '/my-account';
 }
 
 /// يبني موجِّه تطبيق من [tabs] لكل دور يدخله.
@@ -129,6 +134,13 @@ GoRouter buildAppRouter({
       GoRoute(
         path: AppRoutes.assistant,
         builder: (context, state) => const AssistantScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.account,
+        builder: (context, state) => const Scaffold(
+          appBar: ClayAppBar(title: 'حسابي', showBack: true),
+          body: AccountScreen(),
+        ),
       ),
       for (final page in pages) GoRoute(path: page.path, builder: page.builder),
       StatefulShellRoute.indexedStack(

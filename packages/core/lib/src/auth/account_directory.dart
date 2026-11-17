@@ -36,12 +36,13 @@ class AccountRecord {
 
   /// نسخة بعد تغيير بعض الحقول.
   AccountRecord copyWith({
+    String? email,
     String? displayName,
     bool? mustChangePassword,
     WorkerPermissions? permissions,
   }) => AccountRecord(
     id: id,
-    email: email,
+    email: email ?? this.email,
     role: role,
     entityId: entityId,
     displayName: displayName ?? this.displayName,

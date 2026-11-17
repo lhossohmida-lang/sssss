@@ -42,6 +42,21 @@ class AccountScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _changeLogin(BuildContext context, WidgetRef ref) async {
+    final changed = await showClayDialog<bool>(
+      context,
+      title: 'تغيير رقم الدخول',
+      content: const _LoginPhoneForm(),
+    );
+    if (changed == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تغيير رقم الدخول، استعمله في المرة القادمة'),
+        ),
+      );
+    }
+  }
+
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     final ok = await showClayConfirm(
       context,
@@ -133,6 +148,18 @@ class AccountScreen extends ConsumerWidget {
           expand: true,
           onPressed: () => _changePassword(context, ref),
         ),
+        // صاحب المدرسة والعمال: رقم دخولهم هو هاتفهم ويغيّرونه بأنفسهم.
+        if (session.role == UserRole.owner ||
+            session.role == UserRole.worker) ...[
+          const SizedBox(height: ClaySpacing.md),
+          ClayButton(
+            label: 'تغيير رقم الدخول',
+            icon: ClayIcons.edit,
+            kind: ClayButtonKind.secondary,
+            expand: true,
+            onPressed: () => _changeLogin(context, ref),
+          ),
+        ],
         const SizedBox(height: ClaySpacing.md),
         ClayButton(
           label: 'خروج',
@@ -257,6 +284,136 @@ class _PasswordFormState extends ConsumerState<_PasswordForm> {
           textDirection: TextDirection.ltr,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submit(),
+        ),
+        if (_formError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: ClaySpacing.sm),
+            child: Text(
+              _formError!,
+              style: text.bodySmall!.copyWith(color: p.status.danger),
+            ),
+          ),
+        const SizedBox(height: ClaySpacing.lg),
+        ClayButton(
+          label: 'حفظ',
+          expand: true,
+          loading: _busy,
+          onPressed: _submit,
+        ),
+        const SizedBox(height: ClaySpacing.sm),
+        ClayButton(
+          label: 'إلغاء',
+          kind: ClayButtonKind.secondary,
+          expand: true,
+          onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+        ),
+      ],
+    );
+  }
+}
+
+/// نموذج تغيير رقم الدخول: الهاتف الجديد وكلمة السر الحالية للتحقق.
+class _LoginPhoneForm extends ConsumerStatefulWidget {
+  const _LoginPhoneForm();
+
+  @override
+  ConsumerState<_LoginPhoneForm> createState() => _LoginPhoneFormState();
+}
+
+class _LoginPhoneFormState extends ConsumerState<_LoginPhoneForm> {
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+  bool _busy = false;
+  bool _show = false;
+  String? _phoneError;
+  String? _passwordError;
+  String? _formError;
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    final phoneProblem = _phone.text.contains('@')
+        ? 'أدخل رقم هاتف لا بريداً إلكترونياً'
+        : LoginCredentials.identifierProblem(_phone.text);
+    setState(() {
+      _phoneError = phoneProblem;
+      _passwordError = _password.text.isEmpty ? 'أدخل كلمة السر الحالية' : null;
+      _formError = null;
+    });
+    if (_phoneError != null || _passwordError != null) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(runtimeProvider)
+          .auth
+          .changeLoginPhone(
+            currentPassword: _password.text,
+            newPhone: _phone.text,
+          );
+      if (mounted) Navigator.of(context).pop(true);
+    } on AuthFailureException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        switch (e.failure) {
+          case AuthFailure.invalidCredentials:
+            _passwordError = e.message;
+          case AuthFailure.invalidEmail:
+            _phoneError = e.message;
+          default:
+            _formError = e.message;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final text = Theme.of(context).textTheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'رقم دخولك هو رقم هاتفك. اكتب الرقم الجديد، وسيُطلب منك من الآن في '
+          'تسجيل الدخول.',
+          style: text.bodySmall!.copyWith(color: p.textMuted),
+        ),
+        const SizedBox(height: ClaySpacing.md),
+        ClayTextField(
+          controller: _phone,
+          label: 'رقم الهاتف الجديد',
+          hint: '0550123456',
+          error: _phoneError,
+          keyboardType: TextInputType.phone,
+          textDirection: TextDirection.ltr,
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: ClaySpacing.md),
+        ClayTextField(
+          controller: _password,
+          label: 'كلمة السر الحالية',
+          error: _passwordError,
+          obscureText: !_show,
+          textDirection: TextDirection.ltr,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          suffix: IconButton(
+            tooltip: _show ? 'إخفاء كلمة السر' : 'إظهار كلمة السر',
+            icon: Icon(
+              _show ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+              color: p.textMuted,
+            ),
+            onPressed: () => setState(() => _show = !_show),
+          ),
         ),
         if (_formError != null)
           Padding(
