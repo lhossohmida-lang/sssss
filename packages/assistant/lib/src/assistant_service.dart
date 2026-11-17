@@ -69,8 +69,16 @@ class AssistantService {
        _clock = clock ?? DateTime.now;
 
   static const int maxInputLength = 2000;
-  static const int maxToolRounds = 4;
+  static const int maxToolRounds = 6;
   static const int maxHistoryMessages = 24;
+
+  /// أقصى حجم لمحادثة واحدة تُرسل إلى الخادم (بالأحرف). الخادم يرفض ما يفوق 60 ألف حرف أو 96
+  /// ألف بايت (العربية بايتان للحرف)، فتُختصر نتائج الأدوات القديمة قبل ذلك وتبقى أحدثها كاملة.
+  static const int maxHistoryChars = 36000;
+
+  static final String _omittedResult = jsonEncode({
+    'omitted': 'حُذفت هذه النتيجة لتوفير المساحة؛ أعد الاستعلام إن احتجتها',
+  });
 
   final AuthSession _session;
   final AppDatabase db;
@@ -103,6 +111,7 @@ class AssistantService {
     _trimHistory();
 
     for (var round = 0; round < maxToolRounds; round++) {
+      _fitHistory();
       final response = await model.complete(
         role: _session.role,
         messages: List.unmodifiable(_history),
@@ -160,6 +169,20 @@ class AssistantService {
             ),
             call.arguments,
           );
+        } on ArgumentError catch (e) {
+          // رسالة التحقق عربية كتبناها نحن: تُعاد للنموذج ليصحّح مدخلاته بدل «تعذر» مبهمة.
+          final detail = e.invalidValue == null
+              ? '${e.message}'
+              : '${e.message}: ${e.invalidValue}';
+          _history.add(
+            AssistantMessage(
+              role: 'tool',
+              toolCallId: call.id,
+              isError: true,
+              content: jsonEncode({'error': detail}),
+            ),
+          );
+          continue;
         } on Object {
           _history.add(
             AssistantMessage(
@@ -252,6 +275,48 @@ class AssistantService {
   void clearHistory() {
     _history.clear();
     _pendingActions.clear();
+  }
+
+  int _historySize() {
+    var total = 0;
+    for (final message in _history) {
+      total += message.content?.length ?? 0;
+      for (final call in message.toolCalls) {
+        total += call.name.length + jsonEncode(call.arguments).length;
+      }
+    }
+    return total;
+  }
+
+  /// يُبقي المحادثة ضمن [maxHistoryChars]: تُستبدل أقدم نتائج الأدوات بإشارة قصيرة (فيبقى
+  /// ترتيب النداء والنتيجة سليماً)، وأحدث نتيجة كاملة لأنها ما يقرؤه النموذج الآن؛ فإن لم يكفِ
+  /// سقطت أقدم الأدوار كاملة.
+  void _fitHistory() {
+    var total = _historySize();
+    if (total <= maxHistoryChars) return;
+    final newestTool = _history.lastIndexWhere((m) => m.role == 'tool');
+    for (var i = 0; i < _history.length && total > maxHistoryChars; i++) {
+      final message = _history[i];
+      final content = message.content;
+      if (message.role != 'tool' ||
+          i == newestTool ||
+          content == null ||
+          content.length <= _omittedResult.length) {
+        continue;
+      }
+      total -= content.length - _omittedResult.length;
+      _history[i] = AssistantMessage(
+        role: 'tool',
+        toolCallId: message.toolCallId,
+        isError: message.isError,
+        content: _omittedResult,
+      );
+    }
+    while (_historySize() > maxHistoryChars) {
+      final nextUser = _history.indexWhere((m) => m.role == 'user', 1);
+      if (nextUser == -1) return;
+      _history.removeRange(0, nextUser);
+    }
   }
 
   void _trimHistory() {

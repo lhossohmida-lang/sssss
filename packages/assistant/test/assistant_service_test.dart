@@ -156,6 +156,71 @@ void main() {
     );
     expect(model.requests, 0);
   });
+
+  test(
+    'shrinks old tool results so the conversation fits the server limit',
+    () async {
+      AssistantModelResponse call(String id) => AssistantModelResponse(
+        toolCalls: [AssistantToolCall(id: id, name: 'big_read', arguments: {})],
+      );
+      final model = _QueueModel([
+        call('c1'),
+        call('c2'),
+        call('c3'),
+        call('c4'),
+        const AssistantModelResponse(content: 'انتهيت'),
+      ]);
+      final assistant = createAssistant(model, [_BigTool()]);
+
+      final reply = await assistant.ask('اقرأ كل شيء');
+
+      expect(reply.text, 'انتهيت');
+      final messages = model.lastMessages;
+      final results = messages.where((m) => m.role == 'tool').toList();
+      expect(results, hasLength(4));
+      // أحدث نتيجة كاملة، وما قبلها اختُصر حتى اتسعت المحادثة.
+      expect(results.last.content, hasLength(_BigTool.size));
+      expect(results.first.content, contains('omitted'));
+      final total = messages.fold<int>(
+        0,
+        (sum, m) =>
+            sum +
+            (m.content?.length ?? 0) +
+            m.toolCalls.fold<int>(0, (s, c) => s + c.name.length + 2),
+      );
+      expect(total, lessThanOrEqualTo(AssistantService.maxHistoryChars));
+      // كل نتيجة ما زالت مقترنة بنداء، فلا يرفض الخادم الترتيب.
+      final callIds = {
+        for (final m in messages)
+          for (final c in m.toolCalls) c.id,
+      };
+      expect({for (final m in results) m.toolCallId}, callIds);
+    },
+  );
+}
+
+class _BigTool implements AssistantTool {
+  static const int size = 14000;
+
+  @override
+  AssistantToolDefinition get definition => const AssistantToolDefinition(
+    name: 'big_read',
+    description: 'قراءة كبيرة',
+    parameters: {
+      'type': 'object',
+      'properties': {},
+      'additionalProperties': false,
+    },
+  );
+
+  @override
+  bool availableTo(AuthSession session) => true;
+
+  @override
+  Future<AssistantToolResult> execute(
+    AssistantContext context,
+    Map<String, Object?> arguments,
+  ) async => AssistantToolResult.data('س' * (size - 2));
 }
 
 class _QueueModel implements AssistantModelClient {

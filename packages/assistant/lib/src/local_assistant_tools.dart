@@ -3,6 +3,7 @@ import 'package:school_core/school_core.dart';
 
 import 'assistant_models.dart';
 import 'assistant_service.dart';
+import 'data_tools.dart';
 
 /// الأدوات المحلية المتاحة حسب الدور، وتعيد حقولاً لازمة للإجابة فقط.
 List<AssistantTool> createLocalAssistantTools() => [
@@ -12,6 +13,7 @@ List<AssistantTool> createLocalAssistantTools() => [
   _StudentDuesTool(),
   _MyScheduleTool(),
   _ProposeSessionRequestTool(),
+  ...createDataAssistantTools(),
 ];
 
 bool _isDateKey(String? value) {
@@ -141,7 +143,9 @@ class _SearchStudentsTool extends _LocalTool {
   @override
   AssistantToolDefinition get definition => const AssistantToolDefinition(
     name: 'search_students',
-    description: 'يبحث بالاسم عن التلاميذ الذين يحق لهذا الحساب رؤيتهم.',
+    description:
+        'يبحث بالاسم (حرفان فأكثر) عن التلاميذ الذين يحق لهذا الحساب رؤيتهم ويعيد حتى 20. '
+        'لعدّ التلاميذ أو مجموعهم استعمل school_overview.',
     parameters: {
       'type': 'object',
       'properties': {
@@ -168,7 +172,10 @@ class _SearchStudentsTool extends _LocalTool {
   ) async {
     final query = _requireString(arguments, 'query');
     if (query.length < 2 || query.length > 60) {
-      throw ArgumentError.value(query, 'query', 'طول البحث غير صالح');
+      throw ArgumentError(
+        'اكتب من حرفين إلى 60 حرفاً من الاسم. ولعدّ التلاميذ أو مجموعهم استعمل '
+        'school_overview',
+      );
     }
     final session = context.session;
     final scope = switch (session.role) {

@@ -39,6 +39,44 @@ Deno.test("teacher and parent tools stay within their role sets", () => {
   }
 });
 
+const DATA_TOOLS = ["school_overview", "describe_schema", "query_database"];
+
+Deno.test("the owner gets every knowledge tool and may rename the school", () => {
+  const owner = allowedTools("owner", {});
+  for (const name of [...DATA_TOOLS, "app_guide", "propose_school_name_change"]) {
+    assert(owner.has(name), `The owner lacks ${name}`);
+  }
+});
+
+Deno.test("teachers and parents get only the guide from the knowledge tools", () => {
+  for (const role of ["teacher", "parent"]) {
+    const tools = allowedTools(role, { students: ["view"], settings: ["edit"] });
+    assert(tools.has("app_guide"), `${role} lacks the guide`);
+    for (const name of [...DATA_TOOLS, "propose_school_name_change"]) {
+      assert(!tools.has(name), `${role} was given ${name}`);
+    }
+  }
+});
+
+Deno.test("a worker reads data only with some permission and renames only with settings.edit", () => {
+  const viewer = allowedTools("worker", { students: ["view"] });
+  for (const name of DATA_TOOLS) assert(viewer.has(name), `A viewer lacks ${name}`);
+  assert(viewer.has("app_guide"), "A viewer lacks the guide");
+  assert(!viewer.has("propose_school_name_change"), "A viewer can rename the school");
+
+  const admin = allowedTools("worker", { students: ["view"], settings: ["edit"] });
+  assert(admin.has("propose_school_name_change"), "settings.edit does not allow a rename");
+
+  const nobody = allowedTools("worker", {});
+  for (const name of [...DATA_TOOLS, "propose_school_name_change"]) {
+    assert(!nobody.has(name), `A worker with no permission got ${name}`);
+  }
+  assert(nobody.has("app_guide"), "Everyone may read the guide");
+
+  const empty = allowedTools("worker", { students: [], payments: "view" });
+  assert(!empty.has("query_database"), "Empty or malformed permissions grant reading");
+});
+
 Deno.test("keeps tool calls and their results in OpenAI message form", () => {
   const messages = toChatMessages([
     { role: "user", content: "ابحث عن تلميذ" },
@@ -216,6 +254,22 @@ Deno.test("an unusable completion is an error", () => {
 Deno.test("the system prompt names the account role", () => {
   assert(systemPrompt("parent").includes("وليّ"), "Role label missing");
   assert(systemPrompt("owner").includes("صاحب المدرسة"), "Role label missing");
+});
+
+Deno.test("only staff are told about the data tools", () => {
+  for (const role of ["owner", "worker"]) {
+    const prompt = systemPrompt(role);
+    for (const name of [...DATA_TOOLS, "propose_school_name_change"]) {
+      assert(prompt.includes(name), `The ${role} prompt omits ${name}`);
+    }
+  }
+  for (const role of ["teacher", "parent"]) {
+    const prompt = systemPrompt(role);
+    assert(prompt.includes("app_guide"), `The ${role} prompt omits the guide`);
+    for (const name of DATA_TOOLS) {
+      assert(!prompt.includes(name), `The ${role} prompt mentions ${name}`);
+    }
+  }
 });
 
 // ---- الدالة كاملة بخادم وهمي (Supabase والمزوّد)
