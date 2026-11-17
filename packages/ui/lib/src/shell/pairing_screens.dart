@@ -333,13 +333,20 @@ class SchoolConnectionSection extends ConsumerWidget {
     WidgetRef ref,
     SchoolConnection connection,
   ) async {
+    final admin = ref.read(runtimeProvider).app == AppIdentity.admin;
+    final leaving = admin
+        ? 'سيخرج هذا الجهاز من الحساب، ثم تدخل برقم هاتفك فتُعرف مدرستك.'
+        : 'سيخرج هذا الجهاز من الحساب، ثم تختار مدرستك من القائمة وتسجّل '
+              'الدخول.';
     final ok = await showClayConfirm(
       context,
       title: connection.pairing == null ? 'ربط بمدرسة' : 'تغيير المدرسة',
-      message:
-          'سيخرج هذا الجهاز من الحساب ويطلب رمز ربط مدرسة. بيانات المدرسة '
-          'الحالية تبقى على الجهاز ولا يراها غير حسابات مدرستها، وتعود كما كانت '
-          'إن ربطته بها من جديد.',
+      message: connection.usesDirectory
+          ? '$leaving بيانات المدرسة الحالية تبقى على الجهاز ولا يراها غير '
+                'حسابات مدرستها، وتعود كما كانت إن دخلت إليها من جديد.'
+          : 'سيخرج هذا الجهاز من الحساب ويطلب رمز ربط مدرسة. بيانات المدرسة '
+                'الحالية تبقى على الجهاز ولا يراها غير حسابات مدرستها، وتعود '
+                'كما كانت إن ربطته بها من جديد.',
       confirmLabel: 'متابعة',
       danger: true,
     );
@@ -356,7 +363,11 @@ class SchoolConnectionSection extends ConsumerWidget {
     final pairing = connection.pairing;
     final app = ref.watch(runtimeProvider.select((r) => r.app));
     final schoolName = ref.watch(schoolNameProvider).value ?? '';
-    final showCode = app == AppIdentity.admin && pairing != null;
+    // مع دليل المدارس لا رمز ربط: يعرف الجهاز مدرسته من الهاتف أو من القائمة.
+    final showCode =
+        app == AppIdentity.admin &&
+        pairing != null &&
+        !connection.usesDirectory;
     if (!showCode && !connection.canChangeSchool) {
       return const SizedBox.shrink();
     }

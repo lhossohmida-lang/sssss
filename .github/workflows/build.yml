@@ -86,6 +86,8 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
           GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
           SCHOOL: ${{ inputs.school }}
         run: |
           defines=()
@@ -102,6 +104,10 @@ jobs:
           if [ -z "$SCHOOL" ]; then
             tag="$(head -n 1 "$GITHUB_WORKSPACE/RELEASE_VERSION" | tr -d '[:space:]')"
             defines+=("--dart-define=APP_RELEASE=$tag" "--dart-define=UPDATE_REPO=$GITHUB_REPOSITORY")
+            # دليل المدارس: النسخة العامة تعرف مدرسة المستخدم منه فلا يلصق رمز ربط.
+            if [ -n "$DIRECTORY_URL" ] && [ -n "$DIRECTORY_KEY" ]; then
+              defines+=("--dart-define=DIRECTORY_URL=$DIRECTORY_URL" "--dart-define=DIRECTORY_KEY=$DIRECTORY_KEY")
+            fi
           fi
           flutter build apk --release "${defines[@]}"
       - name: Rename APK
@@ -135,6 +141,8 @@ jobs:
           GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           GOOGLE_DRIVE_WINDOWS_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_WINDOWS_CLIENT_ID }}
           GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
           SCHOOL: ${{ inputs.school }}
         run: |
           $defines = @(
@@ -149,6 +157,11 @@ jobs:
             $tag = (Get-Content "$env:GITHUB_WORKSPACE/RELEASE_VERSION" -TotalCount 1).Trim()
             $defines += "--dart-define=APP_RELEASE=$tag"
             $defines += "--dart-define=UPDATE_REPO=$env:GITHUB_REPOSITORY"
+            # دليل المدارس: النسخة العامة تعرف مدرسة المستخدم منه فلا يلصق رمز ربط.
+            if ($env:DIRECTORY_URL -and $env:DIRECTORY_KEY) {
+              $defines += "--dart-define=DIRECTORY_URL=$env:DIRECTORY_URL"
+              $defines += "--dart-define=DIRECTORY_KEY=$env:DIRECTORY_KEY"
+            }
           }
           flutter build windows --release @defines
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

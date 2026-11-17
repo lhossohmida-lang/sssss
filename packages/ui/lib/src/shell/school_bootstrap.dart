@@ -12,6 +12,7 @@ import '../theme/clay_tokens.dart';
 import 'app_page.dart';
 import 'app_tab.dart';
 import 'auth_scaffold.dart';
+import 'directory_screens.dart';
 import 'pairing_screens.dart';
 import 'providers.dart';
 import 'qr_scanning.dart';
@@ -34,7 +35,10 @@ abstract interface class SchoolConnection {
   /// هل يُسمح بتغيير المدرسة من التطبيق؟ لا في بناء مضمَّن الإعداد.
   bool get canChangeSchool;
 
-  /// يغلق التطبيق على المدرسة الحالية ويعرض شاشة الربط من جديد.
+  /// هل يعرف الجهاز مدرسته من دليل المدارس (دون رمز ربط)؟ فلا يُعرض رمز الربط.
+  bool get usesDirectory;
+
+  /// يغلق التطبيق على المدرسة الحالية ويعرض شاشة الدخول أو اختيار المدرسة من جديد.
   ///
   /// قاعدة المدرسة المحلية تبقى على الجهاز وتعود عند الربط بها ثانية.
   Future<void> leaveSchool();
@@ -43,8 +47,11 @@ abstract interface class SchoolConnection {
 /// جذر التطبيقات الثلاثة: يحدد مدرسة الجهاز ثم يشغّل التطبيق عليها.
 ///
 /// - إعدادات مضمَّنة وقت البناء (`--dart-define`): تُستعمل دون سؤال.
-/// - وإلا ربط محفوظ على الجهاز بعد أن لصق المستخدم رمز مدرسته أو مسحه.
-/// - وإلا شاشة الربط (ومعها «تجربة محلية» في تطبيق الإدارة وحده).
+/// - وإلا مدرسة محفوظة على الجهاز (من الدليل أو من رمز ربط).
+/// - وإلا، إن كان دليل المدارس مضمَّناً: تطبيق الإدارة يطلب رقم الهاتف وكلمة
+///   السر ويعرف المدرسة من رقمه، وتطبيقا الأستاذ والتلميذ يعرضان قائمة المدارس.
+/// - وإلا شاشة الربط برمز المدرسة (بناء التطوير)، ومعها «تجربة محلية» في
+///   تطبيق الإدارة وحده.
 ///
 /// تغيير المدرسة يفكّ واجهة التطبيق ثم يغلق وقت تشغيله ثم يبدأ وقتاً جديداً
 /// بقاعدة المدرسة الجديدة، فلا تختلط بيانات مدرستين.
@@ -58,6 +65,7 @@ class SchoolBootstrap extends StatefulWidget {
     this.overrides = const [],
     this.bakedConfig,
     this.store,
+    this.directory,
     this.startRuntime = _defaultStart,
     this.stopRuntime = _defaultStop,
     super.key,
@@ -82,6 +90,10 @@ class SchoolBootstrap extends StatefulWidget {
   /// مخزن الربط؛ الافتراضي ملف في مجلد التطبيق.
   final PairingStore? store;
 
+  /// دليل المدارس؛ الافتراضي ما مُرِّر وقت البناء (`DIRECTORY_URL` و`DIRECTORY_KEY`)،
+  /// ودونه تبقى شاشة الربط برمز المدرسة.
+  final SchoolDirectory? directory;
+
   final RuntimeStarter startRuntime;
   final RuntimeStopper stopRuntime;
 
@@ -99,7 +111,7 @@ class SchoolBootstrap extends StatefulWidget {
   State<SchoolBootstrap> createState() => _SchoolBootstrapState();
 }
 
-enum _Phase { loading, pairing, running, failed }
+enum _Phase { loading, pairing, directorySignIn, schoolPicker, running, failed }
 
 class _SchoolBootstrapState extends State<SchoolBootstrap>
     implements SchoolConnection {
@@ -108,6 +120,14 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
   AppRuntime? _runtime;
   SchoolPairing? _pairing;
   bool _baked = false;
+  SchoolDirectory? _directory;
+
+  /// بيانات دخول كتبها المستخدم قبل أن تُعرف مدرسته، تُجرَّب مرة واحدة حين يبدأ
+  /// التطبيق على مدرسته (ولا تُحفظ).
+  ({String login, String password})? _pendingLogin;
+
+  /// سبب فشل الدخول التلقائي، يعرضه شاشة الدخول.
+  String? _loginError;
 
   /// آخر إعدادات حاولنا تشغيلها (للمحاولة من جديد بعد فشل).
   AppConfig? _lastConfig;
@@ -123,9 +143,19 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
   bool get canChangeSchool => !_baked;
 
   @override
+  bool get usesDirectory => _directory != null && !_baked;
+
+  @override
   void initState() {
     super.initState();
+    _directory = widget.directory ?? _environmentDirectory();
     unawaited(_boot());
+  }
+
+  /// الدليل المضمَّن وقت البناء، أو `null` في بناء التطوير.
+  static SchoolDirectory? _environmentDirectory() {
+    final config = DirectoryConfig.fromEnvironment();
+    return config.isConfigured ? HttpSchoolDirectory(config) : null;
   }
 
   @override
@@ -159,15 +189,23 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
         await _start(null, epoch);
         return;
       }
-      _showPairing(epoch);
+      _showEntry(epoch);
     } on Object {
       _fail(epoch);
     }
   }
 
-  void _showPairing(int epoch) {
+  /// أول شاشة بلا مدرسة: دخول الإدارة بالهاتف، أو قائمة المدارس للأستاذ والتلميذ،
+  /// أو الربط برمز المدرسة حين لا دليل.
+  void _showEntry(int epoch) {
     if (!mounted || epoch != _epoch) return;
-    setState(() => _phase = _Phase.pairing);
+    setState(
+      () => _phase = switch (_directory) {
+        null => _Phase.pairing,
+        _ when widget.app == AppIdentity.admin => _Phase.directorySignIn,
+        _ => _Phase.schoolPicker,
+      },
+    );
   }
 
   void _fail(int epoch) {
@@ -190,6 +228,26 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
       await widget.stopRuntime(runtime);
       return;
     }
+    // الدخول التلقائي ببيانات كتبها المستخدم قبل أن تُعرف مدرسته (تطبيق الإدارة).
+    final pending = _pendingLogin;
+    _pendingLogin = null;
+    _loginError = null;
+    if (pending != null) {
+      try {
+        await runtime.auth.signIn(
+          email: pending.login,
+          password: pending.password,
+        );
+      } on AuthFailureException catch (e) {
+        _loginError = e.message;
+      } on Object {
+        _loginError = 'تعذّر تسجيل الدخول، تحقق من الإنترنت ثم أعد المحاولة';
+      }
+      if (!mounted || epoch != _epoch) {
+        await widget.stopRuntime(runtime);
+        return;
+      }
+    }
     setState(() {
       _runtime = runtime;
       _phase = _Phase.running;
@@ -200,6 +258,21 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
     final epoch = ++_epoch;
     await _store!.save(pairing);
     _pairing = pairing;
+    await _start(pairing.toConfig(), epoch);
+  }
+
+  /// تطبيق الإدارة: عرف الدليل المدرسة من الهاتف، فيُربط الجهاز بها ويدخل
+  /// المستخدم بما كتبه دون أن يكتبه مرة ثانية.
+  Future<void> _directorySignIn(
+    DirectorySchool school,
+    String login,
+    String password,
+  ) async {
+    final epoch = ++_epoch;
+    final pairing = school.toPairing();
+    await _store!.save(pairing);
+    _pairing = pairing;
+    _pendingLogin = (login: login, password: password);
     await _start(pairing.toConfig(), epoch);
   }
 
@@ -232,7 +305,9 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
     if (old != null) await widget.stopRuntime(old);
     await _store?.clear();
     _hasLastConfig = false;
-    _showPairing(epoch);
+    _pendingLogin = null;
+    _loginError = null;
+    _showEntry(epoch);
   }
 
   @override
@@ -249,6 +324,7 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
           key: ObjectKey(runtime),
           overrides: [
             runtimeProvider.overrideWithValue(runtime),
+            initialLoginErrorProvider.overrideWithValue(_loginError),
             if (widget.cameraFactory != null)
               qrCameraFactoryProvider.overrideWithValue(widget.cameraFactory),
             ...widget.overrides,
@@ -268,10 +344,22 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
               : null,
           cameraFactory: widget.cameraFactory,
         ),
+        _Phase.directorySignIn => DirectorySignInScreen(
+          app: widget.app,
+          directory: _directory!,
+          onSignIn: _directorySignIn,
+          onLocalPreview: _chooseLocalPreview,
+        ),
+        _Phase.schoolPicker => SchoolPickerScreen(
+          app: widget.app,
+          directory: _directory!,
+          onPick: (school) => _pair(school.toPairing()),
+        ),
         _Phase.failed => _StartFailureScreen(
           app: widget.app,
           onRetry: _retry,
           onChangeSchool: _baked ? null : leaveSchool,
+          usesDirectory: usesDirectory,
         ),
         _ => _BootSplash(app: widget.app),
       },
@@ -324,20 +412,24 @@ class _StartFailureScreen extends StatelessWidget {
     required this.app,
     required this.onRetry,
     required this.onChangeSchool,
+    required this.usesDirectory,
   });
 
   final AppIdentity app;
   final Future<void> Function() onRetry;
   final Future<void> Function()? onChangeSchool;
+  final bool usesDirectory;
 
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
       app: app,
       title: 'تعذّر تشغيل التطبيق',
-      subtitle:
-          'تحقق من اتصال الإنترنت ثم أعد المحاولة. إن تكرر الخطأ فقد يكون '
-          'رمز الربط قديماً أو تالفاً.',
+      subtitle: usesDirectory
+          ? 'تحقق من اتصال الإنترنت ثم أعد المحاولة. إن تكرر الخطأ فجرّب '
+                'تغيير المدرسة.'
+          : 'تحقق من اتصال الإنترنت ثم أعد المحاولة. إن تكرر الخطأ فقد يكون '
+                'رمز الربط قديماً أو تالفاً.',
       children: [
         ClayButton(
           label: 'إعادة المحاولة',

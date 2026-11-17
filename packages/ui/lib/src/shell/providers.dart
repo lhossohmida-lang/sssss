@@ -17,6 +17,12 @@ final Provider<AppRuntime> runtimeProvider = Provider<AppRuntime>(
   (ref) => throw StateError('runtimeProvider لم يُمرَّر في ProviderScope'),
 );
 
+/// سبب فشل الدخول التلقائي بعد أن عرف دليل المدارس مدرسة المستخدم (تطبيق
+/// الإدارة)؛ تعرضه شاشة الدخول ليصحّح ما كتبه. `null` في الحالة العادية.
+final Provider<String?> initialLoginErrorProvider = Provider<String?>(
+  (ref) => null,
+);
+
 /// الجلسة الحالية؛ `null` دون تسجيل دخول.
 final StreamProvider<AuthSession?> sessionProvider =
     StreamProvider<AuthSession?>((ref) async* {

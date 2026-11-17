@@ -4,6 +4,7 @@ library;
 
 export 'src/testing/fake_auth_gateway.dart';
 export 'src/testing/fake_provisioner.dart';
+export 'src/testing/fake_school_directory.dart';
 export 'src/testing/perf_data_generator.dart';
 export 'src/testing/sample_image.dart';
 export 'src/testing/test_runtime.dart';

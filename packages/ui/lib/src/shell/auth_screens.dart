@@ -13,6 +13,7 @@ import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import 'auth_scaffold.dart';
 import 'providers.dart';
+import 'school_bootstrap.dart';
 
 /// شاشة البداية: اسم التطبيق واسم المدرسة، ثم تنتقل بعد لحظة.
 class SplashScreen extends ConsumerStatefulWidget {
@@ -112,6 +113,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _emailError;
   String? _passwordError;
   String? _confirmError;
+
+  @override
+  void initState() {
+    super.initState();
+    // سبب فشل الدخول التلقائي بعد أن عرف الدليل المدرسة (تطبيق الإدارة).
+    _formError = ref.read(initialLoginErrorProvider);
+  }
 
   @override
   void dispose() {
@@ -243,8 +251,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: ClayBadge(label: 'وضع محلي: دون خادم', tone: ClayTone.info),
           ),
         ],
+        if (_canChangeSchool(context)) ...[
+          const SizedBox(height: ClaySpacing.lg),
+          Center(
+            child: TextButton(
+              onPressed: _busy ? null : () => _changeSchool(context),
+              child: const Text('تغيير المدرسة'),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  /// يظهر الرابط حين يعرف الجهاز مدرسته من الدليل: أخطأ المستخدم في اختيارها
+  /// أو يريد الدخول إلى مدرسة أخرى.
+  bool _canChangeSchool(BuildContext context) {
+    final connection = SchoolBootstrap.connectionOf(context);
+    return connection != null &&
+        connection.usesDirectory &&
+        connection.canChangeSchool &&
+        !ref.read(runtimeProvider).isLocalMode;
+  }
+
+  Future<void> _changeSchool(BuildContext context) async {
+    final connection = SchoolBootstrap.connectionOf(context);
+    if (connection == null) return;
+    await connection.leaveSchool();
   }
 }
 
