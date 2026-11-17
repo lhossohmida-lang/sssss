@@ -88,6 +88,8 @@ Future<AppRuntime> bootWithSms(
         runtimeProvider.overrideWithValue(runtime),
         sessionCloserEnabledProvider.overrideWithValue(false),
         smsPlatformProvider.overrideWithValue(platform),
+        // 10:00 في وقت ثابت: خارج ساعات الهدوء (21:00–07:00) أياً كان وقت تشغيل الاختبار.
+        smsClockProvider.overrideWithValue(() => DateTime(2026, 11, 17, 10)),
       ],
       child: SmsAutoSenderLifecycle(
         child: SchoolApp(tabs: adminTabs, pages: adminPages),

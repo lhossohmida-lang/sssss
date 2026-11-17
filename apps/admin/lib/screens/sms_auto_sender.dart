@@ -6,11 +6,20 @@ import 'package:school_core/school_core.dart';
 import 'package:school_sms/school_sms.dart';
 import 'package:school_ui/school_ui.dart';
 
+/// ساعة الرسائل: الوقت الذي تُحسب به ساعات الهدوء (21:00–07:00) وموعد المؤجَّل. الوقت الحقيقي
+/// دائماً في التطبيق، وتثبّتها الاختبارات حتى لا تتأثر بوقت تشغيلها من اليوم.
+final Provider<DateTime Function()> smsClockProvider =
+    Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// طابور الرسائل لهذه المدرسة: نسخة واحدة يتقاسمها الإرسال التلقائي وشاشة الرسائل.
 final Provider<SmsQueueService> smsQueueServiceProvider =
     Provider<SmsQueueService>((ref) {
       final runtime = ref.watch(runtimeProvider);
-      return SmsQueueService(runtime.db, runtime.writer);
+      return SmsQueueService(
+        runtime.db,
+        runtime.writer,
+        now: ref.watch(smsClockProvider),
+      );
     });
 
 /// منصة الإرسال على هذا الجهاز: Android فقط (فيه الشريحة)، وغيره `null`.
@@ -59,12 +68,14 @@ final Provider<SmsAutoDispatcher?> smsAutoDispatcherProvider =
       );
       final runtime = ref.watch(runtimeProvider);
       final queue = ref.watch(smsQueueServiceProvider);
+      final clock = ref.watch(smsClockProvider);
       final sender = ref.watch(smsSenderDeviceProvider);
       final preferences = DevicePreferences(runtime.db);
       final worker = SmsDispatchWorker(
         queue: queue,
         settings: SmsSettingsService(runtime.db, runtime.writer),
         platform: platform,
+        now: clock,
         // لا نبقي الخدمة الأمامية ساعات في الانتظار: المُرسِل يستأنف بمؤقّت.
         maxScheduledWait: Duration.zero,
       );
@@ -87,6 +98,7 @@ final Provider<SmsAutoDispatcher?> smsAutoDispatcherProvider =
         isSender: isSender,
         run: worker.start,
         stop: worker.stop,
+        now: clock,
       )..start();
       ref.onDispose(dispatcher.dispose);
       return dispatcher;
