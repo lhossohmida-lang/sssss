@@ -29,19 +29,19 @@
 
 ## 2. روابط التحميل
 
-صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-7`**
-(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-7>):
+صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-8`**
+(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-8>):
 
 | الملف | الرابط المباشر |
 | --- | --- |
-| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-7/school-admin.apk> |
-| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-7/school-teacher.apk> |
-| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-7/school-student.apk> |
-| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-7/school-admin-setup.exe> |
-| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-7/school-admin-windows.zip> |
+| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-8/school-admin.apk> |
+| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-8/school-teacher.apk> |
+| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-8/school-student.apk> |
+| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-8/school-admin-setup.exe> |
+| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-8/school-admin-windows.zip> |
 
-الروابط تتغيّر باسم كل إصدار. **الحضور السابق وديون الأساتذة والعمال وبوابة فحص الإصدار** مدمجة في المستودع لكنها ليست في `preview-7`؛
-تصل الأجهزة بإصدار جديد يُنشر بإذن صاحب المشروع (تغيير `RELEASE_VERSION`)، ثم تُحدَّث التطبيقات نفسها.
+الروابط تتغيّر باسم كل إصدار. **`preview-8`** يحمل الحضور السابق وديون الأساتذة والعمال وبوابة فحص الإصدار والدخول برقم الهاتف وتغيير رقم الدخول من «حسابي» والإرسال التلقائي للرسائل وإعداد الفوج من صفحة واحدة ودليل الاستخدام، وهو بلا دليل مدارس مضمَّن (دليل المدارس لم يُضبط وقت البناء): يطلب رمز الربط `SCH1.…` كما في `preview-7`، وبقية الجديد كله فيه؛
+الأجهزة المثبّت عليها `preview-7` تحدّث نفسها (ينزّل التطبيق الإصدار ببصمته ويعرض «تثبيت الآن»).
 
 ## 3. التثبيت من الهاتف (Android)
 
