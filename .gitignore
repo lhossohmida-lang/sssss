@@ -25,3 +25,7 @@ client_secret*.json
 .env
 .env.*
 !.env.example
+
+# Python bytecode from the CI tool tests
+__pycache__/
+*.pyc

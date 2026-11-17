@@ -64,6 +64,25 @@ def good_school() -> tuple[dict, dict]:
 
 
 class SchoolMode(unittest.TestCase):
+    def test_school_name_and_listing_are_checked(self):
+        secrets, variables = good_school()
+        variables["SCHOOL_NAME"] = "مدرسة النور"
+        variables["SCHOOL_LISTED"] = "false"
+        report = preflight.evaluate("school", secrets, variables)
+        self.assertEqual(report.errors, [])
+        self.assertIn(("SCHOOL_NAME", "ok"), report.rows)
+        self.assertIn(("SCHOOL_LISTED", "ok"), report.rows)
+
+        variables["SCHOOL_NAME"] = "م"
+        variables["SCHOOL_LISTED"] = "نعم"
+        errors = " ".join(preflight.evaluate("school", secrets, variables).errors)
+        self.assertIn("SCHOOL_NAME", errors)
+        self.assertIn("SCHOOL_LISTED", errors)
+
+        variables["SCHOOL_NAME"] = "مدرسة النور" + chr(10)
+        errors = " ".join(preflight.evaluate("school", secrets, variables).errors)
+        self.assertIn("SCHOOL_NAME", errors)
+
     def test_complete_environment_has_no_errors(self):
         secrets, variables = good_school()
         report = preflight.evaluate("school", secrets, variables)
@@ -203,14 +222,41 @@ class RepoMode(unittest.TestCase):
             "GOOGLE_SERVICES_STUDENT": services("dz.school.student"),
             "GOOGLE_SERVICES_JSON": services_all(),
             "FIREBASE_SERVICE_ACCOUNT": service_account(),
+            "DIRECTORY_SERVICE_KEY": "sb_secret_sentinel-directory-key",
         }
         variables = {
             "GOOGLE_DRIVE_WINDOWS_CLIENT_ID": "123-abc.apps.googleusercontent.com",
             "GOOGLE_SERVER_CLIENT_ID": "456-def.apps.googleusercontent.com",
+            "DIRECTORY_URL": f"https://{REF}.supabase.co",
+            "DIRECTORY_ANON_KEY": "sb_publishable_directorykey",
         }
         report = preflight.evaluate("repo", secrets, variables)
         self.assertEqual(report.errors, [])
         self.assertTrue(all(state == "ok" for _, state in report.rows))
+
+    def test_directory_values_are_checked(self):
+        # المفتاح العام لا يصلح مكان السرّي، والسرّي لا يصلح مكان العام.
+        report = preflight.evaluate(
+            "repo",
+            {"DIRECTORY_SERVICE_KEY": "sb_publishable_oops"},
+            {"DIRECTORY_URL": "https://example.com", "DIRECTORY_ANON_KEY": "sb_secret_oops"},
+        )
+        names = " ".join(report.errors)
+        self.assertIn("DIRECTORY_SERVICE_KEY", names)
+        self.assertIn("DIRECTORY_URL", names)
+        self.assertIn("DIRECTORY_ANON_KEY", names)
+
+    def test_directory_secret_key_in_variables_is_an_error(self):
+        report = preflight.evaluate(
+            "repo", {}, {"DIRECTORY_SERVICE_KEY": "sb_secret_sentinel-directory-key"}
+        )
+        self.assertTrue(any(e.startswith("DIRECTORY_SERVICE_KEY") for e in report.errors))
+
+    def test_directory_service_role_jwt_is_accepted(self):
+        jwt = "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.signature"
+        report = preflight.evaluate("repo", {"DIRECTORY_SERVICE_KEY": jwt}, {})
+        self.assertEqual(report.errors, [])
+        self.assertIn(("DIRECTORY_SERVICE_KEY", "ok"), report.rows)
 
     def test_firebase_files_must_match_their_app_and_project(self):
         secrets = {

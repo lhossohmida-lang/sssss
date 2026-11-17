@@ -140,6 +140,31 @@ def check_https_url(value: str, ctx: Values) -> Problem:
     return None
 
 
+def check_school_name(value: str, ctx: Values) -> Problem:
+    if value != value.strip():
+        return ("error", "تبدأ أو تنتهي بمسافة أو سطر فارغ (تحقق من اللصق)")
+    if not 2 <= len(value) <= 80:
+        return ("error", "الاسم بين حرفين و80 حرفاً")
+    return None
+
+
+def check_true_false(value: str, ctx: Values) -> Problem:
+    if value not in ("true", "false"):
+        return ("error", "القيمة true أو false")
+    return None
+
+
+def check_directory_service_key(value: str, ctx: Values) -> Problem:
+    if value.startswith("sb_secret_"):
+        return None
+    if value.startswith("sb_publishable_"):
+        return ("error", "هذا المفتاح العام لا السرّي (sb_secret_…) لمشروع الدليل")
+    payload = jwt_payload(value)
+    if payload is not None and payload.get("role") == "service_role":
+        return None
+    return ("error", "ليس المفتاح السرّي لمشروع الدليل (sb_secret_… أو service_role)")
+
+
 def check_llm_key(value: str, ctx: Values) -> Problem:
     if not value.startswith("sk-or-"):
         return ("warn", "ليس بصيغة مفتاح OpenRouter (sk-or-…)")
@@ -234,6 +259,9 @@ SCHOOL_ITEMS: list[Item] = [
     Item("SUPABASE_DB_PASSWORD", True, True, check_db_password),
     Item("OWNER_PHONE", True, False, check_phone),
     Item("OWNER_INITIAL_PASSWORD", True, True, check_owner_password),
+    # اسم المدرسة في دليل المدارس (يراه المستخدمون في قائمة المدارس)، وهل تظهر فيها.
+    Item("SCHOOL_NAME", False, False, check_school_name),
+    Item("SCHOOL_LISTED", False, False, check_true_false),
     Item("LLM_API_KEY", False, True, check_llm_key, repo_default_ok=True),
     Item("LLM_MODEL", False, False, None, repo_default_ok=True),
     Item("LLM_BASE_URL", False, False, check_https_url, repo_default_ok=True),
@@ -262,6 +290,11 @@ DEVELOPER_ITEMS: list[Item] = [
         google_services("dz.school.admin", "dz.school.teacher", "dz.school.student"),
     ),
     Item("FIREBASE_SERVICE_ACCOUNT", False, True, check_service_account),
+    # دليل المدارس (مشروع Supabase واحد للمطوّر): عنوانه ومفتاحه العام يضمّنهما بناء التطبيقات،
+    # ومفتاحه السرّي يسجّل به مسار نشر كل مدرسة مدرستَه.
+    Item("DIRECTORY_URL", False, False, check_url),
+    Item("DIRECTORY_ANON_KEY", False, False, check_anon),
+    Item("DIRECTORY_SERVICE_KEY", False, True, check_directory_service_key),
 ]
 
 FIREBASE_PROJECT_SOURCES = (

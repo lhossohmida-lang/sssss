@@ -58,6 +58,12 @@ jobs:
           VAR_GOOGLE_SERVICES_JSON: ${{ vars.GOOGLE_SERVICES_JSON }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           VAR_FIREBASE_SERVICE_ACCOUNT: ${{ vars.FIREBASE_SERVICE_ACCOUNT }}
+          DIRECTORY_URL: ${{ secrets.DIRECTORY_URL }}
+          VAR_DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ secrets.DIRECTORY_ANON_KEY }}
+          VAR_DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
+          DIRECTORY_SERVICE_KEY: ${{ secrets.DIRECTORY_SERVICE_KEY }}
+          VAR_DIRECTORY_SERVICE_KEY: ${{ vars.DIRECTORY_SERVICE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VAR_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -72,6 +78,10 @@ jobs:
           VAR_OWNER_PHONE: ${{ vars.OWNER_PHONE }}
           OWNER_INITIAL_PASSWORD: ${{ secrets.OWNER_INITIAL_PASSWORD }}
           VAR_OWNER_INITIAL_PASSWORD: ${{ vars.OWNER_INITIAL_PASSWORD }}
+          SCHOOL_NAME: ${{ secrets.SCHOOL_NAME }}
+          VAR_SCHOOL_NAME: ${{ vars.SCHOOL_NAME }}
+          SCHOOL_LISTED: ${{ secrets.SCHOOL_LISTED }}
+          VAR_SCHOOL_LISTED: ${{ vars.SCHOOL_LISTED }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           VAR_LLM_API_KEY: ${{ vars.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
@@ -107,6 +117,10 @@ jobs:
           VAR_OWNER_PHONE: ${{ vars.OWNER_PHONE }}
           OWNER_INITIAL_PASSWORD: ${{ secrets.OWNER_INITIAL_PASSWORD }}
           VAR_OWNER_INITIAL_PASSWORD: ${{ vars.OWNER_INITIAL_PASSWORD }}
+          SCHOOL_NAME: ${{ secrets.SCHOOL_NAME }}
+          VAR_SCHOOL_NAME: ${{ vars.SCHOOL_NAME }}
+          SCHOOL_LISTED: ${{ secrets.SCHOOL_LISTED }}
+          VAR_SCHOOL_LISTED: ${{ vars.SCHOOL_LISTED }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           VAR_LLM_API_KEY: ${{ vars.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}

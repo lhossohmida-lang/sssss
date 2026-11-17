@@ -1,0 +1,3 @@
+# إعداد Supabase CLI لمشروع دليل المدارس (للنشر فقط). المشروع الحقيقي يُحدَّد بـ`--project-ref`
+# في مسار `directory-deploy`؛ لا يُحفظ هنا معرّف أي مشروع. يُستعمل مع `--workdir directory`.
+project_id = "directory"

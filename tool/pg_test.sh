@@ -28,6 +28,7 @@ run_psql -d postgres -c "drop database if exists ${DB}" -c "create database ${DB
 # نسخة يقرؤها مستخدم postgres المحلي.
 WORK="$(mktemp -d)"
 cp -r supabase "$WORK/"
+cp -r directory "$WORK/"
 chmod -R a+rX "$WORK"
 
 # بديل الأدوار والدالة auth.uid() التي يوفّرها Supabase جاهزة.
@@ -41,6 +42,18 @@ done
 for file in "$WORK"/supabase/tests/*.sql; do
   echo "== $(basename "$file")"
   run_psql -d "$DB" -f "$file"
+done
+# دليل المدارس: قاعدة مستقلة بالطريقة نفسها (مشروعه منفصل عن خوادم المدارس).
+DIR_DB="directory_test"
+run_psql -d postgres -c "drop database if exists ${DIR_DB}" -c "create database ${DIR_DB}"
+run_psql -d "$DIR_DB" -f "$WORK/supabase/local/000_auth_shim.sql"
+for file in "$WORK"/directory/supabase/migrations/*.sql; do
+  run_psql -d "$DIR_DB" -f "$file"
+  run_psql -d "$DIR_DB" -f "$file"
+done
+for file in "$WORK"/directory/supabase/tests/*.sql; do
+  echo "== directory/$(basename "$file")"
+  run_psql -d "$DIR_DB" -f "$file"
 done
 rm -rf "$WORK"
 echo "PG TESTS PASSED"

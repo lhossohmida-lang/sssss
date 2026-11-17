@@ -169,3 +169,122 @@ Deno.test("a failing auth service gives a 502 and logs no password", async () =>
     console.error = original;
   }
 });
+
+const DIRECTORY_NAMES = ["DIRECTORY_URL", "DIRECTORY_ANON_KEY", "DIRECTORY_SLUG", "DIRECTORY_REGISTER_KEY"];
+const REGISTER_KEY = "k".repeat(64);
+
+/** يضبط أسرار الدليل أثناء [action] ثم يمسحها لئلا تؤثر في بقية الاختبارات. */
+async function withDirectory<T>(action: () => Promise<T>): Promise<T> {
+  Deno.env.set("DIRECTORY_URL", "https://dir.supabase.co");
+  Deno.env.set("DIRECTORY_ANON_KEY", "sb_publishable_dir");
+  Deno.env.set("DIRECTORY_SLUG", "alnour");
+  Deno.env.set("DIRECTORY_REGISTER_KEY", REGISTER_KEY);
+  try {
+    return await action();
+  } finally {
+    for (const name of DIRECTORY_NAMES) Deno.env.delete(name);
+  }
+}
+
+/** يجرّب المسارات بالترتيب ويعيد أول رد. */
+function first(...routes: Route[]): Route {
+  return (url, init) => {
+    for (const route of routes) {
+      const response = route(url, init);
+      if (response !== undefined) return response;
+    }
+    return undefined;
+  };
+}
+
+type DirectoryCall = { phone: string; slug: string; key: string; apikey: string | null };
+
+/** دليل وهمي يسجّل ما استُدعي به ويجيب [answer] (قيمة JSON أو رمز حالة خطأ). */
+function directory(calls: DirectoryCall[], answer: boolean | number): Route {
+  return (url, init) => {
+    if (url.pathname !== "/rest/v1/rpc/school_register_phone") return undefined;
+    const sent = JSON.parse(String(init?.body));
+    calls.push({
+      phone: sent.p_phone,
+      slug: sent.p_slug,
+      key: sent.p_register_key,
+      apikey: new Headers(init?.headers).get("apikey"),
+    });
+    return typeof answer === "number" ? new Response("no", { status: answer }) : Response.json(answer);
+  };
+}
+
+Deno.test("an owner or worker account is registered in the school directory with the school's key", async () => {
+  for (const role of ["worker", "owner"]) {
+    const calls: DirectoryCall[] = [];
+    const result = await withDirectory(() =>
+      run(
+        { role: "owner" },
+        { email: "0550123456@school.local", password: PASSWORD, role },
+        first(createdUser, directory(calls, true)),
+      )
+    );
+    assert(result.status === 200, `${role}: ${result.status} ${result.text}`);
+    assert(calls.length === 1, `${role}: one directory call`);
+    assert(
+      calls[0].phone === "0550123456" && calls[0].slug === "alnour" && calls[0].key === REGISTER_KEY,
+      `${role}: payload`,
+    );
+    assert(calls[0].apikey === "sb_publishable_dir", `${role}: the directory public key`);
+  }
+});
+
+Deno.test("teachers, parents and non-phone logins are not registered in the directory", async () => {
+  const created: Route = (url, init) => {
+    if (url.pathname !== "/auth/v1/admin/users" || init?.method !== "POST") return undefined;
+    return Response.json({ id: "new-user-1" });
+  };
+  const cases = [
+    { role: "teacher", email: "0550123456@school.local" },
+    { role: "parent", email: "0550123456@school.local" },
+    { role: "worker", email: "worker@school.com" },
+  ];
+  for (const { role, email } of cases) {
+    const calls: DirectoryCall[] = [];
+    const result = await withDirectory(() =>
+      run({ role: "owner" }, { email, password: PASSWORD, role }, first(created, directory(calls, true)))
+    );
+    assert(result.status === 200, `${role}: ${result.status}`);
+    assert(calls.length === 0, `${role}: no directory call`);
+  }
+});
+
+Deno.test("when the directory refuses, the new user is deleted and the request fails", async () => {
+  for (const answer of [false, 500]) {
+    const calls: DirectoryCall[] = [];
+    const deleted: string[] = [];
+    const removal: Route = (url, init) => {
+      if (init?.method !== "DELETE") return undefined;
+      deleted.push(url.pathname);
+      return new Response(null, { status: 200 });
+    };
+    const result = await withDirectory(() =>
+      run(
+        { role: "owner" },
+        { email: "0550123456@school.local", password: PASSWORD, role: "worker" },
+        first(createdUser, removal, directory(calls, answer)),
+      )
+    );
+    assert(result.status === 502 && result.text.includes("directory_unavailable"), `${answer}: ${result.status}`);
+    assert(
+      deleted.length === 1 && deleted[0] === "/auth/v1/admin/users/new-user-1",
+      `${answer}: the new user is removed (${deleted.join(",")})`,
+    );
+    assert(!result.text.includes("new-user-1"), "the id of the removed user is not returned");
+  }
+});
+
+Deno.test("without directory secrets no directory call is made", async () => {
+  const calls: DirectoryCall[] = [];
+  const result = await run(
+    { role: "owner" },
+    { email: "0550123456@school.local", password: PASSWORD, role: "worker" },
+    first(createdUser, directory(calls, true)),
+  );
+  assert(result.status === 200 && calls.length === 0, `${result.status} ${calls.length}`);
+});

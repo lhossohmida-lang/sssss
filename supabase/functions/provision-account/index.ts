@@ -16,6 +16,12 @@ import {
   validEmail,
   validPassword,
 } from "../_shared/accounts.ts";
+import {
+  directoryConfig,
+  needsDirectoryEntry,
+  phoneOfLoginEmail,
+  registerStaffPhone,
+} from "../_shared/directory.ts";
 
 export async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -60,6 +66,20 @@ export async function handle(req: Request): Promise<Response> {
     const user: unknown = await created.json();
     if (!isRecord(user) || typeof user.id !== "string") {
       return json(502, { error: "auth_unavailable" });
+    }
+
+    // مالك أو عامل يدخل من تطبيق الإدارة: يُسجَّل هاتفه في دليل المدارس (إن وُجد دليل) ليعرف التطبيق
+    // مدرسته من رقمه. فإن تعذّر التسجيل يُحذف المستخدم الذي أُنشئ للتو ليُعاد إنشاؤه كاملاً.
+    const directory = directoryConfig();
+    const phone = phoneOfLoginEmail(body.email);
+    if (directory !== null && phone !== null && needsDirectoryEntry(body.role)) {
+      if (!(await registerStaffPhone(directory, phone))) {
+        await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
+          method: "DELETE",
+          headers: adminHeaders(secret),
+        }).catch(() => undefined);
+        return json(502, { error: "directory_unavailable" });
+      }
     }
     return json(200, { id: user.id });
   } catch (error) {
