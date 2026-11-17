@@ -22,11 +22,13 @@ Future<AppRuntime> openPayments(
   WidgetTester tester, {
   TestAccount account = owner,
   FakePdfPresenter? pdfPresenter,
+  AccountProvisioner? provisioner,
 }) async {
   final runtime = await openGroups(
     tester,
     account: account,
     pdfPresenter: pdfPresenter,
+    provisioner: provisioner,
   );
   final db = runtime.db;
   await runDb(tester, () async {

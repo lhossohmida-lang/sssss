@@ -18,6 +18,10 @@ class GroupDetailsScreen extends ConsumerWidget {
     final item = ref.watch(groupItemProvider(groupId));
     final canEdit = ref.can(PermissionModule.groups, PermissionAction.edit);
     final canPast = ref.can(PermissionModule.attendance, PermissionAction.edit);
+    final canSetup =
+        ref.can(PermissionModule.students, PermissionAction.add) ||
+        ref.can(PermissionModule.receiveMoney, PermissionAction.use) ||
+        canPast;
     return Scaffold(
       appBar: ClayAppBar(
         title: item == null ? 'الفوج' : 'الفوج ${item.number}',
@@ -59,6 +63,16 @@ class GroupDetailsScreen extends ConsumerWidget {
                       item.scheduleText,
                       style: text.bodySmall!.copyWith(color: p.textMuted),
                     ),
+                    if (canSetup) ...[
+                      const SizedBox(height: ClaySpacing.md),
+                      ClayButton(
+                        label: 'إعداد الفوج: تلاميذ وحضور وتسديد',
+                        icon: ClayIcons.students,
+                        expand: true,
+                        onPressed: () =>
+                            context.push('/groups/${item.id}/setup'),
+                      ),
+                    ],
                     if (canPast) ...[
                       const SizedBox(height: ClaySpacing.md),
                       ClayButton(

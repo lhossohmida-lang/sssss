@@ -329,6 +329,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     final service = ref.read(groupServiceProvider);
     final today = DateKey.of(DateTime.now());
     try {
+      GroupRow? created;
       if (_editing) {
         await service.update(
           widget.groupId!,
@@ -339,7 +340,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           today: today,
         );
       } else {
-        await service.create(
+        created = await service.create(
           subjectId: subjectId,
           teacherId: teacherId,
           roomId: _roomId,
@@ -349,7 +350,13 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           startDate: today,
         );
       }
-      if (mounted) context.pop();
+      if (!mounted) return;
+      if (created == null) {
+        context.pop();
+      } else {
+        // بعد إنشاء الفوج تُفتح صفحة إعداده: تلاميذه وحضورهم السابق وتسديدهم.
+        context.pushReplacement('/groups/${created.id}/setup');
+      }
     } on ValidationException catch (e) {
       if (mounted) setState(() => _errors = e.errors);
     } finally {

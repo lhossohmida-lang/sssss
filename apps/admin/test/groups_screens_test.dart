@@ -30,6 +30,7 @@ Future<AppRuntime> openGroups(
   WidgetTester tester, {
   TestAccount account = owner,
   FakePdfPresenter? pdfPresenter,
+  AccountProvisioner? provisioner,
 }) async {
   final runtime = await bootApp(
     tester,
@@ -38,6 +39,7 @@ Future<AppRuntime> openGroups(
     accounts: [account],
     pages: adminPages,
     pdfPresenter: pdfPresenter,
+    provisioner: provisioner,
   );
   await loginWith(tester, account.email, account.password);
   final db = runtime.db;
@@ -137,6 +139,14 @@ Future<void> submit(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// بعد إنشاء الفوج تُفتح صفحة إعداده (تلاميذه وحضورهم وتسديدهم)؛ «تم» يعيد
+/// إلى القائمة.
+Future<void> finishSetup(WidgetTester tester) async {
+  expect(find.text('إعداد الفوج'), findsOneWidget);
+  await tester.tap(find.widgetWithText(ClayButton, 'تم'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   appTest('قائمة فارغة برسالة وزر إنشاء', (tester) async {
     await openGroups(tester);
@@ -168,6 +178,12 @@ void main() {
     );
     await pick(tester, 'اليوم', 'الثلاثاء');
     await submit(tester);
+
+    // بعد الإنشاء تُفتح صفحة إعداد الفوج لإضافة تلاميذه من نفس المكان.
+    expect(find.text('رياضيات · الفوج 1'), findsOneWidget);
+    expect(find.text('لا تلاميذ في الفوج بعد.'), findsOneWidget);
+    expect(find.widgetWithText(ClayButton, 'إضافة تلميذ'), findsOneWidget);
+    await finishSetup(tester);
 
     expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
     expect(find.textContaining('كمال · القاعة 1 · 0 تلميذ'), findsOneWidget);
@@ -244,6 +260,7 @@ void main() {
     expect(find.textContaining('القاعة محجوزة'), findsNothing);
 
     await submit(tester);
+    await finishSetup(tester);
     expect(find.text('الفوج 2 · رياضيات'), findsOneWidget);
   });
 

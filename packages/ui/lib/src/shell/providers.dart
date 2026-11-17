@@ -704,6 +704,20 @@ final Provider<PaymentService> paymentServiceProvider =
       );
     });
 
+/// إعداد الفوج من صفحة واحدة: تلاميذه بحساباتهم ودفعات دورتهم الحالية.
+final Provider<GroupSetupService> groupSetupServiceProvider =
+    Provider<GroupSetupService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return GroupSetupService(
+        runtime.db,
+        // عند إضافة تلميذ فقط: قراءة القائمة لا تحتاج إلى إنشاء الحسابات.
+        () => ref.read(registrationServiceProvider),
+        ref.watch(paymentServiceProvider),
+        ref.watch(duesServiceProvider),
+        CycleService(runtime.db, runtime.writer),
+      );
+    });
+
 typedef PaymentPageKey = ({String query, PaymentType? type, int limit});
 
 /// صفحة من قائمة المدفوعات للبحث والنوع والحد.

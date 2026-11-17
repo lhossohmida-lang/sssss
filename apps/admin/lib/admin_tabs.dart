@@ -11,6 +11,7 @@ import 'screens/entrance_screen.dart';
 import 'screens/expenses_screen.dart';
 import 'screens/fees_screen.dart';
 import 'screens/group_details_screen.dart';
+import 'screens/group_setup_screen.dart';
 import 'screens/groups_screens.dart';
 import 'screens/monthly_report_screen.dart';
 import 'screens/more_page.dart';
@@ -319,6 +320,12 @@ final List<AppPage> adminPages = [
     action: PermissionAction.edit,
     builder: (context, state) =>
         PastSessionsScreen(groupId: state.pathParameters['id']!),
+  ),
+  AppPage(
+    path: '/groups/:id/setup',
+    requires: PermissionModule.groups,
+    builder: (context, state) =>
+        GroupSetupScreen(groupId: state.pathParameters['id']!),
   ),
   // بعد `/groups/new` حتى لا يُقرأ «new» معرّفاً لمجموعة.
   AppPage(

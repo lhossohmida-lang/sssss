@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
+import 'package:school_core/testing.dart';
 import 'package:school_ui/testing.dart';
 
 import 'groups_screens_test.dart' hide main;
@@ -79,6 +80,24 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('الفوج ${group.number} · رياضيات'));
     await shoot(tester, 'group_details_windows_light');
+  });
+
+  appTest('إعداد الفوج: Windows فاتح', (tester) async {
+    size(tester, 1280, 900, Brightness.light);
+    final runtime = await openPayments(
+      tester,
+      provisioner: FakeAccountProvisioner(),
+    );
+    final group = await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.groups).getSingle(),
+    );
+    await tester.tap(find.text('الأفواج').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الفوج ${group.number} · رياضيات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إعداد الفوج: تلاميذ وحضور وتسديد'));
+    await shoot(tester, 'group_setup_windows_light');
   });
 
   appTest('المزيد: Windows داكن', (tester) async {

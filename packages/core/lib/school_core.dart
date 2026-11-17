@@ -53,6 +53,7 @@ export 'src/domain/grade_service.dart';
 export 'src/domain/group_file_service.dart';
 export 'src/domain/group_grid.dart';
 export 'src/domain/group_service.dart';
+export 'src/domain/group_setup_service.dart';
 export 'src/domain/logo_service.dart';
 export 'src/domain/money.dart';
 export 'src/domain/monthly_finance_report.dart';
