@@ -107,6 +107,9 @@ jobs:
             # دليل المدارس: النسخة العامة تعرف مدرسة المستخدم منه فلا يلصق رمز ربط.
             if [ -n "$DIRECTORY_URL" ] && [ -n "$DIRECTORY_KEY" ]; then
               defines+=("--dart-define=DIRECTORY_URL=$DIRECTORY_URL" "--dart-define=DIRECTORY_KEY=$DIRECTORY_KEY")
+              echo "::notice title=build-directory::${{ matrix.app }}: directory=embedded"
+            else
+              echo "::notice title=build-directory::${{ matrix.app }}: directory=absent (pairing code mode)"
             fi
           fi
           flutter build apk --release "${defines[@]}"
@@ -161,6 +164,9 @@ jobs:
             if ($env:DIRECTORY_URL -and $env:DIRECTORY_KEY) {
               $defines += "--dart-define=DIRECTORY_URL=$env:DIRECTORY_URL"
               $defines += "--dart-define=DIRECTORY_KEY=$env:DIRECTORY_KEY"
+              Write-Host "::notice title=build-directory::windows: directory=embedded"
+            } else {
+              Write-Host "::notice title=build-directory::windows: directory=absent (pairing code mode)"
             }
           }
           flutter build windows --release @defines
@@ -238,9 +244,11 @@ jobs:
               غير موقَّع: اختر «More info» ثم «Run anyway».
             - `school-admin-windows.zip` النسخة المحمولة (تضمّ المكتبات نفسها): فك الضغط ثم شغّل `admin.exe`
 
-            عند أول تشغيل يطلب كل تطبيق رمز مدرستك (`SCH1.…`) لصقاً أو مسحاً بالكاميرا. يعطيك إياه صاحب
-            المدرسة من تطبيق الإدارة ← الحساب ← رمز ربط الأجهزة الأخرى. ويمكن لتطبيق الإدارة أن يعمل
-            «معاينة محلية» بلا خادم.
+            عند أول تشغيل: مع دليل المدارس يكتب صاحب المدرسة والعمال رقم الهاتف وكلمة السر فتُعرف المدرسة وحدها، ويختار
+            الأستاذ والوليّ مدرستهم من القائمة ثم يدخلون. ودون دليل مضمَّن في هذا البناء يطلب كل تطبيق رمز مدرستك
+            (`SCH1.…`) لصقاً أو مسحاً بالكاميرا، ويعطيك إياه صاحب المدرسة من تطبيق الإدارة ← الحساب ← رمز ربط الأجهزة
+            الأخرى. ويمكن لتطبيق الإدارة أن يعمل «معاينة محلية» بلا خادم. وفي كل تطبيق «دليل الاستخدام» (من «حسابي») بدروس
+            قصيرة تعلّم استعماله.
       # عقد التحديث التلقائي: التطبيقات تقرأ هذه الأصول من واجهة GitHub وتتحقق من بصمة SHA-256 المعلنة لكل ملف.
       # يفشل المسار إن نقص ملف أو بصمته أو كان رابطه خارج مستودعنا، فلا يصل جهازاً إصدار لا يستطيع تحديث نفسه.
       - name: Check the release assets the in-app updater reads
