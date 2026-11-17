@@ -364,6 +364,7 @@ class FakeState:
         self.real_student = False
         self.school_name = None
         self.fail_table = None
+        self.unique_receipts = False  # يحاكي الفهرس الفريد idx_payments_receipt
 
 
 def handler(state):
@@ -425,8 +426,20 @@ def handler(state):
                 conflict = query["on_conflict"][0].split(",")
                 bucket = state.tables.setdefault(table, {})
                 for row in rows:
+                    if state.unique_receipts and table == "payments":
+                        for other in bucket.values():
+                            if other["receipt_number"] == row["receipt_number"] and other["id"] != row["id"]:
+                                return self.send(
+                                    409, {"message": 'duplicate key value violates unique constraint "idx_payments_receipt"'}
+                                )
                     bucket[tuple(row[c] for c in conflict)] = row
                 return self.send(201)
+            if method == "DELETE":
+                prefix = query.get("id", [""])[0].removeprefix("like.").rstrip("*")
+                bucket = state.tables.get(table, {})
+                for key in [k for k, row in bucket.items() if prefix and row["id"].startswith(prefix)]:
+                    del bucket[key]
+                return self.send(204)
             return self.send(404, {"message": "unknown"})
 
         def do_GET(self):
@@ -434,6 +447,9 @@ def handler(state):
 
         def do_POST(self):
             self.route("POST")
+
+        def do_DELETE(self):
+            self.route("DELETE")
 
     return Handler
 
@@ -503,6 +519,30 @@ class Seeding(unittest.TestCase):
         forced = self.seeder().seed(force=True)
         self.assertTrue(forced[0].startswith("demo-seed=ok"))
         self.assertGreater(len([r for r in self.state.requests if r[0] == "POST"]), before)
+
+    def test_a_forced_reseed_on_another_day_renumbers_receipts_without_a_conflict(self):
+        # الأرقام تُعطى بالترتيب الزمني: في يوم آخر ينتقل رقم وصل قائم إلى معرّف آخر (409 على الفهرس الفريد).
+        later = TODAY + timedelta(days=3)
+        old = {p["id"]: p["receipt_number"] for p in demo.build_dataset(TODAY, OWNER, {})["payments"]}
+        new = {p["id"]: p["receipt_number"] for p in demo.build_dataset(later, OWNER, {})["payments"]}
+        moved = [i for i in old if i in new and old[i] != new[i]]
+        self.assertTrue(moved, "المقدّمة: أرقام وصولات تتحرك بين اليومين")
+
+        self.state.unique_receipts = True
+        self.seeder().seed()
+        cfg = sb.Config.from_env(self.environ())
+        again = demo.DemoSeed(sb.Bootstrap(cfg), "", today=later).seed(force=True)
+        self.assertTrue(again[0].startswith("demo-seed=ok"), again)
+
+        stored = {row["id"]: row["receipt_number"] for row in self.state.tables["payments"].values()}
+        self.assertEqual(stored, new)
+        self.assertEqual(len(set(stored.values())), len(stored))
+        deletes = [r for r in self.state.requests if r[0] == "DELETE"]
+        self.assertEqual([r[1] for r in deletes], ["/rest/v1/payments"])
+
+    def test_a_first_run_deletes_nothing(self):
+        self.seeder().seed()
+        self.assertEqual([r for r in self.state.requests if r[0] == "DELETE"], [])
 
     def test_real_students_in_the_school_refuse_the_seed(self):
         self.state.real_student = True

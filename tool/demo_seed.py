@@ -582,6 +582,13 @@ class DemoSeed:
             raise sb.ApiError("حساب موجود لكن تعذّر العثور على معرّفه")
         raise sb.ApiError(f"تعذّر إنشاء حساب عرض ({status}) {sb.reason(payload)}", status)
 
+    def _delete(self, path: str) -> None:
+        status, payload = sb.call(
+            "DELETE", f"{self.cfg.url}/rest/v1/{path}", self._headers({"Prefer": "return=minimal"}), timeout=60
+        )
+        if status not in (200, 204):
+            raise sb.ApiError(f"تعذّر حذف {path.split('?')[0]} ({status}) {sb.reason(payload)}", status)
+
     def _upsert(self, table: str, rows: list[dict[str, Any]]) -> None:
         target = CONFLICT.get(table, "id")
         for start in range(0, len(rows), CHUNK):
@@ -613,6 +620,10 @@ class DemoSeed:
             first_parent = next(p for p in parents if p.key in used)
             logins = f"demo-logins teacher={teachers[0].phone} parent={first_parent.phone} (كلمة السر في سرّ DEMO_ACCOUNTS_PASSWORD)"
         data = build_dataset(self.today, owner, accounts)
+        if force:
+            # أرقام الوصولات تُعطى بالترتيب الزمني لتواريخ اليوم، فإعادة الزرع في يوم آخر تنقل رقم وصل قائم إلى معرّف آخر
+            # فيصطدم بالفهرس الفريد `idx_payments_receipt` (409). تُحذف دفعات الزرع السابق (بياناتُ عرضٍ وحدها) قبل كتابة الجديدة.
+            self._delete("payments?id=like.demo-payment-*")
         for table, rows in data.items():
             if rows:
                 self._upsert(table, rows)
