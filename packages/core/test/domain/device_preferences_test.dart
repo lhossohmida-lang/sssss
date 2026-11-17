@@ -98,6 +98,23 @@ void main() {
       expect(await env.db.select(env.db.outbox).get(), isEmpty);
     });
 
+    test('معرّف الجهاز عشوائي يُنشأ مرة ويبقى، ولا يُزامَن', () async {
+      final first = await prefs.deviceId();
+      expect(first, matches(RegExp(r'^[0-9a-f-]{36}$')));
+      expect(await prefs.deviceId(), first);
+      // نسخة جديدة على القاعدة نفسها تقرأ المحفوظ ولا تنشئ آخر.
+      expect(await DevicePreferences(env.db).deviceId(), first);
+      expect(await prefs.read(DevicePreferences.deviceIdKey), first);
+      expect(await env.db.select(env.db.settings).get(), isEmpty);
+      expect(await env.db.select(env.db.outbox).get(), isEmpty);
+    });
+
+    test('علامة طلب إذن الرسائل تُحفظ محلياً', () async {
+      expect(await prefs.read(DevicePreferences.smsPermissionAskedKey), isNull);
+      await prefs.write(DevicePreferences.smsPermissionAskedKey, '1');
+      expect(await prefs.read(DevicePreferences.smsPermissionAskedKey), '1');
+    });
+
     test('watch يعيد القيمة الحالية ثم كل تغيير', () async {
       final seen = <String?>[];
       final subscription = prefs

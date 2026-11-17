@@ -33,6 +33,10 @@ abstract final class SettingKeys {
   /// خانة الشريحة المختارة لإرسال SMS على هاتف الإدارة.
   static const String smsSimSlotIndex = 'sms_sim_slot_index';
 
+  /// معرّف جهاز الإدارة الذي يرسل رسائل SMS تلقائياً (هاتف Android الذي فيه
+  /// الشريحة). يُزامَن ليعرف كل جهاز إن كان هو المرسل، فلا تُرسل رسالة من جهازين.
+  static const String smsSenderDevice = 'sms_sender_device';
+
   /// وقت آخر تنفيذ لزر «سنة جديدة» بالمللي ثانية (UTC).
   static const String lastNewYearAt = 'last_new_year_at';
 }

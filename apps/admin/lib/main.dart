@@ -4,6 +4,7 @@ import 'package:school_ui/school_ui.dart';
 
 import 'admin_tabs.dart';
 import 'screens/drive_screen.dart';
+import 'screens/sms_auto_sender.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +15,9 @@ Future<void> main() async {
       pages: adminPages,
       // مسح الكاميرا على Android؛ على Windows قارئ USB وشاشة المدخل (2.16).
       cameraFactory: cameraScanningSupported ? MobileScannerSource.new : null,
-      wrapApp: (app) => DriveBackupLifecycle(child: app),
+      // النسخ الاحتياطي لـDrive، وإرسال الرسائل القصيرة تلقائياً من هاتف Android.
+      wrapApp: (app) =>
+          DriveBackupLifecycle(child: SmsAutoSenderLifecycle(child: app)),
     ),
   );
 }

@@ -1,16 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_sms/school_sms.dart';
 import 'package:school_ui/school_ui.dart';
 
-final Provider<SmsQueueService> smsQueueServiceProvider =
-    Provider<SmsQueueService>((ref) {
-      final runtime = ref.watch(runtimeProvider);
-      return SmsQueueService(runtime.db, runtime.writer);
-    });
+import 'sms_auto_sender.dart';
 
 final Provider<SmsTemplateService> smsTemplateServiceProvider =
     Provider<SmsTemplateService>((ref) {
@@ -92,8 +86,6 @@ class _SmsQueueTab extends ConsumerStatefulWidget {
 
 class _SmsQueueTabState extends ConsumerState<_SmsQueueTab> {
   int _limit = 100;
-  bool _sending = false;
-  SmsDispatchWorker? _worker;
 
   Future<void> _retry(SmsQueueRow row) async {
     final changed = await ref.read(smsQueueServiceProvider).retry(row.id);
@@ -105,54 +97,10 @@ class _SmsQueueTabState extends ConsumerState<_SmsQueueTab> {
     }
   }
 
-  Future<void> _startSending() async {
-    if (!Platform.isAndroid) {
-      _notify(context, 'إرسال الرسائل يحتاج هاتف Android مع شريحة SIM');
-      return;
-    }
-    final runtime = ref.read(runtimeProvider);
-    final worker = SmsDispatchWorker(
-      queue: ref.read(smsQueueServiceProvider),
-      settings: SmsSettingsService(runtime.db, runtime.writer),
-      platform: AndroidSmsPlatform(),
-    );
-    setState(() {
-      _worker = worker;
-      _sending = true;
-    });
-    try {
-      final result = await worker.start();
-      if (!mounted) return;
-      final parts = <String>[
-        'أُرسلت ${result.sent}',
-        'فشلت ${result.failed}',
-        'مؤجلة ${result.retried}',
-      ];
-      if (result.deferredUntil != null) {
-        parts.add('يُستأنف الإرسال ${_displayTime(result.deferredUntil!)}');
-      }
-      _notify(context, parts.join(' · '));
-    } on Object catch (error) {
-      if (mounted) _notify(context, 'تعذّر تشغيل الإرسال: $error');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _sending = false;
-          _worker = null;
-        });
-      }
-    }
-  }
-
-  Future<void> _stopSending() async {
-    await _worker?.stop();
-  }
-
   @override
   Widget build(BuildContext context) {
     final rows = ref.watch(smsQueueRowsProvider(_limit));
     final counts = ref.watch(smsQueueCountsProvider).value ?? const {};
-    final canSend = ref.can(PermissionModule.sms, PermissionAction.use);
     final canRetry = ref.can(PermissionModule.sms, PermissionAction.edit);
 
     return Column(
@@ -174,24 +122,7 @@ class _SmsQueueTabState extends ConsumerState<_SmsQueueTab> {
                 ],
               ),
               const SizedBox(height: ClaySpacing.md),
-              if (canSend)
-                ClayButton(
-                  label: _sending
-                      ? 'إيقاف الإرسال بعد الرسالة الحالية'
-                      : 'بدء إرسال الطابور',
-                  icon: _sending ? Icons.stop_rounded : ClayIcons.sms,
-                  kind: _sending
-                      ? ClayButtonKind.secondary
-                      : ClayButtonKind.primary,
-                  loading: false,
-                  onPressed: _sending ? _stopSending : _startSending,
-                  expand: true,
-                )
-              else if (!Platform.isAndroid)
-                Text(
-                  'إرسال الرسائل متاح على هاتف Android مع شريحة SIM.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+              const SmsAutoStatusCard(),
             ],
           ),
         ),

@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 import '../data/local/app_database.dart';
 
 /// تفضيلات هذا الجهاز لمدرسته: قيم نصية صغيرة في جدول `device_info` المحلي.
@@ -12,6 +14,25 @@ class DevicePreferences {
 
   /// بريد حساب Google الذي يُسمح له بربط Drive على هذا الجهاز (صاحب المدرسة).
   static const String driveOwnerEmailKey = 'drive_owner_email';
+
+  /// معرّف هذا الجهاز لهذه المدرسة (عشوائي، يُنشأ مرة ويبقى).
+  static const String deviceIdKey = 'device_id';
+
+  /// هل طُلبت من المستخدم صلاحية إرسال الرسائل على هذا الجهاز من قبل؟
+  static const String smsPermissionAskedKey = 'sms_permission_asked';
+
+  Future<String>? _deviceId;
+
+  /// معرّف هذا الجهاز: يُنشأ عند أول طلب ويبقى، فيُعرف به الجهاز المعيَّن للإرسال.
+  Future<String> deviceId() => _deviceId ??= _loadDeviceId();
+
+  Future<String> _loadDeviceId() async {
+    final saved = await read(deviceIdKey);
+    if (saved != null) return saved;
+    final created = const Uuid().v4();
+    await write(deviceIdKey, created);
+    return created;
+  }
 
   /// القيمة المحفوظة، أو `null` إن لم تُحفظ.
   Future<String?> read(String key) async {

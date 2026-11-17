@@ -166,6 +166,17 @@ class SmsQueueService {
         },
       );
 
+  /// عدد الرسائل المنتظرة للإرسال، ويتحدث عند تغيّره (لا مع كل تعديل في الطابور).
+  Stream<int> watchPendingCount() => db
+      .customSelect(
+        'SELECT COUNT(*) AS count FROM sms_queue WHERE status = ?',
+        variables: [Variable<String>(SmsStatus.pending.code)],
+        readsFrom: {db.smsQueue},
+      )
+      .watch()
+      .map((rows) => rows.single.read<int>('count'))
+      .distinct();
+
   Future<List<SmsQueueRow>> loadQueue({int limit = 200}) {
     if (limit < 1) {
       throw ArgumentError.value(limit, 'limit', 'يجب أن يكون موجباً');
