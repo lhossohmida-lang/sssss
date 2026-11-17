@@ -6,16 +6,29 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
-/// تسجيل الحضور السابق: حصص الدورة الحالية التي انعقدت قبل أن تبدأ المدرسة
-/// باستعمال النظام، مع حضور تلاميذها. تقترح الشاشة حصصاً من جدول الفوج ابتداءً
-/// من تاريخ أول حصة في الدورة، ويصحّح المدير الخانات ثم يحفظ كل شيء دفعة واحدة.
+/// الحصص المقررة للدورة الحالية وتسجيل الماضي منها: تُنشأ حصص الدورة دائماً بعددها
+/// وبتواريخها من جدول الفوج ابتداءً من تاريخ أول حصة. ما مضى منها يُسجَّل حضوره
+/// (ويُلغى تحديد ما لم ينعقد فعلاً)، وما بقي يُبرمج قادماً. وتغيير تاريخ أول حصة يعيد
+/// بناء الحصص المقررة كلها منه (ومن بعد اليوم تُبرمج الدورة كلها من ذلك التاريخ).
 class PastSessionsScreen extends ConsumerStatefulWidget {
-  const PastSessionsScreen({required this.groupId, super.key});
+  const PastSessionsScreen({required this.groupId, this.firstDate, super.key});
 
   final String groupId;
 
+  /// تاريخ أول حصة (`YYYY-MM-DD`) كما أُدخل عند إنشاء الفوج؛ بدونه يُقرأ من حصص الدورة.
+  final String? firstDate;
+
   @override
   ConsumerState<PastSessionsScreen> createState() => _PastSessionsScreenState();
+}
+
+enum _RowKind { held, upcoming, past }
+
+class _PlanRow {
+  const _PlanRow(this.session, this.kind);
+
+  final PlannedSession session;
+  final _RowKind kind;
 }
 
 class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
@@ -25,15 +38,15 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
   static const double _headerHeight = 64;
 
   late DateTime _today;
-  late DateTime _from;
+  DateTime? _from;
+  String _initialFrom = '';
   bool _loading = true;
   bool _saving = false;
   String? _loadError;
   String? _formError;
-  int _capacity = 0;
+  CyclePlan? _plan;
   List<PastRosterStudent> _roster = const [];
-  List<PastSessionSuggestion> _suggested = const [];
-  final List<PastSessionSuggestion> _custom = [];
+  final List<PlannedSession> _custom = [];
   final Set<String> _chosen = {};
 
   /// مفتاح الحصة ← (معرّف التلميذ ← حالته؛ `null` = لا تسجيل).
@@ -46,23 +59,36 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     super.initState();
     final now = DateTime.now();
     _today = DateTime(now.year, now.month, now.day);
-    _from = _today.subtract(const Duration(days: 14));
     unawaited(_load());
+  }
+
+  static String? _validDate(String? value) {
+    if (value == null || !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
+      return null;
+    }
+    return DateKey.of(DateKey.parse(value)) == value ? value : null;
   }
 
   Future<void> _load() async {
     try {
-      final capacity = await _service.capacity(widget.groupId);
       final roster = await _service.roster(widget.groupId);
-      final suggested = await _suggest(_from);
+      final first =
+          _validDate(widget.firstDate) ??
+          await _service.firstDate(widget.groupId, now: DateTime.now());
+      final plan = await _service.plan(
+        widget.groupId,
+        from: first,
+        now: DateTime.now(),
+      );
       if (!mounted) return;
       setState(() {
-        _capacity = capacity;
         _roster = roster;
-        _suggested = suggested;
+        _initialFrom = first;
+        _from = DateKey.parse(first);
+        _plan = plan;
         _chosen
           ..clear()
-          ..addAll(suggested.map((s) => s.key));
+          ..addAll(plan.past.map((s) => s.key));
         _loading = false;
       });
     } on ValidationException catch (e) {
@@ -82,9 +108,6 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     }
   }
 
-  Future<List<PastSessionSuggestion>> _suggest(DateTime from) => _service
-      .suggest(widget.groupId, from: DateKey.of(from), now: DateTime.now());
-
   Future<void> _pickFrom() async {
     final picked = await showClayDatePicker(
       context,
@@ -92,21 +115,32 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
       initial: _from,
     );
     if (picked == null || !mounted) return;
-    if (!picked.isBefore(_today)) {
-      setState(() => _formError = 'اختر تاريخاً قبل اليوم');
-      return;
+    await _replan(picked);
+  }
+
+  /// يبني الحصص المقررة من جديد من تاريخ أول حصة [first].
+  Future<void> _replan(DateTime first) async {
+    try {
+      final plan = await _service.plan(
+        widget.groupId,
+        from: DateKey.of(first),
+        now: DateTime.now(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _formError = null;
+        _from = first;
+        _plan = plan;
+        // حصة أضافها المدير قبل أول حصة الجديدة لا مكان لها بعد الآن.
+        _custom.removeWhere((s) => s.date.compareTo(plan.from) < 0);
+        _chosen
+          ..clear()
+          ..addAll(plan.past.map((s) => s.key))
+          ..addAll(_custom.map((s) => s.key));
+      });
+    } on ValidationException catch (e) {
+      if (mounted) setState(() => _formError = e.toString());
     }
-    final suggested = await _suggest(picked);
-    if (!mounted) return;
-    setState(() {
-      _formError = null;
-      _from = picked;
-      _suggested = suggested;
-      _chosen
-        ..clear()
-        ..addAll(suggested.map((s) => s.key))
-        ..addAll(_custom.map((s) => s.key));
-    });
   }
 
   Future<void> _addCustom() async {
@@ -118,6 +152,13 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     if (date == null || !mounted) return;
     if (!date.isBefore(_today)) {
       setState(() => _formError = 'اختر تاريخاً قبل اليوم');
+      return;
+    }
+    if (DateKey.of(date).compareTo(DateKey.of(_from!)) < 0) {
+      setState(
+        () => _formError =
+            'اختر تاريخاً من أول حصة في الدورة فصاعداً، أو غيّر تاريخ أول حصة',
+      );
       return;
     }
     final start = await showClayTimePicker(context, title: 'وقت البداية');
@@ -132,12 +173,12 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
       setState(() => _formError = 'وقت النهاية يجب أن يكون بعد البداية');
       return;
     }
-    final session = PastSessionSuggestion(
+    final session = PlannedSession(
       date: DateKey.of(date),
       startMinutes: start,
       endMinutes: end,
     );
-    if (_sessions.any((s) => s.key == session.key)) {
+    if (_allKeys.contains(session.key)) {
       setState(() => _formError = 'هذه الحصة مضافة من قبل');
       return;
     }
@@ -148,19 +189,40 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     });
   }
 
-  List<PastSessionSuggestion> get _sessions {
+  /// مفاتيح كل الحصص المعروضة الآن.
+  Set<String> get _allKeys => {
+    for (final row in _rows) row.session.key,
+    for (final s in _custom) s.key,
+  };
+
+  /// الحصص الماضية المعروضة بخانات تحديد: المقترحة ثم المضافة يدوياً.
+  List<PlannedSession> get _pastRows {
     final byKey = {
-      for (final s in [..._suggested, ..._custom]) s.key: s,
+      for (final s in [..._plan!.past, ..._custom]) s.key: s,
     };
     return byKey.values.toList()..sort(_byTime);
   }
 
-  List<PastSessionSuggestion> get _picked => [
-    for (final s in _sessions)
+  List<PlannedSession> get _picked => [
+    for (final s in _pastRows)
       if (_chosen.contains(s.key)) s,
   ];
 
-  static int _byTime(PastSessionSuggestion a, PastSessionSuggestion b) {
+  /// كل صفوف «الحصص المقررة»: الثابتة والماضية والقادمة، بالترتيب الزمني. القادمة بقدر ما
+  /// يبقى للدورة بعد الثابتة والماضية المحدَّدة، فيبقى المجموع بعدد حصص الدورة دائماً.
+  List<_PlanRow> get _rows {
+    final plan = _plan!;
+    final room = plan.cycleSize - plan.fixed.length - _picked.length;
+    return [
+      for (final s in plan.fixed)
+        _PlanRow(s, s.held ? _RowKind.held : _RowKind.upcoming),
+      for (final s in _pastRows) _PlanRow(s, _RowKind.past),
+      for (final s in plan.upcoming.take(room < 0 ? 0 : room))
+        _PlanRow(s, _RowKind.upcoming),
+    ]..sort((a, b) => _byTime(a.session, b.session));
+  }
+
+  static int _byTime(PlannedSession a, PlannedSession b) {
     final byDate = a.date.compareTo(b.date);
     return byDate != 0 ? byDate : a.startMinutes.compareTo(b.startMinutes);
   }
@@ -199,15 +261,21 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
 
   Future<void> _save({required bool excuse}) async {
     final picked = _picked;
+    final plan = _plan!;
+    final first = DateKey.of(_from!);
+    final replanOnly = picked.isEmpty;
     final ok = await showClayConfirm(
       context,
-      title: 'تسجيل الحضور السابق',
-      message:
-          'ستُسجَّل ${picked.length} حصة سابقة في الدورة الحالية بحضور تلاميذها، '
-          'وتُحذف من نهاية الدورة ${picked.length} حصة قادمة ليبقى عدد حصصها '
-          'كما هو. لا تُرسل رسائل لأولياء التلاميذ، ويمكن تعديل أي خانة لاحقاً '
-          'من شاشة الحضور.',
-      confirmLabel: 'تسجيل',
+      title: replanOnly ? 'برمجة حصص الدورة' : 'تسجيل الحضور السابق',
+      message: replanOnly
+          ? 'ستُعاد برمجة حصص الدورة الحالية (${plan.cycleSize} حصة) من جدول '
+                'الفوج ابتداءً من $first، وتُحذف الحصص المبرمجة غير المنعقدة '
+                'لتحلّ محلها الجديدة.'
+          : 'ستُسجَّل ${picked.length} حصة سابقة في الدورة الحالية بحضور '
+                'تلاميذها، وتُبرمج الحصص القادمة من جدول الفوج لتبقى الدورة '
+                '${plan.cycleSize} حصة. لا تُرسل رسائل لأولياء التلاميذ، '
+                'ويمكن تعديل أي خانة لاحقاً من شاشة الحضور.',
+      confirmLabel: replanOnly ? 'برمجة' : 'تسجيل',
     );
     if (!ok || !mounted) return;
     setState(() {
@@ -231,12 +299,15 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
         ],
         now: DateTime.now(),
         canExcuse: excuse,
+        firstDate: first,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'سُجِّلت ${result.sessions} حصة سابقة و${result.marks} خانة حضور',
+            replanOnly
+                ? 'أُعيدت برمجة حصص الدورة من $first'
+                : 'سُجِّلت ${result.sessions} حصة سابقة و${result.marks} خانة حضور',
           ),
         ),
       );
@@ -258,7 +329,7 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     }
   }
 
-  static String _times(PastSessionSuggestion s) =>
+  static String _times(PlannedSession s) =>
       '${DateKey.formatMinutes(s.startMinutes)}–'
       '${DateKey.formatMinutes(s.endMinutes)}';
 
@@ -306,14 +377,18 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
   List<Widget> _content(BuildContext context, GroupItem? item, bool excuse) {
     final text = Theme.of(context).textTheme;
     final p = context.palette;
+    final plan = _plan!;
     final picked = _picked;
-    final overCapacity = picked.length > _capacity;
+    final overCapacity = picked.length > plan.capacity;
+    final first = DateKey.of(_from!);
+    final needsStudents = picked.isNotEmpty && _roster.isEmpty;
+    final dirty = picked.isNotEmpty || first != _initialFrom;
     final canSave =
         !_saving &&
-        picked.isNotEmpty &&
+        dirty &&
         !overCapacity &&
-        _roster.isNotEmpty &&
-        _capacity > 0;
+        !needsStudents &&
+        plan.capacity > 0;
     return [
       ClayCard(
         child: Column(
@@ -323,7 +398,7 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
             const SizedBox(height: ClaySpacing.xs),
             Text(
               'لتدوين حصص الدورة الحالية التي انعقدت قبل بدء استعمال النظام. '
-              'يمكن تسجيل $_capacity حصة سابقة على الأكثر، وتبقى حصة واحدة '
+              'يمكن تسجيل ${plan.capacity} حصة سابقة على الأكثر، وتبقى حصة واحدة '
               'على الأقل لتُغلق تلقائياً.',
               style: text.bodyMedium,
             ),
@@ -331,19 +406,13 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
         ),
       ),
       const SizedBox(height: ClaySpacing.lg),
-      if (_capacity <= 0)
+      if (plan.capacity <= 0)
         const ClayEmptyView(
           title: 'لا يمكن تسجيل حصص سابقة الآن',
           message:
               'الدورة الحالية على وشك أن تكتمل، فتبقى حصصها لتُسجَّل بالطريقة '
               'العادية من شاشة الحضور.',
           icon: ClayIcons.schedule,
-        )
-      else if (_roster.isEmpty)
-        const ClayEmptyView(
-          title: 'لا تلاميذ في هذا الفوج',
-          message: 'أضف التلاميذ إلى الفوج أولاً ثم سجّل حضورهم السابق',
-          icon: ClayIcons.students,
         )
       else ...[
         ClayCard(
@@ -354,11 +423,15 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
               const SizedBox(height: ClaySpacing.sm),
               Row(
                 children: [
-                  Directionality(
-                    textDirection: TextDirection.ltr,
-                    child: Text(DateKey.of(_from), style: text.titleMedium),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(first, style: text.titleMedium),
+                      ),
+                    ),
                   ),
-                  const Spacer(),
                   ClayButton(
                     label: 'تغيير التاريخ',
                     kind: ClayButtonKind.secondary,
@@ -368,26 +441,36 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
               ),
               const SizedBox(height: ClaySpacing.xs),
               Text(
-                'تقترح الشاشة حصص جدول الفوج من هذا التاريخ إلى أمس. ألغِ '
-                'تحديد ما لم ينعقد فعلاً، وأضف ما انعقد في وقت آخر.',
+                'تُنشأ حصص الدورة (${plan.cycleSize}) دائماً من هذا التاريخ '
+                'بحسب جدول الفوج. ألغِ تحديد ما مضى ولم ينعقد فعلاً، وأضف ما '
+                'انعقد في وقت آخر. وإن كان التاريخ بعد اليوم بُرمجت الدورة '
+                'كلها منه.',
                 style: text.bodySmall!.copyWith(color: p.textMuted),
               ),
             ],
           ),
         ),
         const SizedBox(height: ClaySpacing.lg),
-        _sessionsCard(context),
+        _sessionsCard(context, plan),
         const SizedBox(height: ClaySpacing.lg),
         if (overCapacity)
           Padding(
             padding: const EdgeInsets.only(bottom: ClaySpacing.md),
             child: Text(
-              'المحدَّد ${picked.length} حصة والمسموح $_capacity: ألغِ '
-              'تحديد ${picked.length - _capacity} حصة.',
+              'المحدَّد ${picked.length} حصة والمسموح ${plan.capacity}: ألغِ '
+              'تحديد ${picked.length - plan.capacity} حصة.',
               style: TextStyle(color: p.status.danger),
             ),
           ),
-        if (picked.isNotEmpty) ...[
+        if (needsStudents)
+          Padding(
+            padding: const EdgeInsets.only(bottom: ClaySpacing.md),
+            child: Text(
+              'أضف التلاميذ إلى الفوج أولاً ثم سجّل حضورهم السابق.',
+              style: TextStyle(color: p.status.danger),
+            ),
+          ),
+        if (picked.isNotEmpty && _roster.isNotEmpty) ...[
           _grid(context, picked, excuse),
           const SizedBox(height: ClaySpacing.md),
           _summary(context, excuse: excuse),
@@ -398,7 +481,7 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
         ],
         const SizedBox(height: ClaySpacing.lg),
         ClayButton(
-          label: 'حفظ الحضور السابق',
+          label: picked.isEmpty ? 'حفظ الحصص المقررة' : 'حفظ الحضور السابق',
           icon: ClayIcons.check,
           expand: true,
           loading: _saving,
@@ -409,55 +492,30 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     ];
   }
 
-  Widget _sessionsCard(BuildContext context) {
+  Widget _sessionsCard(BuildContext context, CyclePlan plan) {
     final text = Theme.of(context).textTheme;
     final p = context.palette;
-    final sessions = _sessions;
+    final rows = _rows;
+    final held = plan.fixed.where((s) => s.held).length + _picked.length;
+    final coming = plan.cycleSize - held;
     return ClayCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('الحصص التي انعقدت', style: text.titleMedium),
+          Text('الحصص المقررة', style: text.titleMedium),
+          const SizedBox(height: ClaySpacing.xs),
+          Text(
+            'حصص الدورة ${plan.cycleSize}: $held منعقدة و${coming < 0 ? 0 : coming} '
+            'قادمة.',
+            style: text.bodySmall!.copyWith(color: p.textMuted),
+          ),
           const SizedBox(height: ClaySpacing.sm),
-          if (sessions.isEmpty)
+          if (rows.isEmpty)
             Text(
-              'لا حصص مقترحة بين هذا التاريخ وأمس: لا جدول أسبوعي للفوج أو '
-              'سُجّلت حصصها. أضف حصة يدوياً أو غيّر التاريخ.',
+              'لا حصص: لا جدول أسبوعي للفوج. أضف خانة أسبوعية من تعديل الفوج.',
               style: text.bodySmall!.copyWith(color: p.textMuted),
             ),
-          for (final s in sessions)
-            Row(
-              children: [
-                ClayCheckbox(
-                  value: _chosen.contains(s.key),
-                  semanticLabel: 'حصة ${s.date}',
-                  onChanged: _saving
-                      ? null
-                      : (value) => setState(() {
-                          if (value) {
-                            _chosen.add(s.key);
-                          } else {
-                            _chosen.remove(s.key);
-                          }
-                        }),
-                ),
-                const SizedBox(width: ClaySpacing.sm),
-                Text(_dayName(s.date), style: text.bodyMedium),
-                const SizedBox(width: ClaySpacing.sm),
-                Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: Text(s.date, style: text.bodyMedium),
-                ),
-                const Spacer(),
-                Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: Text(
-                    _times(s),
-                    style: text.bodySmall!.copyWith(color: p.textMuted),
-                  ),
-                ),
-              ],
-            ),
+          for (final row in rows) _sessionRow(context, row),
           const SizedBox(height: ClaySpacing.sm),
           Align(
             alignment: AlignmentDirectional.centerStart,
@@ -473,9 +531,77 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     );
   }
 
+  Widget _sessionRow(BuildContext context, _PlanRow row) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final s = row.session;
+    final Widget leading = switch (row.kind) {
+      _RowKind.past => ClayCheckbox(
+        value: _chosen.contains(s.key),
+        semanticLabel: 'حصة ${s.date}',
+        onChanged: _saving
+            ? null
+            : (value) => setState(() {
+                if (value) {
+                  _chosen.add(s.key);
+                } else {
+                  _chosen.remove(s.key);
+                }
+              }),
+      ),
+      _RowKind.held => SizedBox.square(
+        dimension: ClayCheckbox.size,
+        child: Icon(ClayIcons.check, color: p.status.success),
+      ),
+      _RowKind.upcoming => SizedBox.square(
+        dimension: ClayCheckbox.size,
+        child: Icon(ClayIcons.schedule, color: p.textMuted),
+      ),
+    };
+    final badge = switch (row.kind) {
+      _RowKind.past => null,
+      _RowKind.held => const ClayBadge(
+        label: 'سُجِّلت',
+        tone: ClayTone.success,
+      ),
+      _RowKind.upcoming => const ClayBadge(label: 'قادمة'),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: ClaySpacing.xs),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: ClaySpacing.sm),
+          Expanded(
+            child: Wrap(
+              spacing: ClaySpacing.sm,
+              runSpacing: ClaySpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(_dayName(s.date), style: text.bodyMedium),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(s.date, style: text.bodyMedium),
+                ),
+                ?badge,
+              ],
+            ),
+          ),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text(
+              _times(s),
+              style: text.bodySmall!.copyWith(color: p.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _grid(
     BuildContext context,
-    List<PastSessionSuggestion> sessions,
+    List<PlannedSession> sessions,
     bool excuse,
   ) {
     final p = context.palette;

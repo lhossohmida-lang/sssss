@@ -84,6 +84,7 @@ class GroupService {
   final CycleService cycles;
   final SmsEventService sms;
 
+  static const String fieldGroup = 'group';
   static const String fieldSubject = 'subject';
   static const String fieldTeacher = 'teacher';
   static const String fieldCycleSize = 'sessions_per_cycle';
@@ -401,6 +402,84 @@ class GroupService {
       key: {'id': groupId},
       values: {'archived_at': writer.now()},
     );
+  }
+
+  /// يحذف المجموعة حذفاً ناعماً مع جدولها وحصصها المبرمجة وانتساب تلاميذها وملفاتها
+  /// وغرفة محادثتها وطلباتها؛ ويبقى التلاميذ أنفسهم.
+  ///
+  /// يرفض ([ValidationException]) حذف مجموعة لها سجلات لا يصح فقدها: مدفوعات أو خلاص
+  /// أساتذة أو أرصدة تلاميذ أو نتائج، أو حصص انعقدت أو سُجّل فيها حضور؛ فتُؤرشف بدل
+  /// ذلك وتبقى سجلاتها. يعيد `false` إن لم توجد المجموعة أو حُذفت من قبل.
+  Future<bool> delete(String groupId) async {
+    final group =
+        await (db.select(db.groups)
+              ..where((g) => g.id.equals(groupId) & g.deletedAt.isNull()))
+            .getSingleOrNull();
+    if (group == null) return false;
+    return db.transaction(() async {
+      final blockers = await _deleteBlockers(groupId);
+      if (blockers.isNotEmpty) {
+        throw ValidationException.field(
+          fieldGroup,
+          'لا يمكن حذف الفوج ${group.number}: ${blockers.join('، ')}. '
+          'أرشفه بدل حذفه فتبقى سجلاته.',
+        );
+      }
+      final children = <TableInfo<Table, Object?>>[
+        db.groupSlots,
+        db.sessions,
+        db.groupStudents,
+        db.groupFiles,
+        db.chatRooms,
+        db.sessionRequests,
+      ];
+      for (final table in children) {
+        final rows = await db
+            .customSelect(
+              'SELECT id FROM "${table.actualTableName}" '
+              'WHERE group_id = ? AND deleted_at IS NULL',
+              variables: [Variable<String>(groupId)],
+            )
+            .get();
+        for (final row in rows) {
+          await writer.softDelete(table, key: {'id': row.read<String>('id')});
+        }
+      }
+      return writer.softDelete(db.groups, key: {'id': groupId});
+    });
+  }
+
+  /// ما يمنع حذف المجموعة (نصوص عربية)، أو فارغة إن جاز حذفها.
+  Future<List<String>> _deleteBlockers(String groupId) async {
+    Future<int> count(String sql) async {
+      final row = await db
+          .customSelect(sql, variables: [Variable<String>(groupId)])
+          .getSingle();
+      return row.read<int>('c');
+    }
+
+    Future<bool> has(String table) async =>
+        await count(
+          'SELECT COUNT(*) AS c FROM $table '
+          'WHERE group_id = ? AND deleted_at IS NULL',
+        ) >
+        0;
+
+    return [
+      if (await has('payments')) 'لها مدفوعات مسجَّلة',
+      if (await has('teacher_payouts')) 'لها خلاص أساتذة',
+      if (await has('student_credits')) 'لها أرصدة تلاميذ',
+      if (await has('grades')) 'لها نتائج مسجَّلة',
+      if (await count(
+            'SELECT COUNT(*) AS c FROM sessions s '
+            'WHERE s.group_id = ? AND s.deleted_at IS NULL AND '
+            '(s.closed_at IS NOT NULL OR EXISTS ('
+            'SELECT 1 FROM attendance a WHERE a.session_id = s.id '
+            'AND a.deleted_at IS NULL))',
+          ) >
+          0)
+        'انعقدت منها حصص أو سُجّل فيها حضور',
+    ];
   }
 
   Future<void> _saveSlot(String groupId, GroupSlotInput slot) async {

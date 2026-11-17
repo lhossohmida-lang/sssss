@@ -6,6 +6,24 @@ import 'date_key.dart';
 import 'enums.dart';
 import 'stable_id.dart';
 
+/// حصة كانت ستُبرمج من الجدول الأسبوعي للمجموعة ولم تُكتب بعد.
+class ScheduledOccurrence {
+  const ScheduledOccurrence({
+    required this.date,
+    required this.startMinutes,
+    required this.endMinutes,
+    this.roomId,
+  });
+
+  /// التاريخ `YYYY-MM-DD`.
+  final String date;
+  final int startMinutes;
+  final int endMinutes;
+  final String? roomId;
+
+  String get key => '$date|$startMinutes';
+}
+
 /// قواعد الدورة: «الشهر» دورة من `sessions_per_cycle` حصة.
 ///
 /// - الحصة الملغاة لا تُحسب ولا رقم لها.
@@ -74,9 +92,15 @@ class CycleService {
 
   /// يبرمج من الجدول الأسبوعي ما ينقص الدورة الحالية حتى تبلغ حدّها،
   /// ابتداءً من [fromDate] أو من اليوم التالي لآخر حصة مبرمجة، أيهما أبعد.
+  /// مع `continueAfterLast: false` يبدأ من [fromDate] نفسه ويملأ ما فيه من فراغ
+  /// (لإعادة برمجة الدورة من تاريخ أول حصة).
   ///
   /// يعيد الحصص الجديدة. لا ينشئ شيئاً إن لم يكن للمجموعة جدول أسبوعي.
-  Future<List<SessionRow>> topUp(String groupId, {required String fromDate}) {
+  Future<List<SessionRow>> topUp(
+    String groupId, {
+    required String fromDate,
+    bool continueAfterLast = true,
+  }) {
     return db.transaction(() async {
       final group = await _group(groupId);
       final cycle = group.currentCycleNumber;
@@ -84,47 +108,89 @@ class CycleService {
           group.sessionsPerCycle - await countedSessions(groupId, cycle);
       if (missing <= 0) return const <SessionRow>[];
 
-      final slots =
-          await (db.select(db.groupSlots)
-                ..where((s) => s.groupId.equals(groupId) & s.deletedAt.isNull())
-                ..orderBy([(s) => OrderingTerm(expression: s.startMinutes)]))
-              .get();
-      if (slots.isEmpty) return const <SessionRow>[];
-
-      final existing = await cycleSessions(groupId, cycle);
       var day = fromDate;
-      if (existing.isNotEmpty) {
-        final afterLast = DateKey.next(existing.last.date);
-        if (afterLast.compareTo(day) > 0) day = afterLast;
+      if (continueAfterLast) {
+        final existing = await cycleSessions(groupId, cycle);
+        if (existing.isNotEmpty) {
+          final afterLast = DateKey.next(existing.last.date);
+          if (afterLast.compareTo(day) > 0) day = afterLast;
+        }
       }
 
+      final planned = await _occurrences(group, day, missing, const {});
+      if (planned.isEmpty) return const <SessionRow>[];
       final created = <SessionRow>[];
-      for (var i = 0; i < _maxDaysAhead && created.length < missing; i++) {
-        final weekday = DateKey.weekday(day);
-        for (final slot in slots.where((s) => s.weekday == weekday)) {
-          if (created.length >= missing) break;
-          if (await _slotTaken(groupId, day, slot.startMinutes)) continue;
-          final stamp = writer.now();
-          final session = SessionRow(
-            id: StableId.session(groupId, day, slot.startMinutes),
-            createdAt: stamp,
-            updatedAt: stamp,
-            groupId: groupId,
-            cycleNumber: cycle,
-            date: day,
-            startMinutes: slot.startMinutes,
-            endMinutes: slot.endMinutes,
-            roomId: slot.roomId ?? group.roomId,
-            status: SessionStatus.normal.code,
-          );
-          await _save(session);
-          created.add(session);
-        }
-        day = DateKey.next(day);
+      for (final occurrence in planned) {
+        final stamp = writer.now();
+        final session = SessionRow(
+          id: StableId.session(
+            groupId,
+            occurrence.date,
+            occurrence.startMinutes,
+          ),
+          createdAt: stamp,
+          updatedAt: stamp,
+          groupId: groupId,
+          cycleNumber: cycle,
+          date: occurrence.date,
+          startMinutes: occurrence.startMinutes,
+          endMinutes: occurrence.endMinutes,
+          roomId: occurrence.roomId,
+          status: SessionStatus.normal.code,
+        );
+        await _save(session);
+        created.add(session);
       }
       await renumber(groupId, cycle);
       return created;
     });
+  }
+
+  /// أول [count] حصة من الجدول الأسبوعي ابتداءً من [fromDate] لا حصة قائمة فيها،
+  /// بالترتيب الزمني، دون كتابة شيء. حصص [ignore] (معرّفاتها) تُعامَل كأنها
+  /// محذوفة، لمعاينة ما سيُبرمج بعد حذفها.
+  Future<List<ScheduledOccurrence>> occurrences(
+    String groupId, {
+    required String fromDate,
+    required int count,
+    Set<String> ignore = const {},
+  }) async => _occurrences(await _group(groupId), fromDate, count, ignore);
+
+  Future<List<ScheduledOccurrence>> _occurrences(
+    GroupRow group,
+    String fromDate,
+    int count,
+    Set<String> ignore,
+  ) async {
+    if (count <= 0) return const <ScheduledOccurrence>[];
+    final slots =
+        await (db.select(db.groupSlots)
+              ..where((s) => s.groupId.equals(group.id) & s.deletedAt.isNull())
+              ..orderBy([(s) => OrderingTerm(expression: s.startMinutes)]))
+            .get();
+    if (slots.isEmpty) return const <ScheduledOccurrence>[];
+
+    final found = <ScheduledOccurrence>[];
+    var day = fromDate;
+    for (var i = 0; i < _maxDaysAhead && found.length < count; i++) {
+      final weekday = DateKey.weekday(day);
+      for (final slot in slots.where((s) => s.weekday == weekday)) {
+        if (found.length >= count) break;
+        if (await _slotTaken(group.id, day, slot.startMinutes, ignore)) {
+          continue;
+        }
+        found.add(
+          ScheduledOccurrence(
+            date: day,
+            startMinutes: slot.startMinutes,
+            endMinutes: slot.endMinutes,
+            roomId: slot.roomId ?? group.roomId,
+          ),
+        );
+      }
+      day = DateKey.next(day);
+    }
+    return found;
   }
 
   /// يضيف حصة (مضافة أو تعويضية أو عادية) إلى الدورة الحالية ويعيد الترقيم.
@@ -239,10 +305,15 @@ class CycleService {
     });
   }
 
-  Future<bool> _slotTaken(String groupId, String date, int start) async {
+  Future<bool> _slotTaken(
+    String groupId,
+    String date,
+    int start, [
+    Set<String> ignore = const {},
+  ]) async {
     final row = await db
         .customSelect(
-          'SELECT 1 FROM sessions WHERE group_id = ? AND date = ? '
+          'SELECT id FROM sessions WHERE group_id = ? AND date = ? '
           'AND start_minutes = ? AND deleted_at IS NULL LIMIT 1',
           variables: [
             Variable<String>(groupId),
@@ -252,7 +323,7 @@ class CycleService {
           readsFrom: {db.sessions},
         )
         .getSingleOrNull();
-    return row != null;
+    return row != null && !ignore.contains(row.read<String>('id'));
   }
 
   Future<GroupRow> _group(String id) =>

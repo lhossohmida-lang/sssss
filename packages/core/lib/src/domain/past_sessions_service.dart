@@ -8,18 +8,22 @@ import 'cycle_service.dart';
 import 'date_key.dart';
 import 'enums.dart';
 
-/// حصة سابقة يقترحها الجدول الأسبوعي للفوج (لم تُسجَّل بعد).
-class PastSessionSuggestion {
-  const PastSessionSuggestion({
+/// حصة في «الحصص المقررة» للدورة الحالية: تاريخها ووقتها.
+class PlannedSession {
+  const PlannedSession({
     required this.date,
     required this.startMinutes,
     required this.endMinutes,
+    this.held = false,
   });
 
   /// التاريخ `YYYY-MM-DD`.
   final String date;
   final int startMinutes;
   final int endMinutes;
+
+  /// انعقدت وأُغلقت وسُجّل حضورها من قبل.
+  final bool held;
 
   String get key => '$date|$startMinutes';
 }
@@ -63,21 +67,88 @@ class PastSessionsResult {
   /// عدد خانات الحضور المسجَّلة.
   final int marks;
 
-  /// عدد الحصص القادمة التي حُذفت من الدورة لتبقى بحجمها (حصص الدورة ثابتة).
+  /// عدد الحصص القادمة التي نقصت من الدورة لتبقى بحجمها (حصص الدورة ثابتة).
   final int removedUpcoming;
 }
 
-/// تسجيل حصص الدورة الحالية التي انعقدت قبل أن تبدأ المدرسة باستعمال النظام.
+/// «الحصص المقررة» للدورة الحالية من تاريخ أول حصة: حصص الدورة كلها بعددها وتواريخها
+/// من الجدول الأسبوعي، ماضيةً وقادمة.
+class CyclePlan {
+  const CyclePlan({
+    required this.from,
+    required this.cycleSize,
+    required this.capacity,
+    required this.fixed,
+    required this.past,
+    required this.upcoming,
+  });
+
+  /// تاريخ أول حصة الذي بُني عليه المخطط (`YYYY-MM-DD`).
+  final String from;
+
+  /// عدد حصص الدورة.
+  final int cycleSize;
+
+  /// أقصى عدد حصص ماضية يمكن تسجيلها الآن.
+  final int capacity;
+
+  /// حصص قائمة لا تمسّها إعادة البرمجة: المنعقدة المسجَّلة ([PlannedSession.held])،
+  /// وما فيه حضور، والتعويضية والمضافة.
+  final List<PlannedSession> fixed;
+
+  /// حصص قبل اليوم، من [from]، يُسجَّل حضور ما انعقد منها ويُترك ما لم ينعقد.
+  final List<PlannedSession> past;
+
+  /// الحصص القادمة التي ستُبرمج من الجدول، بأكثر ما تحتمله الدورة؛ يؤخذ منها بقدر ما
+  /// يبقى لها بعد الحصص الثابتة والماضية المحدَّدة.
+  final List<PlannedSession> upcoming;
+}
+
+/// حصص الدورة الحالية مصنّفة بحسب جواز إعادة برمجتها.
+class _CycleState {
+  _CycleState({
+    required this.fixed,
+    required this.deletable,
+    required this.taken,
+  });
+
+  /// المحسوبة التي لا تُمَسّ: المغلقة، وما فيه حضور، وغير العادية. بالترتيب الزمني.
+  final List<SessionRow> fixed;
+
+  /// العادية غير المغلقة التي لا حضور فيها: تُسجَّل إن حُدِّدت، وتُحذف وتُبرمج من جديد
+  /// إن لم تُحدَّد. بالترتيب الزمني.
+  final List<SessionRow> deletable;
+
+  /// مفاتيح (`تاريخ|بداية`) كل حصص المجموعة الحية التي تبقى حيث هي.
+  final Set<String> taken;
+
+  Set<String> get deletableIds => {for (final s in deletable) s.id};
+
+  int get held => fixed.where((s) => s.closedAt != null).length;
+
+  String? get earliestHeld {
+    for (final session in fixed) {
+      if (session.closedAt != null) return session.date;
+    }
+    return null;
+  }
+}
+
+/// «الحصص المقررة» للدورة الحالية وتسجيل ما انعقد منها قبل أن تبدأ المدرسة باستعمال
+/// النظام.
 ///
-/// المدرسة التي تبدأ والدورة في منتصفها لها حصص مضت وحضور لم يُسجَّل؛ بدونه يخطئ
-/// حساب نصيب الأستاذ وتقدّم الدورة. هذه الخدمة تنشئ تلك الحصص مغلقة بترتيبها
-/// الزمني داخل الدورة الحالية، وتسجّل حضور التلاميذ فيها، وتحذف من حصص الدورة
-/// القادمة بقدر ما أُضيف حتى يبقى عدد حصصها كما هو.
+/// حصص الدورة دائماً بعددها (`sessions_per_cycle`) وبتواريخها من الجدول الأسبوعي ابتداءً
+/// من تاريخ أول حصة. المدرسة التي تبدأ والدورة في منتصفها لها حصص مضت وحضور لم
+/// يُسجَّل؛ بدونه يخطئ حساب نصيب الأستاذ وتقدّم الدورة. هذه الخدمة تقترح الحصص الماضية
+/// من تاريخ أول حصة، وتُنشئ ما انعقد منها مغلقاً بترتيبه الزمني داخل الدورة الحالية مع
+/// حضور تلاميذه، ثم تعيد برمجة القادمة من الجدول لتبقى الدورة بعددها. وتغيير تاريخ
+/// أول حصة إلى ما بعد اليوم يُعيد برمجة الدورة كلها من ذلك التاريخ.
 ///
 /// قيود مقصودة:
 /// - لا تُسجَّل إلا حصص قبل اليوم (حصص اليوم تُغلق وتُسجَّل من شاشة الحضور).
 /// - تبقى حصة واحدة على الأقل في الدورة لتُغلق تلقائياً، فلا تكتمل الدورة هنا
 ///   (اكتمالها يُنشئ خلاص الأستاذ ويرسل رسائل لأولياء التلاميذ).
+/// - الحصص المنعقدة المغلقة وما فيه حضور والتعويضية والمضافة لا تُحذف ولا تُنقل.
 /// - لا رسائل غياب ولا تنبيهات: هذه حصص مضت.
 class PastSessionsService {
   PastSessionsService(this.db, this.writer, this.cycles, this.attendance);
@@ -87,53 +158,95 @@ class PastSessionsService {
   final CycleService cycles;
   final AttendanceService attendance;
 
-  /// أقصى عدد أيام يُبحث فيها عن حصص من الجدول.
+  /// أقصى عدد أيام يُبحث فيها عن حصص ماضية من الجدول.
   static const int _maxDays = 200;
 
-  /// عدد الحصص السابقة التي يمكن تسجيلها الآن في الدورة الحالية.
-  Future<int> capacity(String groupId) async {
+  /// تاريخ أول حصة في الدورة الحالية: أقدم حصة محسوبة فيها (منعقدة أو مبرمجة)، أو
+  /// اليوم إن لم تكن فيها حصص.
+  Future<String> firstDate(String groupId, {required DateTime now}) async {
     final group = await _activeGroup(groupId);
-    final held = await cycles.countedSessions(
+    final sessions = await cycles.cycleSessions(
       groupId,
       group.currentCycleNumber,
-      closedOnly: true,
     );
-    final room = group.sessionsPerCycle - 1 - held;
-    return room < 0 ? 0 : room;
+    for (final session in sessions) {
+      if (session.status != SessionStatus.cancelled.code) return session.date;
+    }
+    return DateKey.of(now);
   }
 
-  /// حصص الجدول الأسبوعي من [from] حتى أمس ممّا لا حصة مسجَّلة له، بالترتيب الزمني.
-  Future<List<PastSessionSuggestion>> suggest(
+  /// «الحصص المقررة» للدورة الحالية بدءاً من أول حصة [from]، دون كتابة شيء.
+  Future<CyclePlan> plan(
     String groupId, {
     required String from,
     required DateTime now,
   }) async {
-    await _activeGroup(groupId);
-    _checkDate(from);
+    final group = await _activeGroup(groupId);
+    _checkDate(from, field: 'first_date');
     final today = DateKey.of(now);
-    final slots =
-        await (db.select(db.groupSlots)
-              ..where((s) => s.groupId.equals(groupId) & s.deletedAt.isNull())
-              ..orderBy([(s) => OrderingTerm(expression: s.startMinutes)]))
-            .get();
-    final found = <PastSessionSuggestion>[];
-    if (slots.isEmpty) return found;
+    final size = group.sessionsPerCycle;
+    final state = await _cycleState(group);
+    final slots = await _slots(groupId);
+
+    // الحصص العادية الماضية التي برمجها النظام ولم تُسجَّل ولا حضور فيها تُعرض لتُسجَّل
+    // أو تُترك، مع خانات الجدول التي لا حصة فيها من أول حصة إلى أمس.
+    final past = <String, PlannedSession>{};
+    for (final session in state.deletable) {
+      if (session.date.compareTo(today) < 0 &&
+          session.date.compareTo(from) >= 0) {
+        past['${session.date}|${session.startMinutes}'] = PlannedSession(
+          date: session.date,
+          startMinutes: session.startMinutes,
+          endMinutes: session.endMinutes,
+        );
+      }
+    }
     var day = from;
     for (var i = 0; i < _maxDays && day.compareTo(today) < 0; i++) {
       final weekday = DateKey.weekday(day);
       for (final slot in slots.where((s) => s.weekday == weekday)) {
-        if (await _slotTaken(groupId, day, slot.startMinutes)) continue;
-        found.add(
-          PastSessionSuggestion(
-            date: day,
-            startMinutes: slot.startMinutes,
-            endMinutes: slot.endMinutes,
-          ),
+        final key = '$day|${slot.startMinutes}';
+        if (state.taken.contains(key) || past.containsKey(key)) continue;
+        past[key] = PlannedSession(
+          date: day,
+          startMinutes: slot.startMinutes,
+          endMinutes: slot.endMinutes,
         );
       }
       day = DateKey.next(day);
     }
-    return found;
+    final pastRows = past.values.toList()..sort(_byTime);
+
+    final upcoming = await cycles.occurrences(
+      groupId,
+      fromDate: from.compareTo(today) > 0 ? from : today,
+      count: size - state.fixed.length,
+      ignore: state.deletableIds,
+    );
+    final room = size - 1 - state.held;
+    return CyclePlan(
+      from: from,
+      cycleSize: size,
+      capacity: room < 0 ? 0 : room,
+      fixed: [
+        for (final s in state.fixed)
+          PlannedSession(
+            date: s.date,
+            startMinutes: s.startMinutes,
+            endMinutes: s.endMinutes,
+            held: s.closedAt != null,
+          ),
+      ],
+      past: pastRows.take(size).toList(),
+      upcoming: [
+        for (final o in upcoming)
+          PlannedSession(
+            date: o.date,
+            startMinutes: o.startMinutes,
+            endMinutes: o.endMinutes,
+          ),
+      ],
+    );
   }
 
   /// تلاميذ الفوج المنتسبون في دورته الحالية (من يُسجَّل حضورهم)، بالاسم.
@@ -164,7 +277,12 @@ class PastSessionsService {
     ];
   }
 
-  /// يسجّل [sessions] في الدورة الحالية مغلقةً بحضور تلاميذها. كله أو لا شيء.
+  /// يسجّل [sessions] في الدورة الحالية مغلقةً بحضور تلاميذها ثم يعيد برمجة ما بقي
+  /// منها من الجدول لتبقى الدورة بعددها. كله أو لا شيء.
+  ///
+  /// [firstDate] تاريخ أول حصة في الدورة: ما قبله من الحصص العادية غير المسجَّلة يُحذف،
+  /// وإن كان بعد اليوم بُرمجت الدورة كلها منه. بدونه تُبرمج القادمة من اليوم. ومع
+  /// [firstDate] تجوز قائمة [sessions] فارغة (إعادة برمجة فقط).
   ///
   /// [canExcuse] إذن تسجيل «غائب برخصة» (للمدير أو العامل المخوَّل فقط، قرار 44).
   Future<PastSessionsResult> record(
@@ -172,11 +290,13 @@ class PastSessionsService {
     List<PastSessionInput> sessions, {
     required DateTime now,
     bool canExcuse = false,
+    String? firstDate,
   }) async {
-    if (sessions.isEmpty) {
+    if (sessions.isEmpty && firstDate == null) {
       throw ValidationException.field('sessions', 'اختر حصة واحدة على الأقل');
     }
     final today = DateKey.of(now);
+    if (firstDate != null) _checkDate(firstDate, field: 'first_date');
     final seen = <String>{};
     for (final input in sessions) {
       _checkDate(input.date);
@@ -184,6 +304,12 @@ class PastSessionsService {
         throw ValidationException.field(
           'sessions',
           'الحصص السابقة قبل اليوم فقط؛ حصص اليوم تُسجَّل من شاشة الحضور',
+        );
+      }
+      if (firstDate != null && input.date.compareTo(firstDate) < 0) {
+        throw ValidationException.field(
+          'sessions',
+          'حصة قبل تاريخ أول حصة في الدورة: ${input.date}',
         );
       }
       if (input.endMinutes <= input.startMinutes ||
@@ -212,22 +338,41 @@ class PastSessionsService {
     return db.transaction(() async {
       final group = await _activeGroup(groupId);
       final cycle = group.currentCycleNumber;
-      final held = await cycles.countedSessions(
-        groupId,
-        cycle,
-        closedOnly: true,
-      );
-      final allowed = group.sessionsPerCycle - 1 - held;
-      if (sessions.length > allowed) {
+      final size = group.sessionsPerCycle;
+      final state = await _cycleState(group);
+      final earliestHeld = state.earliestHeld;
+      if (firstDate != null &&
+          earliestHeld != null &&
+          firstDate.compareTo(earliestHeld) > 0) {
         throw ValidationException.field(
-          'sessions',
-          allowed <= 0
-              ? 'لا يمكن تسجيل حصص سابقة: الدورة تكاد تكتمل'
-              : 'يمكن تسجيل $allowed حصة سابقة على الأكثر '
-                    '(حصص الدورة ${group.sessionsPerCycle})',
+          'first_date',
+          'أول حصة لا تكون بعد حصة انعقدت وسُجّلت ($earliestHeld)',
         );
       }
+      if (sessions.isNotEmpty) {
+        final allowed = size - 1 - state.held;
+        if (sessions.length > allowed) {
+          throw ValidationException.field(
+            'sessions',
+            allowed <= 0
+                ? 'لا يمكن تسجيل حصص سابقة: الدورة تكاد تكتمل'
+                : 'يمكن تسجيل $allowed حصة سابقة على الأكثر '
+                      '(حصص الدورة $size)',
+          );
+        }
+        if (state.fixed.length + sessions.length > size) {
+          throw ValidationException.field(
+            'sessions',
+            'حصص الدورة ($size) لا تتسع لما سُجّل وللحصص الثابتة فيها '
+                '(${state.fixed.length})',
+          );
+        }
+      }
+
       final roster = {for (final s in await this.roster(groupId)) s.studentId};
+      final reusable = {
+        for (final s in state.deletable) '${s.date}|${s.startMinutes}': s,
+      };
       for (final input in sessions) {
         for (final studentId in input.marks.keys) {
           if (!roster.contains(studentId)) {
@@ -237,7 +382,9 @@ class PastSessionsService {
             );
           }
         }
-        if (await _slotTaken(groupId, input.date, input.startMinutes)) {
+        final key = '${input.date}|${input.startMinutes}';
+        if (!reusable.containsKey(key) &&
+            await _slotTaken(groupId, input.date, input.startMinutes)) {
           throw ValidationException.field(
             'sessions',
             'حصة هذا الفوج في ${input.date} '
@@ -247,6 +394,7 @@ class PastSessionsService {
       }
 
       var marks = 0;
+      final reused = <String>{};
       final ordered = [...sessions]
         ..sort((a, b) {
           final byDate = a.date.compareTo(b.date);
@@ -255,13 +403,21 @@ class PastSessionsService {
               : a.startMinutes.compareTo(b.startMinutes);
         });
       for (final input in ordered) {
-        final session = await cycles.addSession(
-          groupId: groupId,
-          date: input.date,
-          startMinutes: input.startMinutes,
-          endMinutes: input.endMinutes,
-          status: SessionStatus.normal,
-        );
+        // حصة برمجها النظام ولم تُسجَّل تُغلق نفسها، وغيرها يُنشأ مغلقاً.
+        final scheduled = reusable['${input.date}|${input.startMinutes}'];
+        final SessionRow session;
+        if (scheduled != null) {
+          session = scheduled;
+          reused.add(scheduled.id);
+        } else {
+          session = await cycles.addSession(
+            groupId: groupId,
+            date: input.date,
+            startMinutes: input.startMinutes,
+            endMinutes: input.endMinutes,
+            status: SessionStatus.normal,
+          );
+        }
         await cycles.closeSession(session.id);
         for (final entry in input.marks.entries) {
           await attendance.writeHistorical(session, entry.key, entry.value);
@@ -269,59 +425,78 @@ class PastSessionsService {
         }
       }
 
-      final removed = await _trimUpcoming(group);
+      // ما لم يُحدَّد من الحصص المبرمجة (ماضية لم تنعقد، أو قادمة) يُحذف ثم تُبرمج القادمة
+      // من الجدول من جديد: من اليوم، أو من أول حصة إن كانت بعد اليوم.
+      var deletedUpcoming = 0;
+      for (final session in state.deletable) {
+        if (reused.contains(session.id)) continue;
+        await writer.softDelete(db.sessions, key: {'id': session.id});
+        if (session.date.compareTo(today) >= 0) deletedUpcoming++;
+      }
       await cycles.renumber(groupId, cycle);
+      final created = await cycles.topUp(
+        groupId,
+        fromDate: firstDate != null && firstDate.compareTo(today) > 0
+            ? firstDate
+            : today,
+        continueAfterLast: false,
+      );
+      final removed = deletedUpcoming - created.length;
       return PastSessionsResult(
         sessions: sessions.length,
         marks: marks,
-        removedUpcoming: removed,
+        removedUpcoming: removed < 0 ? 0 : removed,
       );
     });
   }
 
-  /// يحذف من آخر حصص الدورة القادمة ما زاد عن حجمها بعد إضافة الحصص السابقة.
-  Future<int> _trimUpcoming(GroupRow group) async {
-    final counted = await cycles.countedSessions(
-      group.id,
-      group.currentCycleNumber,
-    );
-    final surplus = counted - group.sessionsPerCycle;
-    if (surplus <= 0) return 0;
-    final upcoming =
+  /// حصص الدورة الحالية مصنّفة: ثابتة (لا تُمَسّ) أو قابلة لإعادة البرمجة.
+  Future<_CycleState> _cycleState(GroupRow group) async {
+    final all =
         await (db.select(db.sessions)
-              ..where(
-                (s) =>
-                    s.groupId.equals(group.id) &
-                    s.cycleNumber.equals(group.currentCycleNumber) &
-                    s.deletedAt.isNull() &
-                    s.closedAt.isNull() &
-                    s.status.isNotValue(SessionStatus.cancelled.code),
-              )
+              ..where((s) => s.groupId.equals(group.id) & s.deletedAt.isNull())
               ..orderBy([
-                (s) => OrderingTerm.desc(s.date),
-                (s) => OrderingTerm.desc(s.startMinutes),
-              ])
-              ..limit(surplus))
+                (s) => OrderingTerm(expression: s.date),
+                (s) => OrderingTerm(expression: s.startMinutes),
+              ]))
             .get();
-    for (final session in upcoming) {
-      final marked = await db
-          .customSelect(
-            'SELECT 1 FROM attendance WHERE session_id = ? '
-            'AND deleted_at IS NULL LIMIT 1',
-            variables: [Variable<String>(session.id)],
-            readsFrom: {db.attendance},
-          )
-          .getSingleOrNull();
-      if (marked != null) {
-        throw ValidationException.field(
-          'sessions',
-          'لا يمكن حذف حصة قادمة سُجّل فيها حضور (${session.date})',
-        );
+    final marked = await db
+        .customSelect(
+          'SELECT DISTINCT a.session_id AS id FROM attendance a '
+          'JOIN sessions s ON s.id = a.session_id '
+          'WHERE s.group_id = ? AND a.deleted_at IS NULL',
+          variables: [Variable<String>(group.id)],
+          readsFrom: {db.attendance, db.sessions},
+        )
+        .get();
+    final markedIds = {for (final row in marked) row.read<String>('id')};
+
+    final fixed = <SessionRow>[];
+    final deletable = <SessionRow>[];
+    final taken = <String>{};
+    for (final session in all) {
+      final inCycle = session.cycleNumber == group.currentCycleNumber;
+      final counted = session.status != SessionStatus.cancelled.code;
+      final replannable =
+          inCycle &&
+          session.closedAt == null &&
+          session.status == SessionStatus.normal.code &&
+          !markedIds.contains(session.id);
+      if (replannable) {
+        deletable.add(session);
+        continue;
       }
-      await writer.softDelete(db.sessions, key: {'id': session.id});
+      taken.add('${session.date}|${session.startMinutes}');
+      if (inCycle && counted) fixed.add(session);
     }
-    return upcoming.length;
+    return _CycleState(fixed: fixed, deletable: deletable, taken: taken);
   }
+
+  Future<List<GroupSlotRow>> _slots(String groupId) =>
+      (db.select(db.groupSlots)
+            ..where((s) => s.groupId.equals(groupId) & s.deletedAt.isNull())
+            ..orderBy([(s) => OrderingTerm(expression: s.startMinutes)]))
+          .get();
 
   Future<GroupRow> _activeGroup(String groupId) async {
     final group =
@@ -354,10 +529,15 @@ class PastSessionsService {
     return row != null;
   }
 
-  static void _checkDate(String value) {
+  static int _byTime(PlannedSession a, PlannedSession b) {
+    final byDate = a.date.compareTo(b.date);
+    return byDate != 0 ? byDate : a.startMinutes.compareTo(b.startMinutes);
+  }
+
+  static void _checkDate(String value, {String field = 'sessions'}) {
     final valid = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value);
     if (!valid || DateKey.of(DateKey.parse(value)) != value) {
-      throw ValidationException.field('sessions', 'تاريخ غير صالح: $value');
+      throw ValidationException.field(field, 'تاريخ غير صالح: $value');
     }
   }
 }

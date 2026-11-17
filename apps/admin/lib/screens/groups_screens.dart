@@ -7,8 +7,42 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+/// يحذف الفوج بعد تأكيد المستخدم، ويعيد `true` إن حُذف. ما لا يصح فقده (مدفوعات أو
+/// خلاص أو حضور مسجَّل...) تمنعه الخدمة فيُعرض سبب المنع ويُقترح الأرشفة.
+Future<bool> _deleteGroup(
+  BuildContext context,
+  WidgetRef ref, {
+  required String id,
+  required int number,
+}) async {
+  final ok = await showClayConfirm(
+    context,
+    title: 'حذف الفوج',
+    message:
+        'سيُحذف الفوج $number بجدوله وحصصه المبرمجة وانتساب تلاميذه إليه، '
+        'ويبقى التلاميذ أنفسهم. لا يُحذف فوج له مدفوعات أو حضور مسجَّل: '
+        'أرشفه بدل ذلك.',
+    confirmLabel: 'حذف',
+    danger: true,
+  );
+  if (!ok || !context.mounted) return false;
+  try {
+    return await ref.read(groupServiceProvider).delete(id);
+  } on ValidationException catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    }
+    return false;
+  }
+}
+
 /// قائمة المجموعات النشطة: رقمها ومادتها وأستاذها وقاعتها وجدولها وعدد
-/// تلاميذها، مع الأرشفة.
+/// تلاميذها، مع الأرشفة والحذف.
 class GroupsScreen extends ConsumerWidget {
   const GroupsScreen({super.key});
 
@@ -33,6 +67,7 @@ class GroupsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final canAdd = ref.can(PermissionModule.groups, PermissionAction.add);
     final canEdit = ref.can(PermissionModule.groups, PermissionAction.edit);
+    final canDelete = ref.can(PermissionModule.groups, PermissionAction.delete);
     final state = ref.watch(groupsProvider);
     return Column(
       children: [
@@ -80,6 +115,17 @@ class GroupsScreen extends ConsumerWidget {
                           tooltip: 'أرشفة الفوج ${item.number}',
                           icon: const Icon(ClayIcons.backup),
                           onPressed: () => _archive(context, ref, item),
+                        ),
+                      if (canDelete)
+                        IconButton(
+                          tooltip: 'حذف الفوج ${item.number}',
+                          icon: const Icon(ClayIcons.delete),
+                          onPressed: () => _deleteGroup(
+                            context,
+                            ref,
+                            id: item.id,
+                            number: item.number,
+                          ),
                         ),
                     ],
                   );
@@ -139,6 +185,14 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
   final _rate = TextEditingController();
   final List<_SlotDraft> _slots = [_SlotDraft()];
 
+  /// حقل خطأ تاريخ أول حصة في [_errors].
+  static const String _fieldFirstDate = 'first_date';
+
+  /// أبعد ما يُقبل لتاريخ أول حصة: ما مضى أكثر من هذا لا تكفي حصص الدورة لتغطيته.
+  static const int _maxDaysBack = 120;
+  static const int _maxDaysAhead = 365;
+
+  late DateTime _firstDate;
   String? _subjectId;
   String? _teacherId;
   String? _roomId;
@@ -151,9 +205,13 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
 
   bool get _editing => widget.groupId != null;
 
+  static DateTime _dayOf(DateTime time) =>
+      DateTime(time.year, time.month, time.day);
+
   @override
   void initState() {
     super.initState();
+    _firstDate = _dayOf(DateTime.now());
     if (_editing) {
       unawaited(_loadExisting());
     } else {
@@ -309,6 +367,43 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     _changed(() => slot.roomId = free.first.id);
   }
 
+  Future<void> _delete() async {
+    final existing = _existing;
+    if (existing == null) return;
+    final deleted = await _deleteGroup(
+      context,
+      ref,
+      id: existing.id,
+      number: existing.number,
+    );
+    if (deleted && mounted) context.go('/groups');
+  }
+
+  Future<void> _pickFirstDate() async {
+    final picked = await showClayDatePicker(
+      context,
+      title: 'تاريخ أول حصة',
+      initial: _firstDate,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _firstDate = _dayOf(picked);
+      _errors = {..._errors}..remove(_fieldFirstDate);
+    });
+  }
+
+  /// خطأ تاريخ أول حصة، أو `null` إن صلح.
+  String? _firstDateError(DateTime today) {
+    final days = _firstDate.difference(today).inDays;
+    if (days < -_maxDaysBack) {
+      return 'تاريخ بعيد في الماضي: اختر تاريخاً خلال آخر $_maxDaysBack يوماً';
+    }
+    if (days > _maxDaysAhead) {
+      return 'تاريخ بعيد: اختر تاريخاً خلال سنة من اليوم';
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
     if (_saving) return;
     final subjectId = _subjectId;
@@ -322,12 +417,21 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       });
       return;
     }
+    final now = _dayOf(DateTime.now());
+    final dateError = _editing ? null : _firstDateError(now);
+    if (dateError != null) {
+      setState(() => _errors = {_fieldFirstDate: dateError});
+      return;
+    }
     setState(() {
       _saving = true;
       _errors = const {};
     });
     final service = ref.read(groupServiceProvider);
-    final today = DateKey.of(DateTime.now());
+    final today = DateKey.of(now);
+    // حصص ماضية لا تُنشأ مفتوحة (يغلقها النظام غائبين): الفوج يُبرمج من اليوم، وتاريخ
+    // أول حصة ينتقل إلى «الحضور السابق» الذي يبني منه الحصص المقررة ويسجّل الماضي.
+    final firstIsPast = _firstDate.isBefore(now);
     try {
       GroupRow? created;
       if (_editing) {
@@ -347,7 +451,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           sessionsPerCycle: int.tryParse(_cycle.text.trim()) ?? 0,
           ratePerStudent: _rateValue,
           slots: _inputs(),
-          startDate: today,
+          startDate: firstIsPast ? today : DateKey.of(_firstDate),
         );
       }
       if (!mounted) return;
@@ -355,13 +459,65 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         context.pop();
       } else {
         // بعد إنشاء الفوج تُفتح صفحة إعداده: تلاميذه وحضورهم السابق وتسديدهم.
-        context.pushReplacement('/groups/${created.id}/setup');
+        final from = firstIsPast ? '?from=${DateKey.of(_firstDate)}' : '';
+        context.pushReplacement('/groups/${created.id}/setup$from');
       }
     } on ValidationException catch (e) {
       if (mounted) setState(() => _errors = e.errors);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// تاريخ أول حصة: منه تُولَّد حصص الدورة بعددها وتواريخها من الجدول الأسبوعي.
+  Widget _firstDateField(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final today = _dayOf(DateTime.now());
+    final past = _firstDate.isBefore(today);
+    final error = _errors[_fieldFirstDate];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('تاريخ أول حصة', style: text.labelLarge),
+        const SizedBox(height: ClaySpacing.xs),
+        Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(DateKey.of(_firstDate), style: text.titleMedium),
+                ),
+              ),
+            ),
+            ClayButton(
+              label: 'تغيير التاريخ',
+              kind: ClayButtonKind.secondary,
+              onPressed: _saving ? null : _pickFirstDate,
+            ),
+          ],
+        ),
+        const SizedBox(height: ClaySpacing.xs),
+        Text(
+          past
+              ? 'التاريخ قبل اليوم: يُنشأ الفوج وتُبرمج حصصه القادمة من اليوم، ثم '
+                    'تُبنى «الحصص المقررة» من هذا التاريخ وتُسجَّل حصصه الماضية '
+                    'بحضورها من «تسجيل الحضور السابق» بعد إضافة التلاميذ.'
+              : 'تُولَّد حصص الدورة بعددها من هذا التاريخ بحسب الجدول الأسبوعي.',
+          style: text.bodySmall!.copyWith(color: p.textMuted),
+        ),
+        if (error != null)
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              error,
+              style: text.bodySmall!.copyWith(color: p.status.danger),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -483,6 +639,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                       error: _errors[GroupService.fieldCycleSize],
                       onChanged: (_) => _scheduleCheck(),
                     ),
+                    if (!_editing) ...[gap, _firstDateField(context)],
                     gap,
                     ClayTextField(
                       controller: _rate,
@@ -536,6 +693,20 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                     loading: _saving,
                     onPressed: _submit,
                   ),
+                  if (_editing &&
+                      ref.can(
+                        PermissionModule.groups,
+                        PermissionAction.delete,
+                      )) ...[
+                    gap,
+                    ClayButton(
+                      label: 'حذف الفوج',
+                      icon: ClayIcons.delete,
+                      kind: ClayButtonKind.danger,
+                      expand: true,
+                      onPressed: _saving ? null : _delete,
+                    ),
+                  ],
                   const SizedBox(height: ClaySpacing.xl),
                 ],
               ),

@@ -41,6 +41,68 @@ void main() {
     expect(() => DateKey.parse('2026/01/01'), throwsFormatException);
   });
 
+  test('الحصص المرشحة من الجدول دون كتابة، وتتخطى الخانات المأخوذة', () async {
+    final found = await cycles.occurrences('g1', fromDate: saturday, count: 3);
+    expect(found.map((o) => o.key), [
+      '2026-11-14|600',
+      '2026-11-17|900',
+      '2026-11-21|600',
+    ]);
+    expect(found.first.roomId, 'r1', reason: 'القاعة الافتراضية للفوج');
+    expect(await cycles.cycleSessions('g1', 1), isEmpty, reason: 'لا كتابة');
+
+    await cycles.topUp('g1', fromDate: saturday);
+    final firstId = (await cycles.cycleSessions('g1', 1)).first.id;
+    final next = await cycles.occurrences('g1', fromDate: saturday, count: 2);
+    expect(next.map((o) => o.date), ['2026-11-28', '2026-12-01']);
+    final ignoring = await cycles.occurrences(
+      'g1',
+      fromDate: saturday,
+      count: 1,
+      ignore: {firstId},
+    );
+    expect(ignoring.single.date, saturday, reason: 'كأن الحصة محذوفة');
+    expect(
+      await cycles.occurrences('g1', fromDate: saturday, count: 0),
+      isEmpty,
+    );
+  });
+
+  Future<void> dropTwoEarliest() async {
+    await cycles.topUp('g1', fromDate: '2026-12-01');
+    expect(await describe(1), [
+      '2026-12-01#1:normal',
+      '2026-12-05#2:normal',
+      '2026-12-08#3:normal',
+      '2026-12-12#4:normal',
+    ]);
+    await env.db.customStatement(
+      "UPDATE sessions SET deleted_at = 5 WHERE date IN ('2026-12-01', '2026-12-05')",
+    );
+  }
+
+  test('البرمجة الافتراضية تلحق بما بعد آخر حصة مبرمجة', () async {
+    await dropTwoEarliest();
+    final added = await cycles.topUp('g1', fromDate: '2026-12-01');
+    expect(added.map((s) => s.date), ['2026-12-15', '2026-12-19']);
+  });
+
+  test('البرمجة من تاريخ بعينه تملأ الفراغ بدل أن تلحق بآخر حصة', () async {
+    await dropTwoEarliest();
+    final added = await cycles.topUp(
+      'g1',
+      fromDate: '2026-12-01',
+      continueAfterLast: false,
+    );
+    expect(added.map((s) => s.date), ['2026-12-01', '2026-12-05']);
+    expect(await describe(1), [
+      '2026-12-01#1:normal',
+      '2026-12-05#2:normal',
+      '2026-12-08#3:normal',
+      '2026-12-12#4:normal',
+    ]);
+  });
+
   test('برمجة الدورة من الجدول الأسبوعي حتى تبلغ حدّها', () async {
     final created = await cycles.topUp('g1', fromDate: saturday);
     expect(created, hasLength(4));

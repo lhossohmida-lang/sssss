@@ -24,9 +24,13 @@ final groupSetupPriceProvider = FutureProvider.autoDispose.family<int, String>(
 /// ويُحدَّد ما سُدِّد من دورته الحالية)، وحضورهم السابق، وتسديد الباقي. تُفتح بعد
 /// إنشاء فوج، ومن تفاصيل أي فوج.
 class GroupSetupScreen extends ConsumerStatefulWidget {
-  const GroupSetupScreen({required this.groupId, super.key});
+  const GroupSetupScreen({required this.groupId, this.firstDate, super.key});
 
   final String groupId;
+
+  /// تاريخ أول حصة (`YYYY-MM-DD`) الذي أُدخل عند إنشاء الفوج، يُنقل إلى شاشة الحضور
+  /// السابق فتبني الحصص المقررة منه.
+  final String? firstDate;
 
   @override
   ConsumerState<GroupSetupScreen> createState() => _GroupSetupScreenState();
@@ -91,8 +95,20 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
     }
   }
 
+  /// تاريخ أول حصة المنقول من نموذج الإنشاء إن كان تاريخاً صالحاً.
+  String? get _firstDate {
+    final value = widget.firstDate;
+    if (value == null || !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
+      return null;
+    }
+    return DateKey.of(DateKey.parse(value)) == value ? value : null;
+  }
+
   Future<void> _openPast() async {
-    await context.push('/groups/${widget.groupId}/past');
+    final from = _firstDate;
+    await context.push(
+      '/groups/${widget.groupId}/past${from == null ? '' : '?from=$from'}',
+    );
     if (mounted) _refresh();
   }
 
@@ -231,6 +247,14 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
                         : 'سُجّل حضور $held حصة في الدورة الحالية.',
                     style: text.bodyMedium,
                   ),
+                  if (_firstDate != null) ...[
+                    const SizedBox(height: ClaySpacing.xs),
+                    Text(
+                      'تاريخ أول حصة الذي أدخلته: $_firstDate. تُبنى منه «الحصص '
+                      'المقررة» عند تسجيل الحضور السابق.',
+                      style: text.bodySmall!.copyWith(color: p.textMuted),
+                    ),
+                  ],
                   const SizedBox(height: ClaySpacing.md),
                   ClayButton(
                     label: 'تسجيل الحضور السابق',

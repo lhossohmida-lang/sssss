@@ -1,6 +1,8 @@
 import 'package:admin/admin_tabs.dart';
+import 'package:admin/screens/group_setup_screen.dart';
 import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_core/testing.dart';
@@ -195,6 +197,143 @@ void main() {
     expect(sessions, hasLength(8));
   });
 
+  /// يغيّر «تاريخ أول حصة» في نموذج الإنشاء إلى اليوم [day] من الشهر الذي يبعد عن الشهر
+  /// الحالي [months] شهراً (سالباً للماضي).
+  Future<void> pickFirstDate(
+    WidgetTester tester, {
+    required int months,
+    required int day,
+  }) async {
+    await tester.tap(find.widgetWithText(ClayButton, 'تغيير التاريخ'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < months.abs(); i++) {
+      await tester.tap(
+        find.byTooltip(months > 0 ? 'الشهر التالي' : 'الشهر السابق'),
+      );
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(
+      find.descendant(of: find.byType(ClayDialog), matching: find.text('$day')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'تأكيد'));
+    await tester.pumpAndSettle();
+  }
+
+  appTest('تاريخ أول حصة بعد اليوم: تُولَّد حصص الدورة الثماني منه', (
+    tester,
+  ) async {
+    final runtime = await openGroups(tester);
+    await openForm(tester);
+    await fillBasics(tester);
+    await pick(tester, 'اليوم', 'الثلاثاء');
+    final now = DateTime.now();
+    expect(find.text(DateKey.of(now)), findsOneWidget);
+    await pickFirstDate(tester, months: 1, day: 15);
+    final chosen = DateTime(now.year, now.month + 1, 15);
+    expect(find.text(DateKey.of(chosen)), findsOneWidget);
+    expect(find.textContaining('التاريخ قبل اليوم'), findsNothing);
+    await submit(tester);
+    await finishSetup(tester);
+
+    final sessions =
+        await runDb(tester, () => runtime.db.select(runtime.db.sessions).get())
+          ..sort((a, b) => a.date.compareTo(b.date));
+    expect(sessions, hasLength(8));
+    // أول حصة أول ثلاثاء في أو بعد التاريخ المختار، ثم كل أسبوع.
+    final first = DateKey.parse(sessions.first.date);
+    expect(first.weekday, DateTime.tuesday);
+    expect(first.isBefore(chosen), isFalse);
+    expect(first.difference(chosen).inDays, lessThan(7));
+    expect(sessions.every((s) => s.closedAt == null), isTrue);
+  });
+
+  appTest(
+    'تاريخ أول حصة قبل اليوم: يُبرمج الفوج من اليوم ويُنقل التاريخ للحضور السابق',
+    (tester) async {
+      final runtime = await openGroups(tester);
+      await openForm(tester);
+      await fillBasics(tester);
+      await pick(tester, 'اليوم', 'الثلاثاء');
+      await pickFirstDate(tester, months: -1, day: 15);
+      expect(find.textContaining('التاريخ قبل اليوم'), findsOneWidget);
+      await submit(tester);
+      expect(find.text('إعداد الفوج'), findsOneWidget);
+
+      // حصص ماضية لا تُنشأ مفتوحة، فكلها من اليوم فصاعداً.
+      final today = DateKey.of(DateTime.now());
+      final sessions = await runDb(
+        tester,
+        () => runtime.db.select(runtime.db.sessions).get(),
+      );
+      expect(sessions, hasLength(8));
+      expect(sessions.every((s) => s.date.compareTo(today) >= 0), isTrue);
+
+      // وينتقل التاريخ إلى «الحضور السابق» فتُبنى منه الحصص المقررة (بعد إضافة تلميذ).
+      final now = DateTime.now();
+      final chosen = DateTime(now.year, now.month - 1, 15);
+      expect(
+        find.textContaining('تاريخ أول حصة الذي أدخلته: ${DateKey.of(chosen)}'),
+        findsOneWidget,
+      );
+      final groupId = sessions.first.groupId;
+      await runDb(tester, () async {
+        final db = runtime.db;
+        await db
+            .into(db.students)
+            .insert(
+              StudentsCompanion.insert(
+                id: 's1',
+                createdAt: 1,
+                updatedAt: 1,
+                firstName: 'سمير',
+                lastName: 'بن علي',
+                parentPhone: '0550123456',
+                qrCode: 'S-s1',
+              ),
+            );
+        await db
+            .into(db.groupStudents)
+            .insert(
+              GroupStudentsCompanion.insert(
+                id: 'gs-s1',
+                createdAt: 1,
+                updatedAt: 1,
+                groupId: groupId,
+                studentId: 's1',
+                joinedAt: 1,
+                monthlyPrice: 2000,
+              ),
+            );
+      });
+      ProviderScope.containerOf(tester.element(find.byType(Scaffold).first))
+          .invalidate(groupSetupRowsProvider(groupId));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الحضور السابق'));
+      await tester.pumpAndSettle();
+      expect(find.text('الحضور السابق · الفوج 1'), findsOneWidget);
+      expect(find.text(DateKey.of(chosen)), findsWidgets);
+      expect(find.text('الحصص المقررة'), findsOneWidget);
+      expect(find.byType(ClayCheckbox), findsWidgets);
+    },
+  );
+
+  appTest('تاريخ أول حصة بعيد جداً في الماضي يُرفض ولا يُنشأ فوج', (
+    tester,
+  ) async {
+    final runtime = await openGroups(tester);
+    await openForm(tester);
+    await fillBasics(tester);
+    await pickFirstDate(tester, months: -5, day: 1);
+    await submit(tester);
+    expect(find.textContaining('تاريخ بعيد في الماضي'), findsOneWidget);
+    expect(find.text('إنشاء فوج'), findsWidgets);
+    expect(
+      await runDb(tester, () => runtime.db.select(runtime.db.groups).get()),
+      isEmpty,
+    );
+  });
+
   appTest('بيانات ناقصة: أخطاء المادة والأستاذ', (tester) async {
     await openGroups(tester);
     await openForm(tester);
@@ -386,5 +525,145 @@ void main() {
     expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
     expect(find.byTooltip('أرشفة الفوج 1'), findsNothing);
     expect(find.byTooltip('تعديل الفوج 1'), findsNothing);
+    expect(find.byTooltip('حذف الفوج 1'), findsNothing);
+  });
+
+  Future<void> seedGroup(WidgetTester tester, AppRuntime runtime) =>
+      runDb(tester, () async {
+        await GroupService(
+          runtime.db,
+          runtime.writer,
+          ScheduleService(runtime.db),
+          CycleService(runtime.db, runtime.writer),
+        ).create(
+          subjectId: 'math',
+          teacherId: 't1',
+          roomId: 'r1',
+          slots: const [
+            GroupSlotInput(weekday: 6, startMinutes: 600, endMinutes: 690),
+          ],
+          startDate: '2026-11-07',
+        );
+      });
+
+  appTest('حذف فوج من القائمة بعد التأكيد، والإلغاء لا يحذف', (tester) async {
+    final runtime = await openGroups(tester);
+    await seedGroup(tester, runtime);
+    await tester.tap(find.byTooltip('حذف الفوج 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف الفوج'), findsOneWidget);
+    expect(find.textContaining('أرشفه بدل ذلك'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ClayButton, 'إلغاء'));
+    await tester.pumpAndSettle();
+    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('حذف الفوج 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'حذف'));
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد أفواج بعد'), findsOneWidget);
+    final groups = await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.groups).get(),
+    );
+    expect(groups.single.deletedAt, isNotNull);
+    final sessions = await runDb(
+      tester,
+      () => (runtime.db.select(
+        runtime.db.sessions,
+      )..where((s) => s.deletedAt.isNull())).get(),
+    );
+    expect(sessions, isEmpty);
+  });
+
+  appTest('فوج له مدفوعات لا يُحذف: تظهر الرسالة وتبقى بياناته', (
+    tester,
+  ) async {
+    final runtime = await openGroups(tester);
+    await seedGroup(tester, runtime);
+    await runDb(tester, () async {
+      final db = runtime.db;
+      final group = (await db.select(db.groups).get()).single;
+      await db
+          .into(db.students)
+          .insert(
+            StudentsCompanion.insert(
+              id: 's1',
+              createdAt: 1,
+              updatedAt: 1,
+              firstName: 'سمير',
+              lastName: 'بن علي',
+              parentPhone: '0550123456',
+              qrCode: 'S-s1',
+            ),
+          );
+      await db
+          .into(db.payments)
+          .insert(
+            PaymentsCompanion.insert(
+              id: 'p1',
+              createdAt: 1,
+              updatedAt: 1,
+              studentId: 's1',
+              type: 'month',
+              amount: 2000,
+              receivedBy: 'u1',
+              receiptNumber: 'A-000001',
+              groupId: Value(group.id),
+            ),
+          );
+    });
+    await tester.tap(find.byTooltip('حذف الفوج 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'حذف'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('لا يمكن حذف الفوج 1'), findsOneWidget);
+    expect(find.textContaining('مدفوعات مسجَّلة'), findsOneWidget);
+    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+    final group = (await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.groups).get(),
+    )).single;
+    expect(group.deletedAt, isNull);
+  });
+
+  appTest('زر الحذف بصلاحية الحذف وحدها', (tester) async {
+    final runtime = await openGroups(
+      tester,
+      account: const TestAccount(
+        id: 'u-worker',
+        email: 'worker@school.local',
+        password: 'worker-pass-1',
+        role: UserRole.worker,
+        entityId: 'w1',
+        displayName: 'عامل',
+        permissions: '{"groups":["view","delete"]}',
+      ),
+    );
+    await seedGroup(tester, runtime);
+    expect(find.byTooltip('حذف الفوج 1'), findsOneWidget);
+    expect(find.byTooltip('تعديل الفوج 1'), findsNothing);
+    expect(find.byTooltip('أرشفة الفوج 1'), findsNothing);
+  });
+
+  appTest('حذف الفوج من نموذج التعديل يعيد إلى القائمة', (tester) async {
+    final runtime = await openGroups(tester);
+    await seedGroup(tester, runtime);
+    await tester.tap(find.byTooltip('تعديل الفوج 1'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(420, 3200);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'حذف الفوج'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'حذف'));
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد أفواج بعد'), findsOneWidget);
+    expect(find.text('تعديل الفوج'), findsNothing);
+  });
+
+  appTest('نموذج الإنشاء بلا زر حذف', (tester) async {
+    await openGroups(tester);
+    await openForm(tester);
+    expect(find.widgetWithText(ClayButton, 'حذف الفوج'), findsNothing);
   });
 }

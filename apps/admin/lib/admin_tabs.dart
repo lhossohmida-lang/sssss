@@ -318,14 +318,18 @@ final List<AppPage> adminPages = [
     path: '/groups/:id/past',
     requires: PermissionModule.attendance,
     action: PermissionAction.edit,
-    builder: (context, state) =>
-        PastSessionsScreen(groupId: state.pathParameters['id']!),
+    builder: (context, state) => PastSessionsScreen(
+      groupId: state.pathParameters['id']!,
+      firstDate: state.uri.queryParameters['from'],
+    ),
   ),
   AppPage(
     path: '/groups/:id/setup',
     requires: PermissionModule.groups,
-    builder: (context, state) =>
-        GroupSetupScreen(groupId: state.pathParameters['id']!),
+    builder: (context, state) => GroupSetupScreen(
+      groupId: state.pathParameters['id']!,
+      firstDate: state.uri.queryParameters['from'],
+    ),
   ),
   // بعد `/groups/new` حتى لا يُقرأ «new» معرّفاً لمجموعة.
   AppPage(

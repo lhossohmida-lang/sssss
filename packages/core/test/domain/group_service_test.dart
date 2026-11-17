@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
 
@@ -452,6 +453,200 @@ void main() {
       expect(GroupService.weekdayName(6), 'السبت');
       expect(GroupService.weekdayName(5), 'الجمعة');
       expect(GroupService.displayWeekdays, [6, 7, 1, 2, 3, 4, 5]);
+    });
+  });
+
+  group('الحذف', () {
+    Future<int> live(String table, String groupId) async {
+      final row = await env.db
+          .customSelect(
+            'SELECT COUNT(*) AS c FROM $table '
+            'WHERE group_id = ? AND deleted_at IS NULL',
+            variables: [Variable<String>(groupId)],
+          )
+          .getSingle();
+      return row.read<int>('c');
+    }
+
+    test(
+      'يحذف فوجاً لم يبدأ مع جدوله وحصصه وانتساب تلاميذه ويبقى التلميذ',
+      () async {
+        final g = await create();
+        await env.student();
+        await env.enroll(id: 'e1', groupId: g.id, studentId: 's1');
+        expect(await live('sessions', g.id), 8);
+
+        expect(await service.delete(g.id), isTrue);
+
+        expect(await service.watchAll().first, isEmpty);
+        expect(await service.slotsOf(g.id), isEmpty);
+        expect(await live('group_slots', g.id), 0);
+        expect(await live('sessions', g.id), 0);
+        expect(await live('group_students', g.id), 0);
+        final students = await (env.db.select(
+          env.db.students,
+        )..where((s) => s.deletedAt.isNull())).get();
+        expect(students.map((s) => s.id), ['s1']);
+        final row = await (env.db.select(
+          env.db.groups,
+        )..where((x) => x.id.equals(g.id))).getSingle();
+        expect(row.deletedAt, isNotNull);
+      },
+    );
+
+    test('فوج غير موجود أو محذوف سلفاً', () async {
+      final g = await create();
+      expect(await service.delete('missing'), isFalse);
+      expect(await service.delete(g.id), isTrue);
+      expect(await service.delete(g.id), isFalse);
+    });
+
+    test('بعد الحذف تتحرر القاعة والأستاذ والوقت لفوج جديد', () async {
+      final g = await create();
+      await service.delete(g.id);
+      final again = await create();
+      expect(again.id, isNot(g.id));
+      expect(await live('sessions', again.id), 8);
+    });
+
+    test('لا يُحذف فوج له مدفوعات بل يُؤرشف', () async {
+      final g = await create();
+      await env.student();
+      await env.db
+          .into(env.db.payments)
+          .insert(
+            PaymentsCompanion.insert(
+              id: 'p1',
+              createdAt: 1,
+              updatedAt: 1,
+              studentId: 's1',
+              type: 'month',
+              amount: 2000,
+              receivedBy: 'u1',
+              receiptNumber: 'A-000001',
+              groupId: Value(g.id),
+            ),
+          );
+      await expectLater(
+        service.delete(g.id),
+        throwsA(
+          isA<ValidationException>().having(
+            (e) => e.toString(),
+            'الرسالة',
+            allOf(contains('مدفوعات'), contains('أرشفه')),
+          ),
+        ),
+      );
+      expect(await live('sessions', g.id), 8, reason: 'لا شيء حُذف');
+      expect((await service.watchAll().first).single.id, g.id);
+    });
+
+    test('لا يُحذف فوج انعقدت حصة منه ولا فوج فيه حضور', () async {
+      final g = await create();
+      await env.student();
+      final first = (await sessions(g.id)).first;
+      await cycles.closeSession(first.id);
+      await expectLater(
+        service.delete(g.id),
+        throwsA(isA<ValidationException>()),
+      );
+
+      final other = await create(
+        teacher: 't2',
+        slots: const [slotTue],
+        room: 'r2',
+      );
+      final marked = (await sessions(other.id)).first;
+      await env.db
+          .into(env.db.attendance)
+          .insert(
+            AttendanceCompanion.insert(
+              id: 'a1',
+              createdAt: 1,
+              updatedAt: 1,
+              sessionId: marked.id,
+              studentId: 's1',
+              status: 'present',
+              method: 'manual',
+            ),
+          );
+      await expectLater(
+        service.delete(other.id),
+        throwsA(isA<ValidationException>()),
+      );
+      expect(await live('sessions', other.id), 8);
+    });
+
+    test('لا يُحذف فوج له خلاص أستاذ أو رصيد أو نتيجة', () async {
+      final g = await create();
+      await env.student();
+      Future<void> expectBlocked(String reason) async {
+        await expectLater(
+          service.delete(g.id),
+          throwsA(
+            isA<ValidationException>().having(
+              (e) => e.toString(),
+              'الرسالة',
+              contains(reason),
+            ),
+          ),
+          reason: reason,
+        );
+      }
+
+      await env.db
+          .into(env.db.teacherPayouts)
+          .insert(
+            TeacherPayoutsCompanion.insert(
+              id: 'po1',
+              createdAt: 1,
+              updatedAt: 1,
+              teacherId: 't1',
+              groupId: g.id,
+              cycleNumber: 1,
+              amount: 1000,
+            ),
+          );
+      await expectBlocked('خلاص أساتذة');
+      await env.db.customStatement('UPDATE teacher_payouts SET deleted_at = 5');
+
+      await env.db
+          .into(env.db.studentCredits)
+          .insert(
+            StudentCreditsCompanion.insert(
+              id: 'c1',
+              createdAt: 1,
+              updatedAt: 1,
+              studentId: 's1',
+              groupId: g.id,
+              amount: 500,
+              reason: 'manual',
+              sourceCycleNumber: 1,
+              targetCycleNumber: 2,
+            ),
+          );
+      await expectBlocked('أرصدة');
+      await env.db.customStatement('UPDATE student_credits SET deleted_at = 5');
+
+      await env.db
+          .into(env.db.grades)
+          .insert(
+            GradesCompanion.insert(
+              id: 'gr1',
+              createdAt: 1,
+              updatedAt: 1,
+              studentId: 's1',
+              groupId: g.id,
+              title: 'اختبار',
+              score: 15,
+              date: '2026-11-10',
+            ),
+          );
+      await expectBlocked('نتائج');
+      await env.db.customStatement('UPDATE grades SET deleted_at = 5');
+
+      // بزوال المانع كلها يجوز الحذف.
+      expect(await service.delete(g.id), isTrue);
     });
   });
 }

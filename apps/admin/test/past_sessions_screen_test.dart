@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_core/testing.dart';
 import 'package:school_ui/school_ui.dart';
@@ -8,20 +11,26 @@ import 'package:school_ui/testing.dart';
 
 import 'groups_screens_test.dart' hide main;
 
-/// يفتح شاشة «تسجيل الحضور السابق» لفوج يدرس في يوم أسبوع الأمس، فتكون حصتاه
-/// المقترحتان أمس وقبله بأسبوع مهما كان تاريخ تشغيل الاختبار.
-Future<({AppRuntime runtime, String yesterday, String lastWeek})> openPast(
+/// يفتح شاشة «الحضور السابق» لفوج يدرس في يوم أسبوع الأمس، فتكون حصتاه الماضيتان
+/// أمس وقبله بأسبوع مهما كان تاريخ تشغيل الاختبار. مع [fromLastWeek] يفتحها بتاريخ
+/// أول حصة قبل ثمانية أيام كما يمرّره إنشاء الفوج، وبدونه بتاريخها الافتراضي
+/// (أول حصة مبرمجة في الدورة، بعد ستة أيام).
+Future<
+  ({AppRuntime runtime, String yesterday, String lastWeek, String groupId})
+>
+openPast(
   WidgetTester tester, {
   TestAccount account = owner,
+  bool fromLastWeek = true,
 }) async {
-  tester.view.physicalSize = const Size(900, 1800);
+  tester.view.physicalSize = const Size(900, 2400);
   final runtime = await openGroups(tester, account: account);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final yesterday = DateTime(today.year, today.month, today.day - 1);
   final lastWeek = DateTime(today.year, today.month, today.day - 8);
   final db = runtime.db;
-  await runDb(tester, () async {
+  final groupId = await runDb(tester, () async {
     await GroupService(
       db,
       runtime.writer,
@@ -69,38 +78,54 @@ Future<({AppRuntime runtime, String yesterday, String lastWeek})> openPast(
             ),
           );
     }
+    return group.id;
   });
   await tester.tap(find.text('الفوج 1 · رياضيات'));
   await tester.pumpAndSettle();
+  final opened = (
+    runtime: runtime,
+    yesterday: DateKey.of(yesterday),
+    lastWeek: DateKey.of(lastWeek),
+    groupId: groupId,
+  );
   if (find
       .widgetWithText(ClayButton, 'تسجيل الحضور السابق')
       .evaluate()
       .isEmpty) {
-    return (
-      runtime: runtime,
-      yesterday: DateKey.of(yesterday),
-      lastWeek: DateKey.of(lastWeek),
-    );
+    return opened;
   }
-  await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الحضور السابق'));
+  if (fromLastWeek) {
+    final router = GoRouter.of(tester.element(find.byType(Scaffold).first));
+    unawaited(
+      router.push<void>('/groups/$groupId/past?from=${DateKey.of(lastWeek)}'),
+    );
+  } else {
+    await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الحضور السابق'));
+  }
   await tester.pumpAndSettle();
-  return (
-    runtime: runtime,
-    yesterday: DateKey.of(yesterday),
-    lastWeek: DateKey.of(lastWeek),
-  );
+  return opened;
 }
 
+Finder dialogDay(int day) =>
+    find.descendant(of: find.byType(ClayDialog), matching: find.text('$day'));
+
 void main() {
-  appTest('تقترح حصتي الجدول السابقتين وتعرض شبكة التلاميذ حاضرين', (
+  appTest('تعرض الحصص المقررة بعدد حصص الدورة من تاريخ أول حصة', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
     final opened = await openPast(tester);
     expect(find.text('الحضور السابق · الفوج 1'), findsOneWidget);
     expect(find.textContaining('يمكن تسجيل 7 حصة سابقة'), findsOneWidget);
+    expect(find.text('الحصص المقررة'), findsOneWidget);
+    expect(find.text('الحصص التي انعقدت'), findsNothing);
+    // تاريخ أول حصة في بطاقته وفي صفّه الأول.
+    expect(find.text(opened.lastWeek), findsNWidgets(2));
     expect(find.text(opened.yesterday), findsOneWidget);
-    expect(find.text(opened.lastWeek), findsOneWidget);
+    // العدد دائماً ثماني حصص: حصتان ماضيتان محدَّدتان وست قادمة.
+    expect(find.text('حصص الدورة 8: 2 منعقدة و6 قادمة.'), findsOneWidget);
+    expect(find.text('قادمة'), findsNWidgets(6));
+    expect(find.byType(ClayCheckbox), findsNWidgets(2));
     expect(find.text('سمير بن علي'), findsOneWidget);
     expect(find.text('نور بن علي'), findsOneWidget);
     // الافتراضي: الجميع حاضرون في الحصتين.
@@ -110,6 +135,22 @@ void main() {
       find.bySemanticsLabel('سمير بن علي، ${opened.yesterday}: حاضر'),
       findsOneWidget,
     );
+    semantics.dispose();
+  });
+
+  appTest('إلغاء تحديد حصة ماضية يضيف قادمة بدلها فتبقى الدورة ثمانياً', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final opened = await openPast(tester);
+    await tester.tap(find.bySemanticsLabel('حصة ${opened.yesterday}'));
+    await tester.pumpAndSettle();
+    expect(find.text('حصص الدورة 8: 1 منعقدة و7 قادمة.'), findsOneWidget);
+    expect(find.text('قادمة'), findsNWidgets(7));
+    expect(find.text('حاضر 2'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('حصة ${opened.yesterday}'));
+    await tester.pumpAndSettle();
+    expect(find.text('حصص الدورة 8: 2 منعقدة و6 قادمة.'), findsOneWidget);
     semantics.dispose();
   });
 
@@ -136,7 +177,7 @@ void main() {
     semantics.dispose();
   });
 
-  appTest('الحفظ يسجّل الحصتين مغلقتين بحضورهما ويحذف الزائد من آخر الدورة', (
+  appTest('الحفظ يسجّل الحصتين مغلقتين بحضورهما ويُبقي الدورة بثماني حصص', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -180,6 +221,96 @@ void main() {
     );
     expect(marks.where((a) => a.status == 'present'), hasLength(3));
     semantics.dispose();
+  });
+
+  appTest('تغيير تاريخ أول حصة إلى ما بعد اليوم يعيد برمجة الدورة كلها منه', (
+    tester,
+  ) async {
+    final opened = await openPast(tester, fromLastWeek: false);
+    final now = DateTime.now();
+    final firstDefault = DateTime(now.year, now.month, now.day + 6);
+    expect(find.text(DateKey.of(firstDefault)), findsNWidgets(2));
+    expect(find.text('حصص الدورة 8: 0 منعقدة و8 قادمة.'), findsOneWidget);
+    // لا شيء تغيّر بعد: زر الحفظ معطّل.
+    expect(
+      tester
+          .widget<ClayButton>(
+            find.widgetWithText(ClayButton, 'حفظ الحصص المقررة'),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.widgetWithText(ClayButton, 'تغيير التاريخ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('الشهر التالي'));
+    await tester.pumpAndSettle();
+    await tester.tap(dialogDay(15));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'تأكيد'));
+    await tester.pumpAndSettle();
+
+    final picked = DateTime(firstDefault.year, firstDefault.month + 1, 15);
+    expect(find.text(DateKey.of(picked)), findsOneWidget);
+    expect(find.text('حصص الدورة 8: 0 منعقدة و8 قادمة.'), findsOneWidget);
+    expect(find.text('قادمة'), findsNWidgets(8));
+
+    await tester.tap(find.widgetWithText(ClayButton, 'حفظ الحصص المقررة'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ستُعاد برمجة حصص الدورة'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ClayButton, 'برمجة'));
+    await tester.pumpAndSettle();
+
+    final db = opened.runtime.db;
+    final sessions =
+        await (db.select(db.sessions)
+              ..where((s) => s.deletedAt.isNull())
+              ..orderBy([(s) => OrderingTerm(expression: s.date)]))
+            .get();
+    expect(sessions, hasLength(8));
+    // أول حصة هي أول يوم دراسة للفوج في أو بعد التاريخ المختار، وبينها أسبوع.
+    final first = DateKey.parse(sessions.first.date);
+    expect(first.isBefore(picked), isFalse);
+    expect(first.difference(picked).inDays, lessThan(7));
+    expect(first.weekday, DateKey.parse(opened.yesterday).weekday);
+    expect(sessions.every((s) => s.closedAt == null), isTrue);
+    for (var i = 1; i < sessions.length; i++) {
+      expect(
+        DateKey.parse(sessions[i].date)
+            .difference(DateKey.parse(sessions[i - 1].date))
+            .inDays,
+        7,
+      );
+    }
+  });
+
+  appTest('تاريخ أول حصة قبل اليوم يُظهر الماضية، وبعد التغيير تُعاد القائمة', (
+    tester,
+  ) async {
+    final opened = await openPast(tester, fromLastWeek: false);
+    expect(find.byType(ClayCheckbox), findsNothing);
+    await tester.tap(find.widgetWithText(ClayButton, 'تغيير التاريخ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('الشهر السابق'));
+    await tester.pumpAndSettle();
+    await tester.tap(dialogDay(15));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'تأكيد'));
+    await tester.pumpAndSettle();
+
+    final now = DateTime.now();
+    final picked = DateTime(now.year, now.month - 1, 15);
+    expect(find.text(DateKey.of(picked)), findsWidgets);
+    // الحصص الماضية من ذلك التاريخ إلى أمس محدَّدة، والمجموع ثمانٍ دائماً.
+    final past = tester.widgetList<ClayCheckbox>(find.byType(ClayCheckbox));
+    expect(past, isNotEmpty);
+    expect(past.every((c) => c.value), isTrue);
+    final held = past.length;
+    expect(
+      find.text('حصص الدورة 8: $held منعقدة و${8 - held} قادمة.'),
+      findsOneWidget,
+    );
+    expect(opened.yesterday, isNotEmpty);
   });
 
   appTest('من لا يملك صلاحية تعديل الحضور لا يرى الزر', (tester) async {
