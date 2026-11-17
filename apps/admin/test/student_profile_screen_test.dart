@@ -154,12 +154,12 @@ void main() {
     expect(find.text('رقم الدخول'), findsOneWidget);
     expect(find.textContaining('@school.local'), findsNothing);
     expect(find.text('رياضيات · الفوج 1'), findsOneWidget);
-    expect(find.text('كمال · 2 000 دج للدورة'), findsOneWidget);
+    expect(find.text('كمال · ${Money.format(2000)} للدورة'), findsOneWidget);
     expect(find.text('حاضر 0'), findsOneWidget);
-    expect(find.text('الباقي 2 000 دج'), findsOneWidget);
+    expect(find.text('الباقي ${Money.format(2000)}'), findsOneWidget);
     // دورة 2000 + حقوق تسجيل 1500.
-    expect(find.text('عليه 3 500 دج'), findsOneWidget);
-    expect(find.text('1 500 دج'), findsOneWidget);
+    expect(find.text('عليه ${Money.format(3500)}'), findsOneWidget);
+    expect(find.text(Money.format(1500)), findsOneWidget);
     expect(find.byType(ClayQrCode), findsOneWidget);
     expect(find.text(o.student.qrCode), findsOneWidget);
   });

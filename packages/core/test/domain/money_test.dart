@@ -18,11 +18,21 @@ void main() {
   });
 
   test('التنسيق بفاصل الآلاف ورمز العملة', () {
+    const nb = '\u{00A0}';
     expect(Money.format(0), '0 دج');
     expect(Money.format(500), '500 دج');
-    expect(Money.format(1500), '1 500 دج');
-    expect(Money.format(12500), '12 500 دج');
-    expect(Money.format(1250000), '1 250 000 دج');
-    expect(Money.format(-2000), '-2 000 دج');
+    expect(Money.format(1500), '1${nb}500 دج');
+    expect(Money.format(12500), '12${nb}500 دج');
+    expect(Money.format(1250000), '1${nb}250${nb}000 دج');
+    expect(Money.format(-2000), '-2${nb}000 دج');
+  });
+
+  test('فاصل الآلاف مسافة غير منقسمة حتى لا تنقلب مجموعات الأرقام في السطر العربي', () {
+    // المسافة العادية (U+0020) تقسم العدد في فقرة من اليمين إلى اليسار فيظهر
+    // `1 500` هكذا `500 1`؛ وU+00A0 فئتها «فاصل مشترك» فيبقى العدد كتلة واحدة.
+    expect(Money.thousandsSeparator.runes.single, 0x00A0);
+    final amount = Money.format(1250000);
+    expect(amount.split('\u{00A0}'), ['1', '250', '000 دج']);
+    expect(amount.split(' '), ['1\u{00A0}250\u{00A0}000', 'دج']);
   });
 }

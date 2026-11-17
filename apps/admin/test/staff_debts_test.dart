@@ -112,18 +112,21 @@ void main() {
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة الدين'));
     await settle(tester);
     expect(find.text('دين قائم'), findsOneWidget);
-    expect(find.text('50 000 دج'), findsWidgets);
-    expect(find.text('+ 50 000 دج'), findsOneWidget);
+    expect(find.text(Money.format(50000)), findsWidgets);
+    expect(find.text('+ ${Money.format(50000)}'), findsOneWidget);
 
     // التسديد يملأ المتبقي افتراضياً؛ نغيّره إلى جزء منه.
     await tester.tap(find.widgetWithText(ClayButton, 'تسديد'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('المتبقي 50 000 دج'), findsOneWidget);
+    expect(
+      find.textContaining('المتبقي ${Money.format(50000)}'),
+      findsOneWidget,
+    );
     await fillAmount(tester, '20000');
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل التسديد'));
     await settle(tester);
-    expect(find.text('30 000 دج'), findsWidgets);
-    expect(find.text('− 20 000 دج'), findsOneWidget);
+    expect(find.text(Money.format(30000)), findsWidgets);
+    expect(find.text('− ${Money.format(20000)}'), findsOneWidget);
 
     final db = runtime.db;
     final expenses = await (db.select(
@@ -159,7 +162,7 @@ void main() {
     await fillAmount(tester, '12000');
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة الدين'));
     await settle(tester);
-    expect(find.text('12 000 دج'), findsWidgets);
+    expect(find.text(Money.format(12000)), findsWidgets);
 
     await tester.tap(find.byTooltip('حذف الدين'));
     await tester.pumpAndSettle();
@@ -197,8 +200,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('كمال'), findsOneWidget);
     expect(find.text('السائق مراد'), findsOneWidget);
-    expect(find.text('42 000 دج'), findsOneWidget);
-    expect(find.text('30 000 دج'), findsOneWidget);
+    expect(find.text(Money.format(42000)), findsOneWidget);
+    expect(find.text(Money.format(30000)), findsOneWidget);
     // النقر يفتح ملف صاحب الدين.
     await tester.tap(find.text('السائق مراد'));
     await tester.pumpAndSettle();

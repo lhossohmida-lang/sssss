@@ -432,7 +432,7 @@ void main() {
           .where((row) => row.kind == SmsTemplateKeys.cycleCompleted)
           .toList();
       expect(cycleMessages, hasLength(1));
-      expect(cycleMessages.single.message, contains('4 000 دج'));
+      expect(cycleMessages.single.message, contains(Money.format(4000)));
     });
 
     test('بعد بلوغ حد الحصص المضبوط يرسل تذكيراً واحداً بالمستحقات', () async {
@@ -466,7 +466,7 @@ void main() {
           .where((row) => row.kind == SmsTemplateKeys.paymentReminder)
           .toList();
       expect(reminders, hasLength(1));
-      expect(reminders.single.message, contains('2 000 دج'));
+      expect(reminders.single.message, contains(Money.format(2000)));
       expect(reminders.single.eventKey, 'payment_reminder:g2:1:+213550123456');
       await attendance.closeDueSessions(DateTime(2026, 11, 25, 12));
       expect(

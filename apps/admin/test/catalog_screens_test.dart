@@ -79,7 +79,7 @@ void main() {
       await tester.pumpAndSettle();
       await saveDialog(tester);
       expect(find.text('رياضيات'), findsOneWidget);
-      expect(find.text('3 متوسط · 2 500 دج'), findsOneWidget);
+      expect(find.text('3 متوسط · ${Money.format(2500)}'), findsOneWidget);
     });
 
     appTest('أخطاء التحقق تظهر في الحقول ولا يُغلق الحوار', (tester) async {
@@ -117,7 +117,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(fieldOf('سعر الشهر (دج)'), '2200');
       await saveDialog(tester);
-      expect(find.text('كل المستويات · 2 200 دج'), findsOneWidget);
+      expect(find.text('كل المستويات · ${Money.format(2200)}'), findsOneWidget);
 
       await tester.tap(find.byTooltip('حذف فيزياء'));
       await tester.pumpAndSettle();

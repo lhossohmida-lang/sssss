@@ -188,7 +188,10 @@ void main() {
     tester,
   ) async {
     final o = await openForm(tester, registrationFee: 1500);
-    expect(find.textContaining('1 500 دج عن كل سنة دراسية'), findsOneWidget);
+    expect(
+      find.textContaining('${Money.format(1500)} عن كل سنة دراسية'),
+      findsOneWidget,
+    );
     await fillPeople(tester);
     await pick(tester, 'المستوى', '3 متوسط');
     await pickSubject(tester, 'رياضيات');
@@ -198,7 +201,7 @@ void main() {
       tester.widget<TextField>(fieldOf('سعر الشهر (دج)')).controller!.text,
       '2000',
     );
-    expect(find.text('يدفع عن كل دورة: 2 000 دج'), findsOneWidget);
+    expect(find.text('يدفع عن كل دورة: ${Money.format(2000)}'), findsOneWidget);
     await submit(tester);
 
     expect(find.text('بيانات دخول علي بن علي'), findsOneWidget);
@@ -287,7 +290,7 @@ void main() {
     await pick(tester, 'التخفيض', 'نسبة مئوية');
     await tester.enterText(fieldOf('النسبة (%)'), '50');
     await tester.pump();
-    expect(find.text('يدفع عن كل دورة: 1 000 دج'), findsOneWidget);
+    expect(find.text('يدفع عن كل دورة: ${Money.format(1000)}'), findsOneWidget);
 
     await pick(tester, 'التخفيض', 'إعفاء كامل');
     expect(find.text('يدفع عن كل دورة: 0 دج'), findsOneWidget);
