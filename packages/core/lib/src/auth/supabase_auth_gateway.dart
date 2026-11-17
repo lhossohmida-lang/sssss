@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_gateway.dart';
@@ -38,7 +39,7 @@ class SupabaseAuthGateway implements AuthGateway {
       }
       return AuthIdentity(id: user.id, email: user.email ?? email);
     } on AuthException catch (e) {
-      throw _map(e);
+      throw mapException(e);
     } on SocketException {
       throw const AuthFailureException(AuthFailure.network);
     } on TimeoutException {
@@ -65,7 +66,7 @@ class SupabaseAuthGateway implements AuthGateway {
     try {
       await client.auth.updateUser(UserAttributes(password: newPassword));
     } on AuthException catch (e) {
-      throw _map(e);
+      throw mapException(e);
     } on SocketException {
       throw const AuthFailureException(AuthFailure.network);
     } on TimeoutException {
@@ -92,7 +93,7 @@ class SupabaseAuthGateway implements AuthGateway {
     } on FunctionException catch (e) {
       throw _mapChange(e);
     } on AuthException catch (e) {
-      throw _map(e);
+      throw mapException(e);
     } on SocketException {
       throw const AuthFailureException(AuthFailure.network);
     } on TimeoutException {
@@ -122,17 +123,40 @@ class SupabaseAuthGateway implements AuthGateway {
     };
   }
 
-  static AuthFailureException _map(AuthException e) {
+  /// يحوّل رفض Supabase إلى سبب يفهمه المستخدم. يفرّق بين كلمة سر أو رقم خاطئ (400 برمز
+  /// `invalid_credentials`) ومفتاح ربط مرفوض (401) فلا تُنسب كل الأعطال إلى كلمة السر.
+  @visibleForTesting
+  static AuthFailureException mapException(AuthException e) {
     final status = int.tryParse(e.statusCode ?? '');
     final code = e.code ?? '';
     if (code == 'weak_password') {
       return const AuthFailureException(AuthFailure.weakPassword);
     }
-    if (code == 'invalid_credentials' || status == 400 || status == 401) {
+    if (code == 'invalid_credentials') {
       return const AuthFailureException(AuthFailure.invalidCredentials);
+    }
+    // 401: رفض الخادم المفتاح العام المحفوظ على الجهاز (قديم أو مُلغى) لا كلمة السر.
+    if (status == 401 ||
+        code == 'invalid_api_key' ||
+        code == 'no_authorization' ||
+        code == 'bad_jwt') {
+      return const AuthFailureException(AuthFailure.serverRejected);
+    }
+    if (status == 429 || code == 'over_request_rate_limit') {
+      return const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'محاولات دخول كثيرة، انتظر دقيقة ثم أعد المحاولة',
+      );
     }
     if (status != null && status >= 500) {
       return const AuthFailureException(AuthFailure.network);
+    }
+    if (status == 400) {
+      // 400 آخر (بريد غير مؤكد، بيانات غير صالحة...): يُذكر رمزه ليُعرف سببه بدل «كلمة سر خاطئة».
+      return AuthFailureException(
+        AuthFailure.unknown,
+        message: 'تعذّر الدخول (${code.isEmpty ? '400' : code})، أعد المحاولة',
+      );
     }
     return const AuthFailureException(AuthFailure.unknown);
   }

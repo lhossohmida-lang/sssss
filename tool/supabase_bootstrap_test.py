@@ -39,6 +39,7 @@ class State:
         self.fail_rows = False
         self.push = None
         self.push_status = 204
+        self.min_password = 6
 
 
 def make_handler(state):
@@ -79,6 +80,19 @@ def make_handler(state):
                     return self.send(401, {"message": "bad"})
                 state.patches.append(self.body())
                 return self.send(200, {})
+
+            if path.startswith("/auth/v1/admin/users/") and method == "PUT":
+                if not admin:
+                    return self.send(401, {"message": "bad key"})
+                uid = path.rsplit("/", 1)[1]
+                data = self.body()
+                for email, user in state.users.items():
+                    if user["id"] == uid:
+                        if len(data.get("password", "")) < state.min_password:
+                            return self.send(422, {"error_code": "weak_password", "msg": "weak"})
+                        user["password"] = data["password"]
+                        return self.send(200, {"id": uid, "email": email})
+                return self.send(404, {"error_code": "user_not_found", "msg": "none"})
 
             if path.startswith("/auth/v1/admin/users/") and method == "DELETE":
                 if not admin:
@@ -127,6 +141,15 @@ def make_handler(state):
                         return self.send(409, {"message": "duplicate"})
                     state.rows.append(row)
                     return self.send(201)
+                if method == "PATCH":
+                    if not admin:
+                        return self.send(401, {"message": "bad key"})
+                    wanted = query["id"][0].removeprefix("eq.")
+                    changes = self.body()
+                    for r in state.rows:
+                        if r["id"] == wanted:
+                            r.update(changes)
+                    return self.send(204)
                 if "id" in query:
                     if not admin:
                         return self.send(401, {"message": "bad key"})
@@ -153,6 +176,9 @@ def make_handler(state):
 
         def do_PATCH(self):
             self.handle_any("PATCH")
+
+        def do_PUT(self):
+            self.handle_any("PUT")
 
         def do_DELETE(self):
             self.handle_any("DELETE")
@@ -394,3 +420,87 @@ class PushConfig(FakeServerCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ResetOwnerPassword(FakeServerCase):
+    EMAIL = "0550000000@school.local"
+
+    def bootstrap_then_forget(self):
+        """مالك أُنشئ ثم لم تعد كلمة سره تطابق السرّ (نُسيت أو غُيّر السرّ)."""
+        sb.Bootstrap(self.config).bootstrap()
+        self.state.users[self.EMAIL]["password"] = "something-else-entirely"
+        self.state.rows[0]["must_change_password"] = False
+
+    def test_reset_sets_the_password_forces_the_change_and_signs_in(self):
+        self.bootstrap_then_forget()
+        out = sb.Bootstrap(self.config).reset_owner_password()
+        self.assertEqual(out[-1], "owner-password=reset must-change=true smoke=ok")
+        self.assertEqual(self.state.users[self.EMAIL]["password"], PASSWORD)
+        self.assertTrue(self.state.rows[0]["must_change_password"])
+        self.assertEqual((len(self.state.users), len(self.state.rows)), (1, 1))
+
+    def test_normal_bootstrap_reports_skipped_for_a_password_that_no_longer_matches(self):
+        self.bootstrap_then_forget()
+        out = sb.Bootstrap(self.config).bootstrap()
+        self.assertTrue(out[-1].endswith("smoke=skipped"), "هذه العلامة تدل على أن السرّ لا يطابق الحساب")
+
+    def test_without_an_owner_nothing_is_created(self):
+        with self.assertRaises(sb.ApiError) as raised:
+            sb.Bootstrap(self.config).reset_owner_password()
+        self.assertIn("غير موجود", str(raised.exception))
+        self.assertEqual(self.state.users, {})
+        self.assertNotIn(("PUT", "/auth/v1/admin/users/uid-1"), self.state.requests)
+
+    def test_a_missing_account_row_is_created(self):
+        self.state.users[self.EMAIL] = {"id": "uid-9", "password": "old-one-here"}
+        out = sb.Bootstrap(self.config).reset_owner_password()
+        self.assertTrue(out[-1].endswith("smoke=ok"))
+        (row,) = self.state.rows
+        self.assertEqual((row["id"], row["role"], row["must_change_password"]), ("uid-9", "owner", True))
+
+    def test_a_short_password_is_refused_before_anything_changes(self):
+        self.bootstrap_then_forget()
+        config = sb.Config(**{**self.config.__dict__, "password": "short"})
+        with self.assertRaises(sb.ApiError) as raised:
+            sb.Bootstrap(config).reset_owner_password()
+        self.assertIn("أقل من 8", str(raised.exception))
+        self.assertNotIn("short", str(raised.exception))
+        self.assertEqual(self.state.users[self.EMAIL]["password"], "something-else-entirely")
+
+    def test_a_password_the_server_calls_weak_is_reported_without_its_value(self):
+        self.bootstrap_then_forget()
+        self.state.min_password = 40
+        with self.assertRaises(sb.ApiError) as raised:
+            sb.Bootstrap(self.config).reset_owner_password()
+        self.assertIn("ضعيفة", str(raised.exception))
+        self.assertNotIn(PASSWORD, str(raised.exception))
+
+    def test_main_prints_a_notice_without_any_secret_value(self):
+        self.bootstrap_then_forget()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = sb.main(["x", "reset-owner-password"], self.environ())
+        self.assertEqual(code, 0)
+        self.assertIn("::notice title=supabase-reset-owner-password::", out.getvalue())
+        self.assertIn("owner-password=reset", out.getvalue())
+        for secret in (TOKEN, SECRET, ANON, PASSWORD):
+            self.assertNotIn(secret, out.getvalue())
+
+    def test_main_lists_missing_variables_by_name_only(self):
+        env = self.environ()
+        del env["OWNER_INITIAL_PASSWORD"]
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = sb.main(["x", "reset-owner-password"], env)
+        self.assertEqual(code, 1)
+        self.assertIn("OWNER_INITIAL_PASSWORD", out.getvalue())
+        self.assertNotIn(TOKEN, out.getvalue())
+
+
+class WhitespaceInSecrets(FakeServerCase):
+    def test_a_trailing_newline_pasted_with_the_password_is_dropped(self):
+        config = sb.Config.from_env(self.environ(OWNER_INITIAL_PASSWORD=PASSWORD + chr(10), OWNER_PHONE=" 0550000000 "))
+        self.assertEqual((config.password, config.phone), (PASSWORD, "0550000000"))
+        out = sb.Bootstrap(config).bootstrap()
+        self.assertEqual(self.state.users["0550000000@school.local"]["password"], PASSWORD)
+        self.assertTrue(out[-1].endswith("smoke=ok"))

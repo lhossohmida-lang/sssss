@@ -256,7 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Center(
             child: TextButton(
               onPressed: _busy ? null : () => _changeSchool(context),
-              child: const Text('تغيير المدرسة'),
+              child: Text(_changeSchoolLabel(context)),
             ),
           ),
         ],
@@ -264,15 +264,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  /// يظهر الرابط حين يعرف الجهاز مدرسته من الدليل: أخطأ المستخدم في اختيارها
-  /// أو يريد الدخول إلى مدرسة أخرى.
+  /// يظهر الرابط حين يستطيع المستخدم تغيير مدرسة جهازه دون دخول: أخطأ في اختيارها من
+  /// الدليل، أو ربط الجهاز برمز قديم أو بمدرسة غيرها فيحتاج إعادة الربط. لا يظهر في بناء
+  /// مضمَّن الإعداد ولا في المعاينة المحلية.
   bool _canChangeSchool(BuildContext context) {
     final connection = SchoolBootstrap.connectionOf(context);
     return connection != null &&
-        connection.usesDirectory &&
         connection.canChangeSchool &&
         !ref.read(runtimeProvider).isLocalMode;
   }
+
+  /// مع الدليل «تغيير المدرسة»، ومع الربط بالرمز «ربط الجهاز بمدرسة أخرى».
+  String _changeSchoolLabel(BuildContext context) =>
+      SchoolBootstrap.connectionOf(context)?.usesDirectory ?? false
+      ? 'تغيير المدرسة'
+      : 'ربط الجهاز بمدرسة أخرى';
 
   Future<void> _changeSchool(BuildContext context) async {
     final connection = SchoolBootstrap.connectionOf(context);

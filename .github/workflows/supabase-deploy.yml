@@ -26,6 +26,10 @@ on:
         description: أعد كتابة بيانات العرض الوهمية (مدرسة demo فقط)
         type: boolean
         default: false
+      reset_owner_password:
+        description: أعد كلمة سر المالك إلى قيمة السرّ OWNER_INITIAL_PASSWORD (لمالك نسيها أو لم تعد تطابق السرّ)، ويُلزَم بتغييرها عند الدخول
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -181,6 +185,20 @@ jobs:
           OWNER_PHONE: ${{ vars.OWNER_PHONE || secrets.OWNER_PHONE }}
           OWNER_INITIAL_PASSWORD: ${{ secrets.OWNER_INITIAL_PASSWORD }}
         run: python3 tool/supabase_bootstrap.py bootstrap
+
+      # عند الطلب فقط (مدخل reset_owner_password): يعيد كلمة سر المالك الموجود إلى OWNER_INITIAL_PASSWORD
+      # ويُلزمه بتغييرها عند أول دخول، ثم يجرّب الدخول بها. لا تُطبع كلمة السر؛ النتيجة في تعليق
+      # `supabase-reset-owner-password`. للمالك الذي نسي كلمة سره أو لُصق السرّ بسطر زائد فلم تطابق ما يكتبه.
+      - name: Reset the owner password (on request)
+        if: ${{ inputs.reset_owner_password }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          OWNER_PHONE: ${{ vars.OWNER_PHONE || secrets.OWNER_PHONE }}
+          OWNER_INITIAL_PASSWORD: ${{ secrets.OWNER_INITIAL_PASSWORD }}
+        run: python3 tool/supabase_bootstrap.py reset-owner-password
 
       # مدرسة العرض فقط: رمز ربط الأجهزة بها (عنوان الخادم والمفتاح العام والاسم، ولا سرّ فيه) ليُلصق في
       # التطبيق العام عند أول تشغيل. بياناتها وهمية فلا ضرر من ظهوره في التعليقات العلنية؛ ولا يُطبع

@@ -235,6 +235,41 @@ void main() {
       expect(find.text('تسجيل الدخول'), findsOneWidget);
     });
 
+    appTest('شاشة الدخول بعد الربط برمز: «ربط الجهاز بمدرسة أخرى» يفكّ الربط', (
+      tester,
+    ) async {
+      final store = MemoryPairingStore()..pairing = _a;
+      final h = _Harness(tester, app: AppIdentity.admin, store: store);
+      await h.mount();
+      await settle(tester);
+      expect(find.text('تسجيل الدخول'), findsOneWidget);
+      expect(find.text('تغيير المدرسة'), findsNothing, reason: 'لا دليل');
+      final link = find.text('ربط الجهاز بمدرسة أخرى');
+      expect(link, findsOneWidget);
+
+      await tester.ensureVisible(link);
+      await tester.tap(link);
+      await settle(tester);
+      expect(store.calls, contains('clear'));
+      expect(h.stopped, [h.runtime]);
+      expect(find.text('ربط التطبيق بمدرستك'), findsOneWidget);
+    });
+
+    appTest('بناء مضمَّن الإعداد: شاشة الدخول بلا رابط تغيير الربط', (
+      tester,
+    ) async {
+      final h = _Harness(
+        tester,
+        app: AppIdentity.student,
+        baked: const AppConfig(supabaseUrl: _urlA, supabaseAnonKey: _key),
+      );
+      await h.mount();
+      await settle(tester);
+      expect(find.text('تسجيل الدخول'), findsOneWidget);
+      expect(find.text('ربط الجهاز بمدرسة أخرى'), findsNothing);
+      expect(find.text('تغيير المدرسة'), findsNothing);
+    });
+
     appTest('الإدارة: التجربة المحلية تُحفظ فلا تعود شاشة الربط', (
       tester,
     ) async {

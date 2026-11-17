@@ -5,11 +5,13 @@
   python3 tool/supabase_bootstrap.py verify      # وصول الرمز إلى المشروع وصلاحياته
   python3 tool/supabase_bootstrap.py bootstrap   # إعدادات الدخول + حساب المالك + دخول تجريبي
   python3 tool/supabase_bootstrap.py push-config # عنوان دالة الدفع وسرّها في قاعدة المدرسة (PUSH_SECRET)
+  python3 tool/supabase_bootstrap.py reset-owner-password  # يعيد كلمة سر المالك إلى OWNER_INITIAL_PASSWORD (عند الطلب)
 
 المدخلات من البيئة: SUPABASE_ACCESS_TOKEN وSUPABASE_PROJECT_REF (verify)، ويضاف لها
 في bootstrap: SUPABASE_URL وSUPABASE_ANON_KEY وOWNER_PHONE وOWNER_INITIAL_PASSWORD.
 العملية متكررة الأمان: لا تُنشئ حساباً ثانياً، ولا تُعيد كلمة سر مالك موجود، ولا
-تُعيد فرض تغييرها. لا تُطبع أي قيمة سرّية؛ الرسائل فيها الأسباب فقط.
+تُعيد فرض تغييرها. وحدها `reset-owner-password` (تُشغَّل عند الطلب) تعيد كلمة سر المالك الموجود إلى
+OWNER_INITIAL_PASSWORD وتلزمه بتغييرها عند أول دخول. لا تُطبع أي قيمة سرّية؛ الرسائل فيها الأسباب فقط.
 """
 
 from __future__ import annotations
@@ -31,6 +33,8 @@ OWNER_DISPLAY_NAME = "صاحب المدرسة"
 # حسابات مالك مؤقتة للفحوص الآلية: لا تمسّ مالك المدرسة الحقيقي ولا كلمة سره (التي
 # يغيّرها عند أول دخول فتفشل فحوص تعتمد عليها).
 TEMP_OWNER_PREFIX = "ci-owner-"
+# أقل طول لكلمة السر المبدئية عند إعادتها (يطابق حد كلمة السر في التطبيق).
+MIN_OWNER_PASSWORD = 8
 
 
 class ApiError(Exception):
@@ -101,8 +105,9 @@ class Config:
             ref=environ.get("SUPABASE_PROJECT_REF", ""),
             url=environ.get("SUPABASE_URL", "").rstrip("/"),
             anon_key=environ.get("SUPABASE_ANON_KEY", ""),
-            phone=environ.get("OWNER_PHONE", ""),
-            password=environ.get("OWNER_INITIAL_PASSWORD", ""),
+            phone=environ.get("OWNER_PHONE", "").strip(),
+            # يُقصّ ما يتركه اللصق من فراغ أو سطر جديد في آخر القيمة: لا يستطيع المالك كتابته.
+            password=environ.get("OWNER_INITIAL_PASSWORD", "").strip(),
             push_secret=environ.get("PUSH_SECRET", ""),
             api_base=environ.get("SUPABASE_API_BASE", "https://api.supabase.com").rstrip("/"),
         )
@@ -376,6 +381,50 @@ class Bootstrap:
         )
         return out
 
+    def reset_owner_password(self) -> list[str]:
+        """يعيد كلمة سر المالك الموجود إلى OWNER_INITIAL_PASSWORD ويُلزمه بتغييرها، ثم يجرّب الدخول بها.
+
+        لمالك نسي كلمة سره أو لم تعد تطابق ما في السرّ (غُيّر السرّ بعد إنشاء الحساب، أو لُصق بسطر زائد).
+        لا يُنشئ حساباً: يفشل إن لم يوجد المالك، فالإنشاء للنشر العادي.
+        """
+        if len(self.cfg.password) < MIN_OWNER_PASSWORD:
+            raise ApiError(
+                f"كلمة السر المبدئية أقل من {MIN_OWNER_PASSWORD} رموز: اكتب في السرّ OWNER_INITIAL_PASSWORD "
+                "كلمة أطول (يغيّرها المالك عند أول دخول)"
+            )
+        out = self.verify()
+        key = self.secret_key()
+        uid = self._find_user(key)
+        if uid is None:
+            raise ApiError("حساب المالك غير موجود: شغّل النشر العادي أولاً ليُنشئه")
+        status, payload = call(
+            "PUT",
+            f"{self.cfg.url}/auth/v1/admin/users/{uid}",
+            self._admin(key),
+            {"password": self.cfg.password},
+        )
+        if status not in (200, 201):
+            code = payload.get("error_code") if isinstance(payload, dict) else None
+            if code == "weak_password":
+                raise ApiError("كلمة السر مرفوضة من Supabase (ضعيفة): اختر كلمة أطول وأقوى", status)
+            if status in (401, 403):
+                raise ApiError("المفتاح السرّي مرفوض في Auth: تحقق من نوع المفتاح وصلاحياته", status)
+            raise ApiError(f"تعذّر تغيير كلمة سر المالك ({status}) {reason(payload)}", status)
+        self.ensure_account_row(key, uid)
+        status, payload = call(
+            "PATCH",
+            f"{self.cfg.url}/rest/v1/user_accounts?id=eq.{uid}",
+            {**self._admin(key), "Prefer": "return=minimal"},
+            {"must_change_password": True, "updated_at": int(time.time() * 1000)},
+        )
+        if status not in (200, 204):
+            raise ApiError(f"أُعيدت كلمة السر لكن تعذّر إلزام المالك بتغييرها ({status}) {reason(payload)}", status)
+        smoke = self.smoke()
+        if smoke != "ok":
+            raise ApiError(f"أُعيدت كلمة السر لكن الدخول التجريبي بها لم ينجح ({smoke})")
+        out.append("owner-password=reset must-change=true smoke=ok")
+        return out
+
 
 def escape(text: str) -> str:
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
@@ -384,6 +433,14 @@ def escape(text: str) -> str:
 REQUIRED = {
     "verify": ("SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF"),
     "bootstrap": (
+        "SUPABASE_ACCESS_TOKEN",
+        "SUPABASE_PROJECT_REF",
+        "SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+        "OWNER_PHONE",
+        "OWNER_INITIAL_PASSWORD",
+    ),
+    "reset-owner-password": (
         "SUPABASE_ACCESS_TOKEN",
         "SUPABASE_PROJECT_REF",
         "SUPABASE_URL",
@@ -412,7 +469,7 @@ def export_to_github_env(exports: dict[str, str], environ: dict[str, str]) -> No
 def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
     environ = dict(os.environ) if environ is None else environ
     if len(argv) != 2 or argv[1] not in REQUIRED:
-        print("الاستعمال: supabase_bootstrap.py verify|bootstrap|push-config|temp-owner-create|temp-owner-delete", file=sys.stderr)
+        print("الاستعمال: supabase_bootstrap.py verify|bootstrap|reset-owner-password|push-config|temp-owner-create|temp-owner-delete", file=sys.stderr)
         return 2
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
