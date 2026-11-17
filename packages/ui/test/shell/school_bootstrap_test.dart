@@ -65,6 +65,7 @@ class _Harness {
     this.baked = const AppConfig(),
     this.wrap,
     this.failures = 0,
+    this.wipeFails = false,
     this._reuse,
   }) : store = store ?? MemoryPairingStore();
 
@@ -74,10 +75,14 @@ class _Harness {
   final AppConfig baked;
   final Widget Function(Widget app)? wrap;
   int failures;
+
+  /// هل يفشل مسح بيانات الجهاز؟
+  final bool wipeFails;
   final AppRuntime? _reuse;
 
   final List<AppConfig?> started = [];
   final List<AppRuntime> stopped = [];
+  final List<AppIdentity> wiped = [];
   SchoolConnection? connection;
   late final AppRuntime runtime;
 
@@ -115,6 +120,10 @@ class _Harness {
           return runtime;
         },
         stopRuntime: (runtime) async => stopped.add(runtime),
+        wipeData: (app) async {
+          if (wipeFails) throw StateError('تعذّر المسح');
+          wiped.add(app);
+        },
       ),
     );
     await tester.pump();
@@ -348,6 +357,145 @@ void main() {
       await h.mount();
       expect(find.text('تعذّر تشغيل التطبيق'), findsOneWidget);
       expect(find.widgetWithText(ClayButton, 'تغيير المدرسة'), findsNothing);
+    });
+  });
+
+  group('إعادة تعيين بيانات الجهاز', () {
+    const reset = 'إعادة تعيين بيانات الجهاز';
+
+    appTest('من شاشة الدخول: تأكيد ثم مسح كل شيء والعودة إلى الربط', (
+      tester,
+    ) async {
+      final store = MemoryPairingStore()..pairing = _a;
+      final h = _Harness(tester, app: AppIdentity.student, store: store);
+      await h.mount();
+      await settle(tester);
+      expect(find.text('تسجيل الدخول'), findsOneWidget);
+
+      final link = find.text(reset);
+      await tester.ensureVisible(link);
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('لا يُمسّ شيء على خادم المدرسة'), findsOne);
+      expect(
+        find.text('هل أنت متأكد؟'),
+        findsNothing,
+        reason: 'لا بيانات معرّضة',
+      );
+
+      await tester.tap(find.widgetWithText(ClayButton, 'مسح وإعادة التعيين'));
+      await settle(tester);
+
+      expect(h.stopped, [h.runtime], reason: 'أُغلق وقت التشغيل قبل المسح');
+      expect(h.wiped, [AppIdentity.student]);
+      expect(store.calls, contains('clear'));
+      expect(store.pairing, isNull);
+      expect(find.text('ربط التطبيق بمدرستك'), findsOneWidget);
+    });
+
+    appTest('الإلغاء لا يمسح شيئاً', (tester) async {
+      final store = MemoryPairingStore()..pairing = _a;
+      final h = _Harness(tester, app: AppIdentity.student, store: store);
+      await h.mount();
+      await settle(tester);
+      final link = find.text(reset);
+      await tester.ensureVisible(link);
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'إلغاء'));
+      await tester.pumpAndSettle();
+
+      expect(h.wiped, isEmpty);
+      expect(h.stopped, isEmpty);
+      expect(store.pairing, _a);
+      expect(find.text('تسجيل الدخول'), findsOneWidget);
+    });
+
+    appTest('تغييرات لم تُرسل: تحذير بعددها وتأكيد من خطوتين', (tester) async {
+      final store = MemoryPairingStore()..pairing = _a;
+      final h = _Harness(tester, app: AppIdentity.student, store: store);
+      await h.mount();
+      await settle(tester);
+      // صف في طابور الإرسال كأن تغييراً كُتب ولم يصل الخادم بعد.
+      await runDb(
+        tester,
+        () => h.runtime.db
+            .into(h.runtime.db.outbox)
+            .insert(
+              OutboxCompanion.insert(
+                targetTable: 'subjects',
+                rowId: 's1',
+                payload: '{}',
+                createdAt: 1,
+              ),
+            ),
+      );
+      final pending = await runDb(
+        tester,
+        () => countUnsyncedChanges(h.runtime.db),
+      );
+      expect(pending, greaterThan(0));
+
+      final link = find.text(reset);
+      await tester.ensureVisible(link);
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('لم يصل إلى الخادم بعد $pending تغيير'),
+        findsOne,
+      );
+
+      await tester.tap(find.widgetWithText(ClayButton, 'متابعة'));
+      await tester.pumpAndSettle();
+      expect(find.text('هل أنت متأكد؟'), findsOneWidget);
+      expect(h.wiped, isEmpty, reason: 'لم يؤكَّد بعد');
+
+      await tester.tap(find.widgetWithText(ClayButton, 'نعم، امسح كل شيء'));
+      await settle(tester);
+      expect(h.wiped, [AppIdentity.student]);
+    });
+
+    appTest('فشل المسح: شاشة العطل وملف الربط ممسوح مع ذلك', (tester) async {
+      final store = MemoryPairingStore()..pairing = _a;
+      final h = _Harness(
+        tester,
+        app: AppIdentity.student,
+        store: store,
+        wipeFails: true,
+      );
+      await h.mount();
+      await settle(tester);
+      final link = find.text(reset);
+      await tester.ensureVisible(link);
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'مسح وإعادة التعيين'));
+      await settle(tester);
+
+      expect(find.text('تعذّر تشغيل التطبيق'), findsOneWidget);
+      expect(store.pairing, isNull, reason: 'لا يعود الجهاز إلى مدرسة قديمة');
+      expect(find.text(reset), findsOneWidget, reason: 'يمكن المحاولة ثانية');
+    });
+
+    appTest('شاشة العطل تعرض الزر: قاعدة تالفة تُصلح بالمسح', (tester) async {
+      final store = MemoryPairingStore()..pairing = _a;
+      final h = _Harness(
+        tester,
+        app: AppIdentity.student,
+        store: store,
+        failures: 1,
+      );
+      await h.mount();
+      await settle(tester);
+      expect(find.text('تعذّر تشغيل التطبيق'), findsOneWidget);
+
+      await tester.tap(find.text(reset));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'مسح وإعادة التعيين'));
+      await settle(tester);
+
+      expect(h.wiped, [AppIdentity.student]);
+      expect(find.text('ربط التطبيق بمدرستك'), findsOneWidget);
     });
   });
 

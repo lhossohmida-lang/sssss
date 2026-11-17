@@ -12,6 +12,7 @@ import '../theme/clay_tokens.dart';
 import 'app_page.dart';
 import 'app_tab.dart';
 import 'auth_scaffold.dart';
+import 'device_reset.dart';
 import 'directory_screens.dart';
 import 'pairing_screens.dart';
 import 'providers.dart';
@@ -26,6 +27,9 @@ typedef RuntimeStarter = Future<AppRuntime> Function(
 
 /// يوقف وقت تشغيل بعد أن فُكّت واجهته.
 typedef RuntimeStopper = Future<void> Function(AppRuntime runtime);
+
+/// يمسح ما حفظه التطبيق على الجهاز عند «إعادة تعيين بيانات الجهاز»، بعد إيقاف وقت التشغيل.
+typedef DeviceDataWipe = Future<void> Function(AppIdentity app);
 
 /// ما يتيحه الجذر لشاشات التطبيق المُشغَّل: أي مدرسة ربط بها الجهاز، والخروج منها.
 abstract interface class SchoolConnection {
@@ -42,6 +46,13 @@ abstract interface class SchoolConnection {
   ///
   /// قاعدة المدرسة المحلية تبقى على الجهاز وتعود عند الربط بها ثانية.
   Future<void> leaveSchool();
+
+  /// «إعادة تعيين بيانات المصنع» للجهاز: يخرج من الحساب ويغلق التطبيق ويمسح كل ما حفظه
+  /// عليه (قواعد كل المدارس وصورها وملفاتها وربط المدرسة وجلسة الدخول) ثم يبدأ كأول تشغيل.
+  ///
+  /// لا يمسّ شيئاً على خادم المدرسة، فتعود بياناته بعد الدخول من جديد؛ أما ما لم يُرسل إليه
+  /// من هذا الجهاز بعد فيضيع.
+  Future<void> factoryReset();
 }
 
 /// جذر التطبيقات الثلاثة: يحدد مدرسة الجهاز ثم يشغّل التطبيق عليها.
@@ -68,6 +79,7 @@ class SchoolBootstrap extends StatefulWidget {
     this.directory,
     this.startRuntime = _defaultStart,
     this.stopRuntime = _defaultStop,
+    this.wipeData = defaultWipe,
     super.key,
   });
 
@@ -97,6 +109,10 @@ class SchoolBootstrap extends StatefulWidget {
   final RuntimeStarter startRuntime;
   final RuntimeStopper stopRuntime;
 
+  /// مسح بيانات الجهاز عند إعادة التعيين؛ الافتراضي [defaultWipe]. ويمرّر تطبيق الإدارة دالة
+  /// تزيد عليه مسح رموز Drive المحفوظة في التخزين الآمن.
+  final DeviceDataWipe wipeData;
+
   /// اتصال الجهاز بمدرسته لمن هم تحت الجذر، أو `null` خارجه.
   static SchoolConnection? connectionOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_SchoolConnectionScope>()
@@ -106,6 +122,16 @@ class SchoolBootstrap extends StatefulWidget {
       AppRuntime.start(app: app, config: config);
 
   static Future<void> _defaultStop(AppRuntime runtime) => runtime.dispose();
+
+  /// يمسح ملفات التطبيق على الجهاز (قواعد المدارس والصور والربط) وجلسات الدخول المحفوظة.
+  /// يعيد ما تعذّر مسحه إلى [StateError] فيظهر للمستخدم بدل أن يبقى بيان قديم مخفياً.
+  static Future<void> defaultWipe(AppIdentity app) async {
+    final report = await DeviceDataWiper(app).wipe();
+    await DeviceDataWiper.clearAuthSessions();
+    if (!report.complete) {
+      throw StateError('تعذّر مسح: ${report.failures.join('، ')}');
+    }
+  }
 
   @override
   State<SchoolBootstrap> createState() => _SchoolBootstrapState();
@@ -311,6 +337,45 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
   }
 
   @override
+  Future<void> factoryReset() async {
+    final epoch = ++_epoch;
+    final old = _runtime;
+    setState(() {
+      _runtime = null;
+      _pairing = null;
+      _phase = _Phase.loading;
+    });
+    // الإطار التالي يفكّ شجرة التطبيق قبل إغلاق قاعدته، فلا تقرأ شاشة منها.
+    await WidgetsBinding.instance.endOfFrame;
+    if (old != null) {
+      // الخروج من الحساب إن أمكن (دون إنترنت تُمحى الجلسة المحلية فقط)، ثم إغلاق القاعدة.
+      try {
+        await old.auth.signOut().timeout(const Duration(seconds: 5));
+      } on Object {
+        // لا يمنع المسح.
+      }
+      await widget.stopRuntime(old);
+    }
+    Object? failure;
+    try {
+      await widget.wipeData(widget.app);
+    } on Object catch (e) {
+      failure = e;
+    }
+    // ملف الربط يُمسح دائماً (ولو تعذّر مسح غيره) فلا يعود الجهاز إلى مدرسة قديمة.
+    await _store?.clear();
+    _hasLastConfig = false;
+    _pendingLogin = null;
+    _loginError = null;
+    if (failure != null) {
+      _fail(epoch);
+      return;
+    }
+    // الإقلاع من جديد: بناء مضمَّن الإعداد يبدأ على مدرسته، وغيره يعرض أول شاشة.
+    if (mounted && epoch == _epoch) unawaited(_boot());
+  }
+
+  @override
   Widget build(BuildContext context) {
     final runtime = _runtime;
     if (_phase == _Phase.running && runtime != null) {
@@ -359,6 +424,7 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
           app: widget.app,
           onRetry: _retry,
           onChangeSchool: _baked ? null : leaveSchool,
+          onReset: factoryReset,
           usesDirectory: usesDirectory,
         ),
         _ => _BootSplash(app: widget.app),
@@ -412,12 +478,14 @@ class _StartFailureScreen extends StatelessWidget {
     required this.app,
     required this.onRetry,
     required this.onChangeSchool,
+    required this.onReset,
     required this.usesDirectory,
   });
 
   final AppIdentity app;
   final Future<void> Function() onRetry;
   final Future<void> Function()? onChangeSchool;
+  final Future<void> Function() onReset;
   final bool usesDirectory;
 
   @override
@@ -446,6 +514,14 @@ class _StartFailureScreen extends StatelessWidget {
             onPressed: onChangeSchool,
           ),
         ],
+        // قاعدة محلية تالفة أو قديمة هي من أكثر أسباب العطل، ومسحها يعيد التطبيق كأول تشغيل.
+        const SizedBox(height: ClaySpacing.md),
+        TextButton(
+          onPressed: () async {
+            if (await confirmDeviceReset(context)) await onReset();
+          },
+          child: const Text('إعادة تعيين بيانات الجهاز'),
+        ),
       ],
     );
   }

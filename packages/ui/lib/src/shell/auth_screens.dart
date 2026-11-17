@@ -12,6 +12,7 @@ import '../clay/clay_inputs.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import 'auth_scaffold.dart';
+import 'device_reset.dart';
 import 'providers.dart';
 import 'school_bootstrap.dart';
 
@@ -257,6 +258,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: TextButton(
               onPressed: _busy ? null : () => _changeSchool(context),
               child: Text(_changeSchoolLabel(context)),
+            ),
+          ),
+        ],
+        if (SchoolBootstrap.connectionOf(context) != null) ...[
+          const SizedBox(height: ClaySpacing.sm),
+          Center(
+            child: TextButton(
+              onPressed: _busy ? null : () => runDeviceReset(context, ref),
+              child: const Text('إعادة تعيين بيانات الجهاز'),
             ),
           ),
         ],

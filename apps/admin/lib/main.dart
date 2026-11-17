@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
@@ -18,6 +19,15 @@ Future<void> main() async {
       // النسخ الاحتياطي لـDrive، وإرسال الرسائل القصيرة تلقائياً من هاتف Android.
       wrapApp: (app) =>
           DriveBackupLifecycle(child: SmsAutoSenderLifecycle(child: app)),
+      // «إعادة تعيين بيانات الجهاز» تمسح أيضاً رموز Drive المحفوظة في التخزين الآمن.
+      wipeData: (app) async {
+        try {
+          await const FlutterSecureStorage().deleteAll();
+        } on Object {
+          // لا يمنع مسح بقية البيانات.
+        }
+        await SchoolBootstrap.defaultWipe(app);
+      },
     ),
   );
 }

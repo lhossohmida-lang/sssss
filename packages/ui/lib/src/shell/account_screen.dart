@@ -13,8 +13,10 @@ import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import '../tutorial/tutorial_screens.dart';
 import 'app_updater.dart';
+import 'device_reset.dart';
 import 'pairing_screens.dart';
 import 'providers.dart';
+import 'school_bootstrap.dart';
 
 /// سطر في بطاقة الحساب: عنوانه وقيمته.
 typedef AccountDetail = ({String label, String value});
@@ -168,6 +170,17 @@ class AccountScreen extends ConsumerWidget {
             kind: ClayButtonKind.secondary,
             expand: true,
             onPressed: () => _changeLogin(context, ref),
+          ),
+        ],
+        // داخل التطبيقات الفعلية فقط (يغيب خارج جذر المدرسة كما في بعض الاختبارات).
+        if (SchoolBootstrap.connectionOf(context) != null) ...[
+          const SizedBox(height: ClaySpacing.md),
+          ClayButton(
+            label: 'إعادة تعيين بيانات الجهاز',
+            icon: Icons.restart_alt_rounded,
+            kind: ClayButtonKind.secondary,
+            expand: true,
+            onPressed: () => runDeviceReset(context, ref),
           ),
         ],
         const SizedBox(height: ClaySpacing.md),
