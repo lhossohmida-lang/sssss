@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
@@ -246,6 +247,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(ClaySpacing.screenPadding),
                   children: [
+                    // رقم الدخول وكلمة السر يغيّرهما صاحبهما من «حسابي».
+                    ClayListTile(
+                      leading: Icon(
+                        Icons.account_circle_outlined,
+                        color: p.accent,
+                      ),
+                      title: 'حسابي',
+                      subtitle: 'رقم الدخول وكلمة السر والخروج',
+                      onTap: () => context.push(AppRoutes.account),
+                      trailing: const [Icon(Icons.chevron_left_rounded)],
+                    ),
+                    const SizedBox(height: ClaySpacing.lg),
                     if (!canEdit)
                       const Padding(
                         padding: EdgeInsets.only(bottom: ClaySpacing.lg),

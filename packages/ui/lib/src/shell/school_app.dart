@@ -11,6 +11,7 @@ import '../clay/clay_icons.dart';
 import '../clay/clay_navigation.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import '../tutorial/tutorial_screens.dart';
 import 'account_screen.dart';
 import 'app_page.dart';
 import 'app_tab.dart';
@@ -136,6 +137,15 @@ GoRouter buildAppRouter({
         builder: (context, state) => const AssistantScreen(),
       ),
       GoRoute(
+        path: HelpRoutes.list,
+        builder: (context, state) => const HelpScreen(),
+      ),
+      GoRoute(
+        path: HelpRoutes.lessonPattern,
+        builder: (context, state) =>
+            LessonScreen(lessonId: state.pathParameters['id']!),
+      ),
+      GoRoute(
         path: AppRoutes.account,
         builder: (context, state) => const Scaffold(
           appBar: ClayAppBar(title: 'حسابي', showBack: true),
@@ -227,6 +237,7 @@ class ShellPage extends ConsumerWidget {
             icon: Icon(ClayIcons.assistant, color: p.text),
             onPressed: () => context.push(AppRoutes.assistant),
           ),
+          HelpButton(tabPath: tab.path),
         ],
       ),
       sidebarHeader: Column(
@@ -263,6 +274,7 @@ class ShellPage extends ConsumerWidget {
       body: Column(
         children: [
           const UpdateBanner(),
+          const TutorialWelcomeBanner(),
           Expanded(child: shell),
         ],
       ),

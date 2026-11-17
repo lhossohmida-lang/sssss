@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 
 import '../clay/clay_button.dart';
@@ -10,6 +11,7 @@ import '../clay/clay_inputs.dart';
 import '../clay/clay_overlays.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
+import '../tutorial/tutorial_screens.dart';
 import 'app_updater.dart';
 import 'pairing_screens.dart';
 import 'providers.dart';
@@ -139,6 +141,14 @@ class AccountScreen extends ConsumerWidget {
               const UpdateSection(),
             ],
           ),
+        ),
+        const SizedBox(height: ClaySpacing.md),
+        ClayButton(
+          label: 'دليل الاستخدام',
+          icon: ClayIcons.help,
+          kind: ClayButtonKind.secondary,
+          expand: true,
+          onPressed: () => context.push(HelpRoutes.list),
         ),
         const SizedBox(height: ClaySpacing.md),
         ClayButton(

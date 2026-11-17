@@ -287,6 +287,11 @@ class _AccountRow extends _Row {
   final String role;
 }
 
+/// «دليل الاستخدام» بعد بطاقة «حسابي»: دروس قصيرة تعلّم استعمال التطبيق.
+class _HelpRow extends _Row {
+  const _HelpRow();
+}
+
 /// قائمة «المزيد»: الأقسام التي لا يتسع لها الشريط السفلي مجمّعة بعناوين،
 /// وتظهر لكل مستخدم ما يملك صلاحيته فقط، والمجموعة الفارغة تختفي بعنوانها.
 /// وأعلاها بطاقة «حسابي» لكل مستخدم.
@@ -321,6 +326,14 @@ class MorePage extends ConsumerWidget {
         : tile;
   }
 
+  static Widget _helpTile(BuildContext context) => ClayListTile(
+    leading: Icon(ClayIcons.help, color: context.palette.accent),
+    title: 'دليل الاستخدام',
+    subtitle: 'دروس قصيرة تعلّمك استعمال التطبيق',
+    onTap: () => context.push(HelpRoutes.list),
+    trailing: const [Icon(Icons.chevron_left_rounded)],
+  );
+
   static const double _headerExtent = 48;
   static const double _entryExtent = 84;
 
@@ -329,7 +342,10 @@ class MorePage extends ConsumerWidget {
     final session = ref.watch(sessionProvider.select((s) => s.value));
     final pendingRequests = ref.watch(pendingRequestsCountProvider).value ?? 0;
     final rows = <_Row>[
-      if (session != null) _AccountRow(session.displayName, session.role.label),
+      if (session != null) ...[
+        _AccountRow(session.displayName, session.role.label),
+        const _HelpRow(),
+      ],
     ];
     for (final section in MoreSection.values) {
       final visible = [
@@ -361,7 +377,15 @@ class MorePage extends ConsumerWidget {
     if (rows.whereType<_Entry>().isEmpty) {
       return Column(
         children: [
-          if (rows.isNotEmpty) _accountTile(context, rows.first as _AccountRow),
+          if (rows.isNotEmpty) ...[
+            _accountTile(context, rows.first as _AccountRow),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: ClaySpacing.screenPadding,
+              ),
+              child: _helpTile(context),
+            ),
+          ],
           const Expanded(
             child: ClayEmptyView(
               title: 'لا توجد أقسام متاحة',
@@ -381,6 +405,7 @@ class MorePage extends ConsumerWidget {
         if (row is _AccountRow) {
           return _accountTile(context, row, padded: false);
         }
+        if (row is _HelpRow) return _helpTile(context);
         if (row is _Header) {
           return Align(
             alignment: AlignmentDirectional.bottomStart,

@@ -77,6 +77,18 @@ Future<void> save(WidgetTester tester) async {
 }
 
 void main() {
+  appTest('الإعدادات: بطاقة «حسابي» تفتح صفحة رقم الدخول وكلمة السر', (
+    tester,
+  ) async {
+    await openSettings(tester, owner);
+    expect(find.text('رقم الدخول وكلمة السر والخروج'), findsOneWidget);
+    await tester.tap(find.text('رقم الدخول وكلمة السر والخروج'));
+    await tester.pumpAndSettle();
+    expect(find.text('رقم الدخول'), findsOneWidget);
+    expect(find.widgetWithText(ClayButton, 'تغيير رقم الدخول'), findsOneWidget);
+    expect(find.widgetWithText(ClayButton, 'تغيير كلمة السر'), findsOneWidget);
+  });
+
   appTest('«المزيد» يفتح الإعدادات ويعرض القيم الافتراضية', (tester) async {
     await openSettings(tester, owner);
     expect(find.text('بيانات المدرسة'), findsOneWidget);

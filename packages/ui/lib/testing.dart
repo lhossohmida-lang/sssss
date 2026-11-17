@@ -47,6 +47,7 @@ Future<AppRuntime> bootApp(
   QrCodeSource Function()? usbReader,
   ScanFeedback? scanFeedback,
   bool sessionCloser = false,
+  bool tutorialWelcome = false,
 }) async {
   final runtime = (await tester.runAsync(
     () => startTestRuntime(
@@ -66,6 +67,7 @@ Future<AppRuntime> bootApp(
       overrides: [
         runtimeProvider.overrideWithValue(runtime),
         sessionCloserEnabledProvider.overrideWithValue(sessionCloser),
+        tutorialWelcomeEnabledProvider.overrideWithValue(tutorialWelcome),
         if (photoSource != null)
           photoSourceProvider.overrideWithValue(photoSource),
         if (pdfPresenter != null)

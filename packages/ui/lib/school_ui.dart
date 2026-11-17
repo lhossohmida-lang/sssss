@@ -48,3 +48,6 @@ export 'src/shell/teacher_month.dart';
 export 'src/theme/clay_colors.dart';
 export 'src/theme/clay_theme.dart';
 export 'src/theme/clay_tokens.dart';
+export 'src/tutorial/tutorial_lessons.dart';
+export 'src/tutorial/tutorial_progress.dart';
+export 'src/tutorial/tutorial_screens.dart';

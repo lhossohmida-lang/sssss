@@ -6,7 +6,7 @@ import 'package:school_core/testing.dart';
 import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 
-const _owner = TestAccount(
+const accountOwner = TestAccount(
   id: 'u-owner',
   email: 'owner@school.local',
   password: 'owner-pass-1',
@@ -15,7 +15,7 @@ const _owner = TestAccount(
   mustChangePassword: false,
 );
 
-const _bareWorker = TestAccount(
+const accountBareWorker = TestAccount(
   id: 'u-worker',
   email: '0661234567@school.local',
   password: 'worker-pass-1',
@@ -49,7 +49,7 @@ void main() {
   appTest('«المزيد»: بطاقة حسابي أعلى القائمة وتفتح صفحة الحساب', (
     tester,
   ) async {
-    await openMore(tester, _owner);
+    await openMore(tester, accountOwner);
     expect(find.text('حسابي'), findsOneWidget);
     expect(find.text('صاحب المدرسة · صاحب المدرسة'), findsOneWidget);
 
@@ -66,7 +66,7 @@ void main() {
   appTest('تغيير رقم الدخول: أخطاء الحقول ثم النجاح ببيانات الرقم الجديد', (
     tester,
   ) async {
-    final runtime = await openMore(tester, _owner);
+    final runtime = await openMore(tester, accountOwner);
     await tester.tap(find.text('حسابي'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تغيير رقم الدخول'));
@@ -115,7 +115,7 @@ void main() {
   });
 
   appTest('إلغاء الحوار لا يغيّر شيئاً', (tester) async {
-    final runtime = await openMore(tester, _owner);
+    final runtime = await openMore(tester, accountOwner);
     await tester.tap(find.text('حسابي'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تغيير رقم الدخول'));
@@ -127,7 +127,7 @@ void main() {
   });
 
   appTest('عامل بلا صلاحيات: يرى حسابي ورسالة أن لا أقسام له', (tester) async {
-    await openMore(tester, _bareWorker);
+    await openMore(tester, accountBareWorker);
     expect(find.text('حسابي'), findsOneWidget);
     expect(find.text('لا توجد أقسام متاحة'), findsOneWidget);
 

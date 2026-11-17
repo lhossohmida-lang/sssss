@@ -10,6 +10,7 @@ abstract final class ClayIcons {
   static const IconData back = Icons.arrow_back_rounded;
   static const IconData notifications = Icons.notifications_rounded;
   static const IconData settings = Icons.settings_rounded;
+  static const IconData help = Icons.help_outline_rounded;
 
   // الأشخاص
   static const IconData students = Icons.school_rounded;

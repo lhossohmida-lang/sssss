@@ -51,6 +51,9 @@ void main() {
     await openParent(tester);
     await tester.tap(find.text('حسابي').last);
     await tester.pumpAndSettle();
+    // الصفحة تطول بأزرارها فيُمرَّر إلى «خروج» قبل الضغط عليه.
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'خروج'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'خروج'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'خروج').last);
