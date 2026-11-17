@@ -12,6 +12,9 @@ verify_jwt = true
 [functions.reset-account-password]
 verify_jwt = true
 
+[functions.change-login]
+verify_jwt = true
+
 # تستدعيها قاعدة البيانات (pg_net) لا مستخدم بجلسة، وتتحقق بنفسها من سرّ مشترك في الترويسة.
 [functions.send-push]
 verify_jwt = false

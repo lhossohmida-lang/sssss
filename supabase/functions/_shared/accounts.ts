@@ -13,6 +13,8 @@ export const roles = new Set<string>(["owner", "worker", "teacher", "parent"]);
 
 export type Caller = {
   id: string;
+  /** بريد الدخول الحالي بأحرف صغيرة (فارغ إن لم يُعد الخادم بريداً). */
+  email: string;
   role: string;
   entityId: string | null;
   permissions: Record<string, unknown>;
@@ -161,7 +163,8 @@ export async function getCaller(
       }
     }
   }
-  return { id: user.id, role, entityId, permissions };
+  const email = typeof user.email === "string" ? user.email.trim().toLowerCase() : "";
+  return { id: user.id, email, role, entityId, permissions };
 }
 
 /** يحوّل Response مرمياً من getCaller إلى رد نظيف (دون تفاصيل). */
