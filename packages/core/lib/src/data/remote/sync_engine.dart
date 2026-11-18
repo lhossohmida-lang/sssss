@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../../domain/device_preferences.dart';
 import '../local/app_database.dart';
+import '../local/school_data_reset.dart';
 import 'remote_store.dart';
 import 'sync_profile.dart';
 
@@ -48,6 +50,7 @@ class SyncEngine {
     int Function()? clock,
     this.pushBatch = 100,
     this.pullBatch = 500,
+    this.onSchoolReset,
   }) : _clock = clock ?? (() => DateTime.now().toUtc().millisecondsSinceEpoch) {
     for (final table in db.allTables) {
       _tables[table.actualTableName] = table;
@@ -61,6 +64,9 @@ class SyncEngine {
   final int pushBatch;
   final int pullBatch;
 
+  /// يُستدعى بعد أن مُسحت بيانات هذا الجهاز لأن مدرسته أُعيد تعيينها من جهاز آخر.
+  final void Function()? onSchoolReset;
+
   final Map<String, TableInfo<Table, Object?>> _tables = {};
 
   /// عملية مرفوضة نهائياً تُركن بهذا الوقت حتى يعيدها المستخدم يدوياً.
@@ -69,8 +75,10 @@ class SyncEngine {
   /// أقصى تأخير بين محاولتين.
   static const int _maxBackoffMs = 10 * 60 * 1000;
 
-  /// جولة كاملة: دفع ثم سحب.
+  /// جولة كاملة: فحص دورة المدرسة، ثم دفع ثم سحب.
   Future<SyncReport> syncOnce() async {
+    final epoch = await checkSchoolEpoch();
+    if (epoch != null) return epoch;
     final push = await pushOutbox();
     if (push.error != null) return push;
     final pull = await pullAll();
@@ -81,6 +89,39 @@ class SyncEngine {
       pending: push.pending,
       error: pull.error,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // دورة المدرسة
+  // ---------------------------------------------------------------------------
+
+  /// يقارن دورة المدرسة على الخادم بما عرفه هذا الجهاز. إن اختلفت فقد أُعيد تعيين المدرسة (كل
+  /// بياناتها حُذفت)، وما على هذا الجهاز منها قديم: يُمسح كله مع طابور الإرسال بدل أن يُرفع فيعيد
+  /// إلى المدرسة بيانات محذوفة، ثم يُسحب ما في الخادم من جديد. الجهاز الذي لم يعرف دورة قط يُعدّ على
+  /// الدورة الفارغة، فجهاز قديم يُمسح عند أول فحص بعد أي إعادة، وجهاز جديد (قاعدته فارغة) لا يخسر
+  /// شيئاً. لا فحص مع خادم لا يدعم الدورة (اختبارات، أو ترحيل لم يُطبَّق).
+  ///
+  /// يعيد `null` للمتابعة، أو تقريراً بخطأ مؤقت (تُعاد الجولة لاحقاً). وفشل الفحص لا يتيح الدفع: قد
+  /// تكون المدرسة أُعيدت ولا يعرف الجهاز.
+  Future<SyncReport?> checkSchoolEpoch() async {
+    final candidate = remote;
+    if (candidate is! SchoolEpochSource) return null;
+    final source = candidate as SchoolEpochSource;
+    final String? server;
+    try {
+      server = await source.fetchSchoolEpoch();
+    } on RemoteException catch (e) {
+      return SyncReport(pending: await pendingCount(), error: e.message);
+    }
+    if (server == null) return null;
+    final preferences = DevicePreferences(db);
+    final known =
+        await preferences.read(DevicePreferences.schoolEpochKey) ?? '';
+    if (known == server) return null;
+    await wipeSchoolData(db);
+    await preferences.write(DevicePreferences.schoolEpochKey, server);
+    onSchoolReset?.call();
+    return null;
   }
 
   // ---------------------------------------------------------------------------

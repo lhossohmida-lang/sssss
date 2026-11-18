@@ -12,6 +12,13 @@ class RemoteException implements Exception {
   String toString() => message;
 }
 
+/// مصدر «دورة» المدرسة على الخادم: نص يتغير عند كل إعادة تعيين للمدرسة، ونص فارغ ما لم تُعَد. يدعمه
+/// الخادم الحقيقي وحده؛ والخوادم الوهمية في الاختبارات لا تلزمها (لا فحص دورة معها).
+abstract interface class SchoolEpochSource {
+  /// الدورة الحالية، أو `null` إن لم يدعمها الخادم بعد (ترحيل قديم).
+  Future<String?> fetchSchoolEpoch();
+}
+
 /// واجهة مجرّدة للخادم. محرك المزامنة لا يعرف غيرها، فيُختبر بخادم وهمي
 /// ويعمل في الإنتاج على Supabase.
 abstract interface class RemoteStore {

@@ -18,6 +18,10 @@ class DevicePreferences {
   /// معرّف هذا الجهاز لهذه المدرسة (عشوائي، يُنشأ مرة ويبقى).
   static const String deviceIdKey = 'device_id';
 
+  /// دورة المدرسة التي تنتمي إليها بيانات هذا الجهاز (انظر [SchoolEpochSource]). غيابها يعني
+  /// الدورة الفارغة: مدرسة لم تُعَد قط.
+  static const String schoolEpochKey = 'school_epoch';
+
   /// هل طُلبت من المستخدم صلاحية إرسال الرسائل على هذا الجهاز من قبل؟
   static const String smsPermissionAskedKey = 'sms_permission_asked';
 

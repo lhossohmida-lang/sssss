@@ -17,6 +17,7 @@ import '../auth/session_store.dart';
 import '../auth/supabase_auth_gateway.dart';
 import '../data/local/app_database.dart';
 import '../data/local/open_database.dart';
+import '../data/local/school_data_reset.dart';
 import '../data/local/sync_writer.dart';
 import '../data/remote/file_store.dart';
 import '../data/remote/push_installation_store.dart';
@@ -26,12 +27,15 @@ import '../data/remote/sync_engine.dart';
 import '../data/remote/sync_profile.dart';
 import '../data/remote/upload_worker.dart';
 import '../domain/cycle_service.dart';
+import '../domain/device_preferences.dart';
+import '../domain/enums.dart';
 import '../domain/group_service.dart';
 import '../domain/schedule_service.dart';
 import '../domain/settings_service.dart';
 import 'app_config.dart';
 import 'defaults_seeder.dart';
 import 'school_pairing.dart';
+import 'school_reset.dart';
 
 /// يبني منسّق المزامنة لجلسة مسجَّلة. يُمرَّر في الاختبارات بنسخة وهمية.
 typedef SyncFactory = SyncCoordinator Function(AuthSession session);
@@ -90,6 +94,7 @@ class AppRuntime {
     required this.localGateway,
     required this.provisioner,
     required this.pushInstallationStore,
+    required this.schoolReset,
     required this.photosDirectory,
     required this.fileStore,
     required SyncLifecycle? syncLifecycle,
@@ -122,6 +127,9 @@ class AppRuntime {
 
   /// مخزن معرّف تثبيت Firebase للحساب المسجّل؛ `null` في الوضع المحلي.
   final PushInstallationStore? pushInstallationStore;
+
+  /// إعادة تعيين المدرسة على الخادم (لصاحبها)؛ `null` في الوضع المحلي.
+  final SchoolResetGateway? schoolReset;
   final SyncLifecycle? _sync;
   final DefaultsSeeder? _seeder;
 
@@ -148,6 +156,7 @@ class AppRuntime {
     SyncFactory? syncFactory,
     AccountProvisioner? provisioner,
     PushInstallationStore? pushInstallationStore,
+    SchoolResetGateway? schoolReset,
     Directory? photosDirectory,
     int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
@@ -240,6 +249,9 @@ class AppRuntime {
       pushInstallationStore:
           pushInstallationStore ??
           (client == null ? null : SupabasePushInstallationStore(client)),
+      schoolReset:
+          schoolReset ??
+          (client == null ? null : SupabaseSchoolResetGateway(client)),
       syncLifecycle: lifecycle,
       seeder: app == AppIdentity.admin
           ? DefaultsSeeder(
@@ -258,6 +270,49 @@ class AppRuntime {
           : null,
       ownsSupabase: ownsSupabase,
     );
+  }
+
+  /// إعادة تعيين المدرسة بالكامل (لصاحبها وحده): تُمسح بياناتها وحسابات من عدا المالك وملفاتها على
+  /// الخادم، ثم بيانات هذا الجهاز وصوره (وجهاز المالك يبقى مسجَّلاً في حسابه)، فتعود المدرسة كأنها
+  /// جديدة وتُبذَر مستوياتها الافتراضية من جديد. الأجهزة الأخرى تمسح بياناتها عند أول مزامنة لها
+  /// (دورة المدرسة). يرمي [SchoolResetException] دون أن يُمسح شيء إن رُفضت (كلمة سر خاطئة، لا
+  /// اتصال...). وبقايا الخادم (حسابات أو ملفات) تعود في النتيجة وتُكمَل بإعادة التشغيل.
+  Future<SchoolResetResult> resetSchool({required String password}) async {
+    final gateway = schoolReset;
+    final session = auth.current;
+    if (gateway == null || session == null || session.role != UserRole.owner) {
+      throw const SchoolResetException(
+        SchoolResetFailure.notAvailable,
+        'إعادة تعيين المدرسة لصاحبها وحده وتحتاج خادم المدرسة',
+      );
+    }
+    final result = await gateway.reset(password: password);
+    // جولة مزامنة تحسم الأمر: تنتظر جولة جارية ثم تفحص الدورة فتمسح هذا الجهاز وتسحب المدرسة
+    // الجديدة. وإن تعذّرت (لا إنترنت الآن) يُمسح الجهاز هنا ويُسجَّل أنه على الدورة الجديدة.
+    final coordinator = sync;
+    if (coordinator != null) await coordinator.syncNow();
+    final preferences = DevicePreferences(db);
+    if (await preferences.read(DevicePreferences.schoolEpochKey) !=
+        result.epoch) {
+      await wipeSchoolData(db);
+      await preferences.write(DevicePreferences.schoolEpochKey, result.epoch);
+    }
+    _clearPhotos();
+    coordinator?.requestSync();
+    return result;
+  }
+
+  /// يفرّغ مجلد الصور المحلي (صور تلاميذ المدرسة السابقة). متزامن: مجلد صغير وعملية نادرة، فلا
+  /// يمتد مسح المدرسة على انتظار إدخال/إخراج غير متزامن.
+  void _clearPhotos() {
+    try {
+      if (!photosDirectory.existsSync()) return;
+      for (final entry in photosDirectory.listSync()) {
+        entry.deleteSync(recursive: true);
+      }
+    } on FileSystemException {
+      // ما تعذّر حذفه يبقى ملفاً يتيماً على الجهاز؛ لا يمنع إكمال الإعادة.
+    }
   }
 
   /// يوقف المزامنة ويغلق القاعدة.

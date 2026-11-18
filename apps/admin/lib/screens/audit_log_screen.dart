@@ -13,9 +13,11 @@ const Map<String, String> _auditActionLabels = {
   'pay_teacher': 'خلاص أستاذ',
   'cycle_complete': 'إكمال الدورة',
   'set_permissions': 'تعديل الصلاحيات',
+  'reset_school': 'إعادة تعيين المدرسة',
 };
 
 const Map<String, String> _auditEntityLabels = {
+  'school': 'المدرسة',
   'settings': 'الإعدادات',
   'levels': 'المستويات',
   'students': 'التلاميذ',

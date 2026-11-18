@@ -266,7 +266,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Center(
             child: TextButton(
               onPressed: _busy ? null : () => runDeviceReset(context, ref),
-              child: const Text('إعادة تعيين بيانات الجهاز'),
+              child: const Text('مسح بيانات هذا الجهاز'),
             ),
           ),
         ],

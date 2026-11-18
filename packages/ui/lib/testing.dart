@@ -48,12 +48,14 @@ Future<AppRuntime> bootApp(
   ScanFeedback? scanFeedback,
   bool sessionCloser = false,
   bool tutorialWelcome = false,
+  SchoolResetGateway? schoolReset,
 }) async {
   final runtime = (await tester.runAsync(
     () => startTestRuntime(
       app: app,
       accounts: accounts,
       provisioner: provisioner,
+      schoolReset: schoolReset,
     ),
   ))!;
   addTearDown(() async {

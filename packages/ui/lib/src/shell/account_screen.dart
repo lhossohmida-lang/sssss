@@ -17,6 +17,7 @@ import 'device_reset.dart';
 import 'pairing_screens.dart';
 import 'providers.dart';
 import 'school_bootstrap.dart';
+import 'school_reset_flow.dart';
 
 /// سطر في بطاقة الحساب: عنوانه وقيمته.
 typedef AccountDetail = ({String label, String value});
@@ -172,11 +173,23 @@ class AccountScreen extends ConsumerWidget {
             onPressed: () => _changeLogin(context, ref),
           ),
         ],
+        // صاحب المدرسة على خادم: مسح مدرستها كلها من الخادم ومن كل الأجهزة وإعادتها جديدة.
+        if (session.role == UserRole.owner &&
+            ref.watch(runtimeProvider).schoolReset != null) ...[
+          const SizedBox(height: ClaySpacing.md),
+          ClayButton(
+            label: 'إعادة تعيين بيانات المصنع',
+            icon: Icons.delete_forever_rounded,
+            kind: ClayButtonKind.danger,
+            expand: true,
+            onPressed: () => runSchoolReset(context, ref),
+          ),
+        ],
         // داخل التطبيقات الفعلية فقط (يغيب خارج جذر المدرسة كما في بعض الاختبارات).
         if (SchoolBootstrap.connectionOf(context) != null) ...[
           const SizedBox(height: ClaySpacing.md),
           ClayButton(
-            label: 'إعادة تعيين بيانات الجهاز',
+            label: 'مسح بيانات هذا الجهاز',
             icon: Icons.restart_alt_rounded,
             kind: ClayButtonKind.secondary,
             expand: true,

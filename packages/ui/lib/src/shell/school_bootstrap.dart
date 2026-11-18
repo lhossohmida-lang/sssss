@@ -28,7 +28,7 @@ typedef RuntimeStarter = Future<AppRuntime> Function(
 /// يوقف وقت تشغيل بعد أن فُكّت واجهته.
 typedef RuntimeStopper = Future<void> Function(AppRuntime runtime);
 
-/// يمسح ما حفظه التطبيق على الجهاز عند «إعادة تعيين بيانات الجهاز»، بعد إيقاف وقت التشغيل.
+/// يمسح ما حفظه التطبيق على الجهاز عند «مسح بيانات هذا الجهاز»، بعد إيقاف وقت التشغيل.
 typedef DeviceDataWipe = Future<void> Function(AppIdentity app);
 
 /// ما يتيحه الجذر لشاشات التطبيق المُشغَّل: أي مدرسة ربط بها الجهاز، والخروج منها.
@@ -520,7 +520,7 @@ class _StartFailureScreen extends StatelessWidget {
           onPressed: () async {
             if (await confirmDeviceReset(context)) await onReset();
           },
-          child: const Text('إعادة تعيين بيانات الجهاز'),
+          child: const Text('مسح بيانات هذا الجهاز'),
         ),
       ],
     );

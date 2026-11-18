@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 
 import '../app/app_runtime.dart';
+import '../app/school_reset.dart';
 import '../app_identity.dart';
 import '../auth/account_provisioner.dart';
 import '../data/local/app_database.dart';
@@ -47,6 +48,7 @@ Future<AppRuntime> startTestRuntime({
   bool localMode = false,
   AccountProvisioner? provisioner,
   Directory? photosDirectory,
+  SchoolResetGateway? schoolReset,
 }) async {
   final db = database ?? AppDatabase(NativeDatabase.memory());
   // الوضع المحلي: دون بوابة وهمية، فيبني التطبيق بوابته المحلية (للإدارة).
@@ -95,6 +97,7 @@ Future<AppRuntime> startTestRuntime({
     gateway: fake,
     syncFactory: syncFactory,
     provisioner: provisioner,
+    schoolReset: schoolReset,
     photosDirectory:
         photosDirectory ??
         Directory.systemTemp.createTempSync('school_photos_'),

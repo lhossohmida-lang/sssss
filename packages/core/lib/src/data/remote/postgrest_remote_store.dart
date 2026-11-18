@@ -16,7 +16,7 @@ import 'synced_tables.dart';
 ///
 /// الأخطاء تُصنَّف: مؤقتة (شبكة، مهلة، 401 رمز منتهٍ، 408، 429، 5xx) تُعاد
 /// محاولتها، ونهائية (رفض صلاحيات أو قيد) يُركن صفها.
-class PostgrestRemoteStore implements RemoteStore {
+class PostgrestRemoteStore implements RemoteStore, SchoolEpochSource {
   PostgrestRemoteStore({
     required this.restUrl,
     required this.apiKey,
@@ -104,6 +104,30 @@ class PostgrestRemoteStore implements RemoteStore {
       throw const RemoteException('رد غير مفهوم من الخادم', permanent: false);
     }
     return [for (final item in decoded) (item as Map).cast<String, Object?>()];
+  }
+
+  @override
+  Future<String?> fetchSchoolEpoch() async {
+    final response = await _send(
+      () async => _client.post(
+        Uri.parse('$restUrl/rpc/school_epoch'),
+        headers: {...await _headers(), 'Content-Type': 'application/json'},
+        body: '{}',
+      ),
+    );
+    // خادم لم يُطبَّق عليه الترحيل 0009: لا دورة، ولا فحص.
+    if (response.statusCode == 404) return null;
+    _check(response);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    } on FormatException {
+      throw const RemoteException('رد غير مفهوم من الخادم', permanent: false);
+    }
+    if (decoded is! String) {
+      throw const RemoteException('رد غير مفهوم من الخادم', permanent: false);
+    }
+    return decoded;
   }
 
   Future<Map<String, String>> _headers() async {

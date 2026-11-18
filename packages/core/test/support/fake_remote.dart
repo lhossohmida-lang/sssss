@@ -18,6 +18,9 @@ class FakeRemote implements RemoteStore {
   /// سجل الطلبات للتحقق من الترتيب والتجميع.
   final List<String> calls = [];
 
+  /// يمسح كل بيانات الخادم كما تفعل إعادة تعيين المدرسة؛ رقم المزامنة يستمر في التزايد.
+  void wipe() => _tables.clear();
+
   List<Map<String, Object?>> rows(String table) =>
       (_tables[table]?.values ?? const <Map<String, Object?>>[]).toList();
 

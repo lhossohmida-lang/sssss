@@ -32,13 +32,16 @@ class DefaultsSeeder {
   /// المنسّق الحالي (يتغير مع الجلسة)؛ `null` دون جلسة أو دون خادم.
   final SyncCoordinator? Function() coordinator;
 
-  /// صيانة بيانات تلحق البذر بعد أول مزامنة (مثل إعادة ترقيم الأفواج المقطعي). فشلها لا يعطّل
-  /// شيئاً وتُعاد عند الدخول التالي.
+  /// صيانة بيانات تلحق البذر بعد كل مزامنة ناجحة (مثل إعادة ترقيم الأفواج المقطعي). فشلها لا يعطّل
+  /// شيئاً وتُعاد بعد المزامنة التالية.
   final Future<void> Function()? maintenance;
 
   late final StreamSubscription<AuthSession?> _subscription;
   StreamSubscription<SyncStatus>? _syncWatch;
   String? _seededFor;
+  int? _lastSuccess;
+  bool _busy = false;
+  bool _again = false;
 
   void _onSession(AuthSession? session) {
     if (session == null || session.role != UserRole.owner) return;
@@ -50,25 +53,37 @@ class DefaultsSeeder {
     }
     final sync = coordinator();
     if (sync == null) return;
-    if (sync.status.lastSuccessAt != null) {
-      unawaited(_seed());
-      return;
-    }
+    // بعد كل مزامنة ناجحة لا بعد أولى فقط: إعادة تعيين المدرسة من جهاز آخر تمسح المستويات والعلامة
+    // معاً فتُبذَر من جديد، و`ensureDefaults` فحص واحد رخيص حين لا جديد.
+    _lastSuccess = sync.status.lastSuccessAt;
+    if (_lastSuccess != null) unawaited(_seed());
     unawaited(_syncWatch?.cancel());
     _syncWatch = sync.statusStream.listen((status) {
-      if (status.lastSuccessAt == null) return;
-      unawaited(_syncWatch?.cancel());
+      final at = status.lastSuccessAt;
+      if (at == null || at == _lastSuccess) return;
+      _lastSuccess = at;
       unawaited(_seed());
     });
   }
 
   Future<void> _seed() async {
+    // جولتان متداخلتان تُجمَعان في ما بعدها.
+    if (_busy) {
+      _again = true;
+      return;
+    }
+    _busy = true;
     try {
-      await levels.ensureDefaults();
-      await maintenance?.call();
+      do {
+        _again = false;
+        await levels.ensureDefaults();
+        await maintenance?.call();
+      } while (_again);
     } on Object {
-      // تُعاد المحاولة عند الدخول التالي؛ لا يتعطل التطبيق بسببها.
+      // تُعاد المحاولة بعد المزامنة التالية أو عند الدخول التالي؛ لا يتعطل التطبيق بسببها.
       _seededFor = null;
+    } finally {
+      _busy = false;
     }
   }
 
