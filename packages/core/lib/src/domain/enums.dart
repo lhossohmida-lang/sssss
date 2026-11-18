@@ -165,7 +165,10 @@ enum SessionRequestStatus {
 enum PaymentType {
   month('month', 'شهر'),
   transport('transport', 'نقل'),
-  registrationFee('registration', 'حقوق تسجيل');
+  registrationFee('registration', 'حقوق تسجيل'),
+
+  /// ثمن حصة واحدة يدفعها ضيف الحصة (تلميذ لمرة واحدة أو تلميذ يحضر حصة فوج آخر).
+  session('session', 'حصة واحدة');
 
   const PaymentType(this.code, this.label);
 
@@ -300,11 +303,13 @@ enum FeePeriod {
   }
 }
 
-/// الطور الدراسي.
+/// الطور الدراسي. «أخرى» لما يُدرَّس خارج السنوات الدراسية العادية: دورات ومواد باسم خاص لا تعتمد
+/// على عمر التلميذ ولا سنته (لغات، حاسوب...)، فيضيف المدير لها مستويات بأسمائه.
 enum EducationStage {
   primary('primary', 'ابتدائي', 5),
   middle('middle', 'متوسط', 4),
-  secondary('secondary', 'ثانوي', 3);
+  secondary('secondary', 'ثانوي', 3),
+  other('other', 'أخرى (دورات ومواد خاصة)', 0);
 
   const EducationStage(this.code, this.label, this.defaultGrades);
 
@@ -314,7 +319,7 @@ enum EducationStage {
   /// النص العربي الظاهر للمستخدم.
   final String label;
 
-  /// عدد سنوات الطور في المنهاج الجزائري (الاقتراح المعتمد 32).
+  /// عدد سنوات الطور في المنهاج الجزائري (الاقتراح المعتمد 32)؛ صفر لا مستويات افتراضية له.
   final int defaultGrades;
 
   /// يحوّل القيمة المخزَّنة إلى النوع، ويرمي [ArgumentError] إن كانت مجهولة.

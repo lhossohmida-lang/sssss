@@ -120,6 +120,23 @@ class DashboardScreen extends ConsumerWidget {
             path: '/students',
             isTab: true,
           ),
+        if (can(PermissionModule.teachers))
+          _Kpi(
+            icon: ClayIcons.teachers,
+            label: 'الأساتذة',
+            value: '${s.teachers}',
+            sub: 'حضر اليوم ${s.teachersPresent}',
+            path: '/teachers',
+          ),
+        if (can(PermissionModule.workers))
+          _Kpi(
+            icon: ClayIcons.workers,
+            label: 'العمال',
+            value: '${s.workers}',
+            sub:
+                'في العمل الآن ${s.workersInside} · حضر اليوم ${s.workersPresent}',
+            path: '/workers',
+          ),
         if (can(PermissionModule.payments))
           _Kpi(
             icon: ClayIcons.payments,
@@ -156,6 +173,16 @@ class DashboardScreen extends ConsumerWidget {
             sub: 'يمكن فتح فوج',
             path: '/waiting',
             tone: s.waitingReady > 0 ? ClayTone.info : ClayTone.neutral,
+          ),
+        if (can(PermissionModule.groups) && s.waitingGroups > 0)
+          _Kpi(
+            icon: ClayIcons.groups,
+            label: 'أفواج منتظِرة',
+            value: '${s.waitingGroupsReady}',
+            sub: 'اكتمل عددها من ${s.waitingGroups} · حدّد تاريخ أول حصة',
+            path: '/groups',
+            isTab: true,
+            tone: s.waitingGroupsReady > 0 ? ClayTone.info : ClayTone.neutral,
           ),
         if (can(PermissionModule.requests))
           _Kpi(

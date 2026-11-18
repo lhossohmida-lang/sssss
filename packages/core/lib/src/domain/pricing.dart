@@ -1,8 +1,47 @@
 import 'enums.dart';
 import 'money.dart';
 
+/// من يتحمل تخفيض تلميذ أو إعفاءه: المدرسة، أم الأستاذ، أم مبلغ يحدده المدير للأستاذ.
+enum DiscountBearer {
+  /// الأستاذ يأخذ نصيبه كاملاً من مال المدرسة (ما يفعله النظام ما لم يُحدَّد غيره).
+  school('school', 'المدرسة', 'الأستاذ يأخذ نصيبه كاملاً من مال المدرسة'),
+
+  /// يُخصم التخفيض من نصيب الأستاذ: المدرسة تأخذ من حقه (وللإعفاء الكامل لا يأخذ شيئاً).
+  teacher('teacher', 'الأستاذ', 'يُخصم التخفيض من نصيب الأستاذ'),
+
+  /// يحدد المدير ما يأخذه الأستاذ عن هذا التلميذ.
+  custom(
+    'custom',
+    'مبلغ أحدده للأستاذ',
+    'أكتب ما يأخذه الأستاذ عن هذا التلميذ',
+  );
+
+  const DiscountBearer(this.code, this.label, this.help);
+
+  final String code;
+  final String label;
+  final String help;
+}
+
 /// حساب أسعار التلميذ. كل المبالغ بالدينار ومقرَّبة إلى أقرب 10.
 abstract final class Pricing {
+  /// ما يأخذه الأستاذ عن تلميذ بحسب [bearer]: `null` يعني نصيبه في الفوج [rate] كاملاً.
+  static int? teacherAmountFor(
+    DiscountBearer bearer, {
+    required int rate,
+    required int price,
+    required int net,
+    int? custom,
+  }) => switch (bearer) {
+    DiscountBearer.school => null,
+    DiscountBearer.teacher => teacherAmountWhenTeacherBears(
+      rate: rate,
+      price: price,
+      net: net,
+    ),
+    DiscountBearer.custom => custom,
+  };
+
   /// سعر الدورة بعد التخفيض.
   static int netPrice({
     required int price,
@@ -22,6 +61,19 @@ abstract final class Pricing {
       case DiscountType.exempt:
         return 0;
     }
+  }
+
+  /// ما يأخذه الأستاذ عن تلميذ حين **يتحمل هو التخفيض**: نصيبه [rate] ناقصاً ما نقص من سعر التلميذ
+  /// ([price] ناقصاً [net])، ولا ينزل عن صفر. فهامش المدرسة (السعر ناقص نصيب الأستاذ) لا يتغير،
+  /// والإعفاء الكامل يُسقط نصيب الأستاذ كله إن بلغ التخفيض نصيبه.
+  static int teacherAmountWhenTeacherBears({
+    required int rate,
+    required int price,
+    required int net,
+  }) {
+    final reduction = price - net;
+    final amount = rate - (reduction < 0 ? 0 : reduction);
+    return Money.roundToTen(amount < 0 ? 0 : amount);
   }
 
   /// قيمة [sessions] حصة من دورة فيها [sessionsPerCycle] حصة بسعر [netPrice].
@@ -100,4 +152,14 @@ class CycleDue {
   }
 
   bool get isSettled => remaining == 0;
+
+  /// عدد حصص الدورة التي يغطيها ما سُدِّد (المدفوع مع الأرصدة). كلها للمعفى أو من سعره صفر، ولا شيء
+  /// لمن لم يسدّد شيئاً، وإلا بنسبة ما سُدِّد من السعر مقرَّباً إلى حصة كاملة نحو الأسفل.
+  int coveredSessions(int sessionsPerCycle) {
+    if (exempt || netPrice <= 0) return sessionsPerCycle;
+    final settled = (credits > netPrice ? netPrice : credits) + paid;
+    if (settled <= 0) return 0;
+    if (settled >= netPrice) return sessionsPerCycle;
+    return (settled * sessionsPerCycle) ~/ netPrice;
+  }
 }

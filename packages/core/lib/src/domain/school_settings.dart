@@ -62,11 +62,17 @@ class SchoolSettings {
     this.scanMarginMinutes = defaultScanMargin,
     this.graceMinutes = defaultGrace,
     this.duesSessionThreshold = defaultDuesThreshold,
+    this.workerHalfDayMinutes = defaultWorkerHalfDay,
+    this.workerFullDayMinutes = defaultWorkerFullDay,
   });
 
   static const int defaultScanMargin = 30;
   static const int defaultGrace = 5;
   static const int defaultDuesThreshold = 2;
+
+  /// نصف اليوم أربع ساعات واليوم الكامل ثمان، إلى أن يضبطهما المدير.
+  static const int defaultWorkerHalfDay = 240;
+  static const int defaultWorkerFullDay = 480;
 
   final String schoolName;
   final String schoolAddress;
@@ -80,6 +86,10 @@ class SchoolSettings {
   final int graceMinutes;
   final int duesSessionThreshold;
 
+  /// أقل مدة عمل (بالدقائق) تُحسب نصف يوم، وأقل مدة تُحسب يوماً كاملاً.
+  final int workerHalfDayMinutes;
+  final int workerFullDayMinutes;
+
   SchoolSettings copyWith({
     String? schoolName,
     String? schoolAddress,
@@ -90,6 +100,8 @@ class SchoolSettings {
     int? scanMarginMinutes,
     int? graceMinutes,
     int? duesSessionThreshold,
+    int? workerHalfDayMinutes,
+    int? workerFullDayMinutes,
   }) => SchoolSettings(
     schoolName: schoolName ?? this.schoolName,
     schoolAddress: schoolAddress ?? this.schoolAddress,
@@ -100,6 +112,8 @@ class SchoolSettings {
     scanMarginMinutes: scanMarginMinutes ?? this.scanMarginMinutes,
     graceMinutes: graceMinutes ?? this.graceMinutes,
     duesSessionThreshold: duesSessionThreshold ?? this.duesSessionThreshold,
+    workerHalfDayMinutes: workerHalfDayMinutes ?? this.workerHalfDayMinutes,
+    workerFullDayMinutes: workerFullDayMinutes ?? this.workerFullDayMinutes,
   );
 
   /// يبني الإعدادات من أزواج الجدول. المفاتيح الغائبة أو التالفة تأخذ القيمة
@@ -146,6 +160,14 @@ class SchoolSettings {
         SettingKeys.duesSessionThreshold,
         defaultDuesThreshold,
       ),
+      workerHalfDayMinutes: number(
+        SettingKeys.workerHalfDayMinutes,
+        defaultWorkerHalfDay,
+      ),
+      workerFullDayMinutes: number(
+        SettingKeys.workerFullDayMinutes,
+        defaultWorkerFullDay,
+      ),
     );
   }
 
@@ -160,6 +182,8 @@ class SchoolSettings {
     SettingKeys.scanMarginMinutes: '$scanMarginMinutes',
     SettingKeys.graceMinutes: '$graceMinutes',
     SettingKeys.duesSessionThreshold: '$duesSessionThreshold',
+    SettingKeys.workerHalfDayMinutes: '$workerHalfDayMinutes',
+    SettingKeys.workerFullDayMinutes: '$workerFullDayMinutes',
   };
 
   /// الفصل الذي يضم [date]، أو `null`.
@@ -219,6 +243,15 @@ class SchoolSettings {
     }
     if (duesSessionThreshold < 0 || duesSessionThreshold > 12) {
       errors[SettingKeys.duesSessionThreshold] = 'العدد من 0 إلى 12 حصة';
+    }
+    if (workerHalfDayMinutes < 30 || workerHalfDayMinutes > 960) {
+      errors[SettingKeys.workerHalfDayMinutes] =
+          'مدة نصف اليوم من 30 دقيقة إلى 16 ساعة';
+    }
+    if (workerFullDayMinutes > 1440 ||
+        workerFullDayMinutes <= workerHalfDayMinutes) {
+      errors[SettingKeys.workerFullDayMinutes] =
+          'مدة اليوم الكامل أطول من مدة نصف اليوم ولا تزيد عن 24 ساعة';
     }
     final semesterError = _validateSemesters();
     if (semesterError != null) errors[SettingKeys.semesters] = semesterError;

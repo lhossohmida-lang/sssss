@@ -42,6 +42,16 @@ abstract final class SmsTemplateCatalog {
       variables: {'school', 'name', 'subject', 'group', 'schedule'},
     ),
     SmsTemplateDefinition(
+      key: SmsTemplateKeys.groupStarted,
+      title: 'تحديد موعد فوج منتظِر (إلى أولياء تلاميذه)',
+      variables: {'school', 'name', 'subject', 'date', 'schedule'},
+    ),
+    SmsTemplateDefinition(
+      key: SmsTemplateKeys.groupReady,
+      title: 'اكتمال فوج منتظِر (إلى هاتف المدير)',
+      variables: {'school', 'subject', 'group', 'count', 'target'},
+    ),
+    SmsTemplateDefinition(
       key: SmsTemplateKeys.cycleCompleted,
       title: 'اكتمال الدورة',
       variables: {'school', 'name', 'subject', 'cycle', 'amount'},

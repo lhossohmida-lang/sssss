@@ -26,6 +26,12 @@ class GroupDetailsScreen extends ConsumerWidget {
         ref.can(PermissionModule.students, PermissionAction.add) ||
         ref.can(PermissionModule.receiveMoney, PermissionAction.use) ||
         canPast;
+    // فوج منتظِر: لا حصص له بعد؛ المدير يحدد تاريخ أول حصة (يُنبَّه عند اكتمال العدد).
+    final waiting = ref
+        .watch(waitingGroupsProvider)
+        .value
+        ?.where((w) => w.id == groupId)
+        .firstOrNull;
     return Scaffold(
       appBar: ClayAppBar(
         title: item == null ? 'الفوج' : 'الفوج ${item.number}',
@@ -85,6 +91,37 @@ class GroupDetailsScreen extends ConsumerWidget {
                           style: text.bodyMedium,
                         ),
                       ),
+                    if (waiting != null) ...[
+                      const SizedBox(height: ClaySpacing.md),
+                      ClayBadge(
+                        label:
+                            'فوج منتظِر: ${waiting.studentCount} من ${waiting.target}'
+                            '${waiting.isReady ? ' — اكتمل العدد، حدّد تاريخ أول حصة' : ' (ينقص ${waiting.missing})'}',
+                        tone: waiting.isReady
+                            ? ClayTone.success
+                            : ClayTone.info,
+                      ),
+                      if (canEdit) ...[
+                        const SizedBox(height: ClaySpacing.sm),
+                        ClayButton(
+                          label: 'تحديد تاريخ أول حصة',
+                          icon: ClayIcons.schedule,
+                          expand: true,
+                          kind: waiting.isReady
+                              ? ClayButtonKind.primary
+                              : ClayButtonKind.secondary,
+                          onPressed: () =>
+                              context.push('/groups/${item.id}/start'),
+                        ),
+                      ],
+                    ],
+                    if (item.group.isReview) ...[
+                      const SizedBox(height: ClaySpacing.md),
+                      const ClayBadge(
+                        label: 'حصة مراجعة: حصة واحدة يحضرها ضيوف يدفعون ثمنها',
+                        tone: ClayTone.info,
+                      ),
+                    ],
                     if (canSetup) ...[
                       const SizedBox(height: ClaySpacing.md),
                       ClayButton(

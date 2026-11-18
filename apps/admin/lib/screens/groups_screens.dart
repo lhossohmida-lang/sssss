@@ -149,15 +149,28 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
               if (canAdd)
                 Padding(
                   padding: const EdgeInsets.all(ClaySpacing.screenPadding),
-                  child: ClayButton(
-                    label: 'إنشاء فوج',
-                    icon: ClayIcons.add,
-                    expand: true,
-                    onPressed: () => context.push(
-                      newSubject == null
-                          ? '/groups/new'
-                          : '/groups/new?subject=$newSubject',
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ClayButton(
+                        label: 'إنشاء فوج',
+                        icon: ClayIcons.add,
+                        expand: true,
+                        onPressed: () => context.push(
+                          newSubject == null
+                              ? '/groups/new'
+                              : '/groups/new?subject=$newSubject',
+                        ),
+                      ),
+                      const SizedBox(height: ClaySpacing.sm),
+                      ClayButton(
+                        label: 'حصة مراجعة (حصة واحدة)',
+                        icon: ClayIcons.schedule,
+                        kind: ClayButtonKind.secondary,
+                        expand: true,
+                        onPressed: () => context.push('/groups/review'),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -293,11 +306,21 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       itemExtent: 112,
       itemBuilder: (context, i) {
         final item = sorted[i];
+        // فوج منتظِر: له عدد مطلوب ولا جدول بعد (يُحدَّد جدوله عند تحديد أول حصة).
+        final target = item.group.waitingTarget;
+        final waiting = target != null && item.slots.isEmpty;
         return ClayListTile(
-          title: 'فوج ${item.number}',
+          title: item.group.isReview
+              ? 'فوج ${item.number} · حصة مراجعة'
+              : 'فوج ${item.number}',
           subtitle:
               '${item.teacherName} · ${item.roomName ?? 'بلا قاعة'} '
-              '· ${item.studentCount} تلميذ\n${item.scheduleText}',
+              '· ${item.studentCount} تلميذ\n'
+              '${waiting
+                  ? 'منتظِر ${item.studentCount} من $target — بلا موعد لأول حصة بعد'
+                  : item.group.isReview
+                  ? 'حصة واحدة · ${Money.format(item.group.monthlyPrice)}'
+                  : item.scheduleText}',
           subtitleLines: 2,
           onTap: () => context.push('/groups/${item.id}'),
           trailing: [
@@ -366,7 +389,11 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
   final _cycle = TextEditingController(text: '8');
   final _price = TextEditingController();
   final _rate = TextEditingController();
+  final _target = TextEditingController();
   final List<_SlotDraft> _slots = [_SlotDraft()];
+
+  /// فوج منتظِر: ينسب إليه المدير تلاميذه دون موعد لأول حصة، وينتظر بلوغ العدد المطلوب ([_target]).
+  bool _waiting = false;
 
   /// حقل خطأ تاريخ أول حصة في [_errors].
   static const String _fieldFirstDate = 'first_date';
@@ -441,6 +468,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     _cycle.dispose();
     _price.dispose();
     _rate.dispose();
+    _target.dispose();
     super.dispose();
   }
 
@@ -516,8 +544,9 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           sessionsPerCycle: int.tryParse(_cycle.text.trim()) ?? 0,
           ratePerStudent: _rateValue,
           monthlyPrice: _priceValue,
-          slots: _inputs(),
+          slots: _noSchedule ? const [] : _inputs(),
           excludeGroupId: widget.groupId,
+          requireSlots: !_noSchedule,
         );
     // نتيجة فحص أقدم من آخر تعديل تُهمَل.
     if (!mounted || token != _checkToken) return;
@@ -528,6 +557,11 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     setState(change);
     _scheduleCheck();
   }
+
+  /// بلا جدول أسبوعي الآن: فوج منتظِر قيد الإنشاء، أو فوج منتظِر قائم لم يبدأ (جدوله عند تحديد أول حصة).
+  bool get _noSchedule =>
+      _waiting ||
+      (_editing && _existing?.waitingTarget != null && _slots.isEmpty);
 
   Future<void> _pickTime(_SlotDraft slot, {required bool start}) async {
     final picked = await showClayTimePicker(
@@ -632,7 +666,17 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       }
     }
     final now = _dayOf(DateTime.now());
-    final dateError = _editing ? null : _firstDateError(now);
+    final targetValue = int.tryParse(_target.text.trim());
+    if (_waiting && !_editing) {
+      final targetError = GroupService.waitingTargetError(targetValue);
+      if (targetError != null) {
+        setState(
+          () => _errors = {GroupService.fieldWaitingTarget: targetError},
+        );
+        return;
+      }
+    }
+    final dateError = _editing || _waiting ? null : _firstDateError(now);
     if (dateError != null) {
       setState(() => _errors = {_fieldFirstDate: dateError});
       return;
@@ -655,8 +699,19 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           roomId: _roomId,
           monthlyPrice: _priceValue,
           ratePerStudent: _rateValue,
-          slots: _inputs(),
+          slots: _noSchedule ? const [] : _inputs(),
           today: today,
+          requireSlots: !_noSchedule,
+        );
+      } else if (_waiting) {
+        created = await service.createWaiting(
+          subjectId: subjectId,
+          teacherId: teacherId,
+          roomId: _roomId,
+          sessionsPerCycle: int.tryParse(_cycle.text.trim()) ?? 0,
+          monthlyPrice: _priceValue,
+          ratePerStudent: _rateValue,
+          waitingTarget: targetValue!,
         );
       } else {
         created = await service.create(
@@ -675,7 +730,9 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         context.pop();
       } else {
         // بعد إنشاء الفوج تُفتح صفحة إعداده: تلاميذه وحضورهم السابق وتسديدهم.
-        final from = firstIsPast ? '?from=${DateKey.of(_firstDate)}' : '';
+        final from = firstIsPast && !_waiting
+            ? '?from=${DateKey.of(_firstDate)}'
+            : '';
         context.pushReplacement('/groups/${created.id}/setup$from');
       }
     } on ValidationException catch (e) {
@@ -861,7 +918,45 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                       error: _errors[GroupService.fieldCycleSize],
                       onChanged: (_) => _scheduleCheck(),
                     ),
-                    if (!_editing) ...[gap, _firstDateField(context)],
+                    if (!_editing) ...[
+                      gap,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'فوج منتظِر (بلا موعد لأول حصة بعد)',
+                              style: text.bodyLarge,
+                            ),
+                          ),
+                          ClayToggle(
+                            value: _waiting,
+                            semanticLabel: 'فوج منتظِر',
+                            onChanged: (value) => _changed(() {
+                              _waiting = value;
+                            }),
+                          ),
+                        ],
+                      ),
+                      if (_waiting) ...[
+                        gap,
+                        ClayTextField(
+                          controller: _target,
+                          label: 'عدد التلاميذ المطلوب لبدء الفوج',
+                          keyboardType: TextInputType.number,
+                          textDirection: TextDirection.ltr,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          helper:
+                              'ينسب المدير تلاميذه إليه، وعند بلوغ هذا العدد يصله إشعار في '
+                              'التطبيق ورسالة SMS ليحدد تاريخ أول حصة. يُحدَّد هنا فقط.',
+                          error: _errors[GroupService.fieldWaitingTarget],
+                        ),
+                      ] else ...[
+                        gap,
+                        _firstDateField(context),
+                      ],
+                    ],
                     gap,
                     ClayTextField(
                       controller: _price,
@@ -893,41 +988,63 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                       onChanged: (_) => _scheduleCheck(),
                     ),
                   ]),
-                  card('الجدول الأسبوعي', [
-                    for (var i = 0; i < _slots.length; i++)
-                      _SlotCard(
-                        index: i,
-                        slot: _slots[i],
-                        rooms: rooms,
-                        error: _errors[GroupService.slotField(i)],
-                        onPickStart: () => _pickTime(_slots[i], start: true),
-                        onPickEnd: () => _pickTime(_slots[i], start: false),
-                        onWeekday: (day) =>
-                            _changed(() => _slots[i].weekday = day),
-                        onRoom: (room) =>
-                            _changed(() => _slots[i].roomId = room),
-                        onSuggest: () => _suggestRoom(_slots[i]),
-                        onRemove: _slots.length > 1
-                            ? () => _changed(() => _slots.removeAt(i))
-                            : null,
+                  if (_noSchedule)
+                    card('الجدول الأسبوعي', [
+                      Text(
+                        'لا جدول لفوج منتظِر قبل تحديد تاريخ أول حصة: عند اكتمال العدد '
+                        'تحدد التاريخ وأيام الحصص من صفحة الفوج.',
+                        style: text.bodyMedium!.copyWith(color: p.textMuted),
                       ),
-                    if (_errors[GroupService.fieldSlots] != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
-                        child: Text(
-                          _errors[GroupService.fieldSlots]!,
-                          style: text.bodySmall!.copyWith(
-                            color: p.status.danger,
+                      if (_editing) ...[
+                        gap,
+                        ClayButton(
+                          label: 'تحديد تاريخ أول حصة',
+                          icon: ClayIcons.schedule,
+                          kind: ClayButtonKind.secondary,
+                          onPressed: () =>
+                              context.push('/groups/${widget.groupId}/start'),
+                        ),
+                      ],
+                    ])
+                  else
+                    card('الجدول الأسبوعي', [
+                      for (var i = 0; i < _slots.length; i++)
+                        _SlotCard(
+                          index: i,
+                          slot: _slots[i],
+                          rooms: rooms,
+                          error: _errors[GroupService.slotField(i)],
+                          onPickStart: () => _pickTime(_slots[i], start: true),
+                          onPickEnd: () => _pickTime(_slots[i], start: false),
+                          onWeekday: (day) =>
+                              _changed(() => _slots[i].weekday = day),
+                          onRoom: (room) =>
+                              _changed(() => _slots[i].roomId = room),
+                          onSuggest: () => _suggestRoom(_slots[i]),
+                          onRemove: _slots.length > 1
+                              ? () => _changed(() => _slots.removeAt(i))
+                              : null,
+                        ),
+                      if (_errors[GroupService.fieldSlots] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: ClaySpacing.sm,
+                          ),
+                          child: Text(
+                            _errors[GroupService.fieldSlots]!,
+                            style: text.bodySmall!.copyWith(
+                              color: p.status.danger,
+                            ),
                           ),
                         ),
+                      ClayButton(
+                        label: 'إضافة خانة',
+                        icon: ClayIcons.add,
+                        kind: ClayButtonKind.secondary,
+                        onPressed: () =>
+                            _changed(() => _slots.add(_SlotDraft())),
                       ),
-                    ClayButton(
-                      label: 'إضافة خانة',
-                      icon: ClayIcons.add,
-                      kind: ClayButtonKind.secondary,
-                      onPressed: () => _changed(() => _slots.add(_SlotDraft())),
-                    ),
-                  ]),
+                    ]),
                   ClayButton(
                     label: _editing ? 'حفظ التعديلات' : 'إنشاء الفوج',
                     expand: true,
@@ -1073,6 +1190,579 @@ class _SlotCard extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// تحديد تاريخ أول حصة لفوج منتظِر: يُختار التاريخ وأيام الحصص، فيحفظ الجدول ويولّد حصص الدورة الأولى
+/// ويخبر أولياء التلاميذ بالموعد.
+class WaitingGroupStartScreen extends ConsumerStatefulWidget {
+  const WaitingGroupStartScreen({required this.groupId, super.key});
+
+  final String groupId;
+
+  @override
+  ConsumerState<WaitingGroupStartScreen> createState() =>
+      _WaitingGroupStartScreenState();
+}
+
+class _WaitingGroupStartScreenState
+    extends ConsumerState<WaitingGroupStartScreen> {
+  final List<_SlotDraft> _slots = [_SlotDraft()];
+  late DateTime _startDate = _dayOf(DateTime.now());
+  Map<String, String> _errors = const {};
+  bool _saving = false;
+  Timer? _debounce;
+  int _checkToken = 0;
+
+  static DateTime _dayOf(DateTime time) =>
+      DateTime(time.year, time.month, time.day);
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  List<GroupSlotInput> _inputs() => [
+    for (final s in _slots)
+      GroupSlotInput(
+        weekday: s.weekday,
+        startMinutes: s.start,
+        endMinutes: s.end,
+        roomId: s.roomId,
+      ),
+  ];
+
+  void _changed(VoidCallback change) {
+    setState(change);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), _check);
+  }
+
+  /// يفحص تعارض الجدول مع أفواج الأستاذ والقاعة لحظياً.
+  Future<void> _check() async {
+    final group = ref
+        .read(waitingGroupsProvider)
+        .value
+        ?.where((w) => w.id == widget.groupId)
+        .firstOrNull
+        ?.group;
+    if (group == null) return;
+    final token = ++_checkToken;
+    final errors = await ref
+        .read(groupServiceProvider)
+        .validate(
+          subjectId: group.subjectId,
+          teacherId: group.teacherId,
+          roomId: group.roomId,
+          sessionsPerCycle: group.sessionsPerCycle,
+          ratePerStudent: null,
+          monthlyPrice: null,
+          slots: _inputs(),
+          excludeGroupId: widget.groupId,
+        );
+    if (!mounted || token != _checkToken) return;
+    setState(() => _errors = errors);
+  }
+
+  Future<void> _pickTime(_SlotDraft slot, {required bool start}) async {
+    final picked = await showClayTimePicker(
+      context,
+      title: start ? 'بداية الحصة' : 'نهاية الحصة',
+      initial: start ? slot.start : slot.end,
+    );
+    if (picked == null) return;
+    _changed(() {
+      if (start) {
+        final length = slot.end - slot.start;
+        slot.start = picked;
+        slot.end = (picked + (length > 0 ? length : 90)).clamp(0, 24 * 60);
+      } else {
+        slot.end = picked;
+      }
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showClayDatePicker(
+      context,
+      title: 'تاريخ أول حصة',
+      initial: _startDate,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _startDate = _dayOf(picked);
+      _errors = {..._errors}..remove(GroupService.fieldFirstDate);
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _errors = const {};
+    });
+    try {
+      await ref
+          .read(groupServiceProvider)
+          .startWaiting(
+            widget.groupId,
+            slots: _inputs(),
+            startDate: DateKey.of(_startDate),
+            today: DateKey.of(DateTime.now()),
+          );
+      if (mounted) context.pushReplacement('/groups/${widget.groupId}');
+    } on ValidationException catch (e) {
+      if (mounted) setState(() => _errors = e.errors);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final rooms = ref.watch(roomsProvider).value ?? const <RoomRow>[];
+    final waiting = ref
+        .watch(waitingGroupsProvider)
+        .value
+        ?.where((w) => w.id == widget.groupId)
+        .firstOrNull;
+    final loading = ref.watch(waitingGroupsProvider).isLoading;
+    return Scaffold(
+      appBar: const ClayAppBar(title: 'تحديد تاريخ أول حصة', showBack: true),
+      body: waiting == null
+          ? (loading
+                ? const ClayLoadingView()
+                : const ClayEmptyView(
+                    title: 'هذا الفوج ليس منتظِراً',
+                    message: 'بدأ فوجه أو حُذف',
+                  ))
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: ListView(
+                  padding: const EdgeInsets.all(ClaySpacing.screenPadding),
+                  children: [
+                    ClayCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${waiting.subjectName} · الفوج ${waiting.number}',
+                            style: text.titleMedium,
+                          ),
+                          const SizedBox(height: ClaySpacing.xs),
+                          Text(
+                            '${waiting.teacherName} · ${waiting.studentCount} '
+                            'من ${waiting.target} تلميذاً'
+                            '${waiting.isReady ? ' — اكتمل العدد' : ''}',
+                            style: text.bodyMedium,
+                          ),
+                          const SizedBox(height: ClaySpacing.md),
+                          Text('تاريخ أول حصة', style: text.labelLarge),
+                          const SizedBox(height: ClaySpacing.xs),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Text(
+                                      DateKey.of(_startDate),
+                                      style: text.titleMedium,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              ClayButton(
+                                label: 'تغيير التاريخ',
+                                kind: ClayButtonKind.secondary,
+                                onPressed: _saving ? null : _pickDate,
+                              ),
+                            ],
+                          ),
+                          if (_errors[GroupService.fieldFirstDate] != null)
+                            Text(
+                              _errors[GroupService.fieldFirstDate]!,
+                              style: text.bodySmall!.copyWith(
+                                color: p.status.danger,
+                              ),
+                            ),
+                          const SizedBox(height: ClaySpacing.xs),
+                          Text(
+                            'تُولَّد حصص الدورة من هذا التاريخ بحسب أيام الحصص أدناه، ويصل '
+                            'أولياء التلاميذ رسالة بالموعد.',
+                            style: text.bodySmall!.copyWith(color: p.textMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: ClaySpacing.lg),
+                    for (var i = 0; i < _slots.length; i++)
+                      _SlotCard(
+                        index: i,
+                        slot: _slots[i],
+                        rooms: rooms,
+                        error: _errors[GroupService.slotField(i)],
+                        onPickStart: () => _pickTime(_slots[i], start: true),
+                        onPickEnd: () => _pickTime(_slots[i], start: false),
+                        onWeekday: (day) =>
+                            _changed(() => _slots[i].weekday = day),
+                        onRoom: (room) =>
+                            _changed(() => _slots[i].roomId = room),
+                        onSuggest: () async {
+                          final free = await ref
+                              .read(scheduleServiceProvider)
+                              .freeRoomsForSlot(
+                                weekday: _slots[i].weekday,
+                                startMinutes: _slots[i].start,
+                                endMinutes: _slots[i].end,
+                                excludeGroupId: widget.groupId,
+                              );
+                          if (free.isNotEmpty && mounted) {
+                            _changed(() => _slots[i].roomId = free.first.id);
+                          }
+                        },
+                        onRemove: _slots.length > 1
+                            ? () => _changed(() => _slots.removeAt(i))
+                            : null,
+                      ),
+                    if (_errors[GroupService.fieldSlots] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
+                        child: Text(
+                          _errors[GroupService.fieldSlots]!,
+                          style: text.bodySmall!.copyWith(
+                            color: p.status.danger,
+                          ),
+                        ),
+                      ),
+                    if (_errors[GroupService.fieldGroup] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
+                        child: Text(
+                          _errors[GroupService.fieldGroup]!,
+                          style: text.bodySmall!.copyWith(
+                            color: p.status.danger,
+                          ),
+                        ),
+                      ),
+                    ClayButton(
+                      label: 'إضافة خانة',
+                      icon: ClayIcons.add,
+                      kind: ClayButtonKind.secondary,
+                      onPressed: () => _changed(() => _slots.add(_SlotDraft())),
+                    ),
+                    const SizedBox(height: ClaySpacing.lg),
+                    ClayButton(
+                      label: 'بدء الفوج',
+                      expand: true,
+                      loading: _saving,
+                      onPressed: _submit,
+                    ),
+                    const SizedBox(height: ClaySpacing.xl),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+/// حصة مراجعة: فوج من حصة واحدة في يوم محدد، بثمن للحصة ونصيب للأستاذ عن كل حاضر. يحضرها تلاميذ لمرة
+/// واحدة (يدفعون ثمنها ويأخذون تذكرة QR لمرة واحدة) أو تلاميذ فوج آخر؛ يُضافون من ورقة حضور الحصة.
+class ReviewSessionFormScreen extends ConsumerStatefulWidget {
+  const ReviewSessionFormScreen({super.key});
+
+  @override
+  ConsumerState<ReviewSessionFormScreen> createState() =>
+      _ReviewSessionFormScreenState();
+}
+
+class _ReviewSessionFormScreenState
+    extends ConsumerState<ReviewSessionFormScreen> {
+  final _fee = TextEditingController();
+  final _rate = TextEditingController();
+  String? _subjectId;
+  String? _teacherId;
+  String? _roomId;
+  late DateTime _date = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+  );
+  int _start = 600;
+  int _end = 780;
+  Map<String, String> _errors = const {};
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _fee.dispose();
+    _rate.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showClayDatePicker(
+      context,
+      title: 'تاريخ الحصة',
+      initial: _date,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _date = DateTime(picked.year, picked.month, picked.day));
+  }
+
+  Future<void> _pickTime({required bool start}) async {
+    final picked = await showClayTimePicker(
+      context,
+      title: start ? 'بداية الحصة' : 'نهاية الحصة',
+      initial: start ? _start : _end,
+    );
+    if (picked == null) return;
+    setState(() {
+      if (start) {
+        final length = _end - _start;
+        _start = picked;
+        _end = (picked + (length > 0 ? length : 120)).clamp(0, 24 * 60);
+      } else {
+        _end = picked;
+      }
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_saving) return;
+    final subjectId = _subjectId;
+    final teacherId = _teacherId;
+    final fee = int.tryParse(_fee.text.trim());
+    final rate = int.tryParse(_rate.text.trim());
+    final missing = {
+      if (subjectId == null) GroupService.fieldSubject: 'اختر المادة',
+      if (teacherId == null) GroupService.fieldTeacher: 'اختر الأستاذ',
+      if (fee == null) GroupService.fieldPrice: 'أدخل ثمن الحصة',
+      if (rate == null)
+        GroupService.fieldRate: 'أدخل ما يأخذه الأستاذ عن كل حاضر',
+    };
+    if (missing.isNotEmpty) {
+      setState(() => _errors = missing);
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _errors = const {};
+    });
+    try {
+      final group = await ref
+          .read(groupServiceProvider)
+          .createReview(
+            subjectId: subjectId!,
+            teacherId: teacherId!,
+            roomId: _roomId,
+            date: DateKey.of(_date),
+            startMinutes: _start,
+            endMinutes: _end,
+            fee: fee!,
+            teacherAmount: rate!,
+            today: DateKey.of(DateTime.now()),
+          );
+      if (!mounted) return;
+      // تُفتح ورقة حضور الحصة لإضافة الضيوف.
+      final sessionId = await ref
+          .read(groupServiceProvider)
+          .firstSessionId(group.id);
+      if (!mounted) return;
+      context.pushReplacement(
+        sessionId == null ? '/groups/${group.id}' : '/attendance/$sessionId',
+      );
+    } on ValidationException catch (e) {
+      if (mounted) setState(() => _errors = e.errors);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final subjects = ref.watch(subjectsProvider).value ?? const <SubjectItem>[];
+    final rooms = ref.watch(roomsProvider).value ?? const <RoomRow>[];
+    final teachers = _subjectId == null
+        ? const <TeacherRow>[]
+        : ref.watch(subjectTeachersProvider(_subjectId!)).value ??
+              const <TeacherRow>[];
+    const gap = SizedBox(height: ClaySpacing.md);
+    return Scaffold(
+      appBar: const ClayAppBar(title: 'حصة مراجعة', showBack: true),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: ListView(
+            padding: const EdgeInsets.all(ClaySpacing.screenPadding),
+            children: [
+              Text(
+                'فوج من حصة واحدة. يحضرها تلاميذ لمرة واحدة (يدفعون ثمنها فقط ويأخذون تذكرة '
+                'QR تُستعمل مرة واحدة)، ويمكن لتلميذ مسجَّل في فوج آخر أن يحضرها فتظهر في ملفه.',
+                style: text.bodyMedium!.copyWith(color: p.textMuted),
+              ),
+              gap,
+              ClayCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ClayDropdown<String>(
+                      label: 'المادة',
+                      hint: 'اختر المادة',
+                      value: _subjectId,
+                      error: _errors[GroupService.fieldSubject],
+                      options: [
+                        for (final s in subjects)
+                          ClayOption(
+                            value: s.id,
+                            label: s.levelName == null
+                                ? s.name
+                                : '${s.name} (${s.levelName})',
+                          ),
+                      ],
+                      onChanged: (value) => setState(() {
+                        _subjectId = value;
+                        _teacherId = null;
+                      }),
+                    ),
+                    gap,
+                    ClayDropdown<String>(
+                      label: 'الأستاذ',
+                      hint: _subjectId == null
+                          ? 'اختر المادة أولاً'
+                          : teachers.isEmpty
+                          ? 'لا أستاذ يدرّس هذه المادة'
+                          : 'اختر الأستاذ',
+                      value: _teacherId,
+                      error: _errors[GroupService.fieldTeacher],
+                      options: [
+                        for (final t in teachers)
+                          ClayOption(value: t.id, label: t.name),
+                      ],
+                      onChanged: (value) => setState(() {
+                        _teacherId = value;
+                        final teacher = teachers
+                            .where((t) => t.id == value)
+                            .firstOrNull;
+                        if (_rate.text.isEmpty &&
+                            teacher != null &&
+                            teacher.ratePerStudent > 0) {
+                          _rate.text = '${teacher.ratePerStudent}';
+                        }
+                      }),
+                    ),
+                    gap,
+                    ClayDropdown<String?>(
+                      label: 'القاعة',
+                      value: _roomId,
+                      options: [
+                        const ClayOption(value: null, label: 'بلا قاعة'),
+                        for (final r in rooms)
+                          ClayOption(
+                            value: r.id,
+                            label: '${r.name} (${r.capacity})',
+                          ),
+                      ],
+                      onChanged: (value) => setState(() => _roomId = value),
+                    ),
+                    gap,
+                    Text('تاريخ الحصة', style: text.labelLarge),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                DateKey.of(_date),
+                                style: text.titleMedium,
+                              ),
+                            ),
+                          ),
+                        ),
+                        ClayButton(
+                          label: 'تغيير التاريخ',
+                          kind: ClayButtonKind.secondary,
+                          onPressed: _saving ? null : _pickDate,
+                        ),
+                      ],
+                    ),
+                    if (_errors[GroupService.fieldDate] != null)
+                      Text(
+                        _errors[GroupService.fieldDate]!,
+                        style: text.bodySmall!.copyWith(color: p.status.danger),
+                      ),
+                    gap,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClayButton(
+                            label: 'من ${DateKey.formatMinutes(_start)}',
+                            kind: ClayButtonKind.secondary,
+                            onPressed: () => _pickTime(start: true),
+                          ),
+                        ),
+                        const SizedBox(width: ClaySpacing.sm),
+                        Expanded(
+                          child: ClayButton(
+                            label: 'إلى ${DateKey.formatMinutes(_end)}',
+                            kind: ClayButtonKind.secondary,
+                            onPressed: () => _pickTime(start: false),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_errors[GroupService.slotField(0)] != null)
+                      Text(
+                        _errors[GroupService.slotField(0)]!,
+                        style: text.bodySmall!.copyWith(color: p.status.danger),
+                      ),
+                    gap,
+                    ClayTextField(
+                      controller: _fee,
+                      label: 'ثمن الحصة (${Money.currency})',
+                      keyboardType: TextInputType.number,
+                      textDirection: TextDirection.ltr,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      helper: 'يدفعه كل من يحضرها؛ ويمكن تغييره لضيف بعينه',
+                      error: _errors[GroupService.fieldPrice],
+                    ),
+                    gap,
+                    ClayTextField(
+                      controller: _rate,
+                      label: 'نصيب الأستاذ عن كل حاضر (${Money.currency})',
+                      keyboardType: TextInputType.number,
+                      textDirection: TextDirection.ltr,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      error: _errors[GroupService.fieldRate],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: ClaySpacing.lg),
+              ClayButton(
+                label: 'إنشاء حصة المراجعة',
+                expand: true,
+                loading: _saving,
+                onPressed: _submit,
+              ),
+              const SizedBox(height: ClaySpacing.xl),
+            ],
+          ),
         ),
       ),
     );

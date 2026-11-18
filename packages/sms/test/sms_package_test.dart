@@ -105,6 +105,37 @@ void main() {
       expect(saved.lastError, isNull);
     });
 
+    test('cancels queued messages of a kind the manager turned off', () async {
+      final blocked = await h.queue.enqueue(
+        phone: '0550123456',
+        message: 'وصل الدفع',
+        kind: SmsTemplateKeys.paymentReceipt,
+      );
+      final other = await h.queue.enqueue(
+        phone: '0550123457',
+        message: 'تذكير',
+        kind: SmsTemplateKeys.paymentReminder,
+      );
+      await SmsKindPolicy(
+        h.db,
+        h.writer,
+      ).setEnabled(SmsTemplateKeys.paymentReceipt, enabled: false);
+
+      final sent = <String>[];
+      final result = await h.queue.processNext((m) async => sent.add(m.id));
+
+      expect(result.kind, SmsProcessKind.sent);
+      expect(sent, [other.id]);
+      final skipped = await h.message(blocked.id);
+      expect(skipped.status, SmsStatus.cancelled.code);
+      expect(skipped.lastError, SmsQueueService.disabledKindMessage);
+      expect(skipped.attempts, 0);
+
+      // إن لم يبقَ غيرها فالطابور فارغ ولا إرسال.
+      final again = await h.queue.processNext((_) async => fail('no send'));
+      expect(again.kind, SmsProcessKind.empty);
+    });
+
     test('clears account credentials after successful delivery', () async {
       final row = await h.queue.enqueue(
         phone: '0550123456',

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_assistant/school_assistant.dart';
 import 'package:school_chat/school_chat.dart';
@@ -555,9 +556,16 @@ typedef GroupGridKey = ({String groupId, int? cycle});
 
 final groupGridProvider = StreamProvider.autoDispose
     .family<GroupGrid?, GroupGridKey>(
-      (ref, key) =>
-          GroupGridQueries(ref.watch(runtimeProvider).db)
-              .watch(key.groupId, cycleNumber: key.cycle),
+      (ref, key) => GroupGridQueries(
+        ref.watch(runtimeProvider).db,
+        // المدفوعات لا تصل الأستاذ: لونا «مدفوعة» و«حضر ولم يدفع» للإدارة وحدها.
+        dues: ref.watch(runtimeProvider).app == AppIdentity.admin
+            ? DuesService(
+                ref.watch(runtimeProvider).db,
+                ref.watch(runtimeProvider).writer,
+              )
+            : null,
+      ).watch(key.groupId, cycleNumber: key.cycle),
     );
 
 /// معلومات مجموعة واحدة (للعنوان وأزرار الشاشة).
@@ -612,6 +620,33 @@ final Provider<bool> sessionCloserEnabledProvider = Provider<bool>(
   (ref) => true,
 );
 
+/// أرشيف سجل الحضور PDF: نسخة جديدة من سجل كل حصة تنتهي في مجلد يحدده المدير (تطبيق الإدارة).
+final Provider<AttendanceArchiveService> attendanceArchiveServiceProvider =
+    Provider<AttendanceArchiveService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return AttendanceArchiveService(
+        db: runtime.db,
+        attendance: ref.watch(attendanceServiceProvider),
+        settings: SettingsService(runtime.db, runtime.writer),
+        preferences: DevicePreferences(runtime.db),
+        fontLoader: () async {
+          final font = await rootBundle.load(
+            'packages/school_ui/assets/fonts/Cairo.ttf',
+          );
+          return font.buffer.asUint8List(
+            font.offsetInBytes,
+            font.lengthInBytes,
+          );
+        },
+      );
+    });
+
+/// مجلد أرشيف الحضور المضبوط على هذا الجهاز، أو `null`.
+final StreamProvider<String?> attendanceArchiveFolderProvider =
+    StreamProvider.autoDispose<String?>(
+      (ref) => ref.watch(attendanceArchiveServiceProvider).watchFolder(),
+    );
+
 /// مهمة الخلفية: تغلق الحصص المنتهية وتغيّب من لم يُسجَّل (تطبيق الإدارة،
 /// لمن يملك صلاحية الحضور أو الماسح فقط).
 final Provider<void> sessionCloserProvider = Provider<void>((ref) {
@@ -629,7 +664,10 @@ final Provider<void> sessionCloserProvider = Provider<void>((ref) {
     }),
   );
   if (!eligible) return;
-  final closer = SessionCloser(ref.watch(attendanceServiceProvider))..start();
+  final closer = SessionCloser(
+    ref.watch(attendanceServiceProvider),
+    afterClosing: ref.watch(attendanceArchiveServiceProvider).archiveNew,
+  )..start();
   ref.onDispose(closer.dispose);
 });
 
@@ -693,6 +731,54 @@ final Provider<RecentScanFeed> recentScanFeedProvider =
     });
 
 /// المدفوعات وتسجيلها بوصل مرقَّم (تطبيق الإدارة).
+/// الأفواج المنتظِرة: لها تلاميذ ولا موعد لأول حصة بعد (تطبيق الإدارة).
+final Provider<WaitingGroupService> waitingGroupServiceProvider =
+    Provider<WaitingGroupService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return WaitingGroupService(runtime.db, runtime.writer);
+    });
+
+final StreamProvider<List<WaitingGroupItem>> waitingGroupsProvider =
+    StreamProvider.autoDispose<List<WaitingGroupItem>>(
+      (ref) => ref.watch(waitingGroupServiceProvider).watch(),
+    );
+
+/// ضيوف الحصص: تلاميذ لمرة واحدة وتلاميذ فوج آخر يحضرون حصة واحدة (تطبيق الإدارة).
+final Provider<GuestService> guestServiceProvider = Provider<GuestService>((
+  ref,
+) {
+  final runtime = ref.watch(runtimeProvider);
+  return GuestService(
+    runtime.db,
+    runtime.writer,
+    ref.watch(paymentServiceProvider),
+  );
+});
+
+/// ضيوف حصة، وتتحدث لحظياً.
+final sessionGuestsProvider = StreamProvider.autoDispose
+    .family<List<SessionGuestItem>, String>(
+      (ref, sessionId) => ref.watch(guestServiceProvider).watch(sessionId),
+    );
+
+/// دليل الهواتف (تطبيق الإدارة).
+final Provider<ContactService> contactServiceProvider =
+    Provider<ContactService>((ref) {
+      final runtime = ref.watch(runtimeProvider);
+      return ContactService(runtime.db, runtime.writer);
+    });
+
+final contactsProvider = StreamProvider.autoDispose
+    .family<List<ContactRow>, String>(
+      (ref, query) => ref.watch(contactServiceProvider).watchAll(query: query),
+    );
+
+final studentPhonesProvider = StreamProvider.autoDispose
+    .family<List<StudentPhone>, String>(
+      (ref, query) =>
+          ref.watch(contactServiceProvider).watchStudentPhones(query: query),
+    );
+
 final Provider<PaymentService> paymentServiceProvider =
     Provider<PaymentService>((ref) {
       final runtime = ref.watch(runtimeProvider);

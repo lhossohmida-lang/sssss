@@ -255,7 +255,7 @@ void main() {
     expect(keys['teacher_subjects'], ['teacher_id', 'subject_id']);
     expect(keys.containsKey('outbox'), isFalse);
     expect(keys.containsKey('upload_queue'), isFalse);
-    expect(keys, hasLength(37));
+    expect(keys, hasLength(39));
   });
 
   test('المحرك يعمل فوق عميل REST: دفع ثم سحب', () async {

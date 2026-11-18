@@ -37,7 +37,13 @@ final smsTemplateViewsProvider =
       (ref) => ref.watch(smsTemplateServiceProvider).load(),
     );
 
-/// مركز رسائل الإدارة: الطابور، الإرسال الجماعي، والقوالب.
+/// أنواع الرسائل التي أوقفها المدير، وتتحدث عند تغييرها من أي جهاز.
+final smsDisabledKindsProvider = StreamProvider.autoDispose<Set<String>>((ref) {
+  final runtime = ref.watch(runtimeProvider);
+  return SmsKindPolicy(runtime.db, runtime.writer).watchDisabled();
+});
+
+/// مركز رسائل الإدارة: الطابور، الإرسال الجماعي، القوالب، وتشغيل أنواع الرسائل وإيقافها.
 class SmsCenterScreen extends ConsumerWidget {
   const SmsCenterScreen({super.key});
 
@@ -52,6 +58,7 @@ class SmsCenterScreen extends ConsumerWidget {
     }
     if (ref.can(PermissionModule.sms, PermissionAction.edit)) {
       tabs.add((title: 'القوالب', page: const _SmsTemplatesTab()));
+      tabs.add((title: 'الأنواع', page: const _SmsKindsTab()));
     }
     if (tabs.isEmpty) {
       return const ClayEmptyView(
@@ -419,6 +426,51 @@ class _SmsBroadcastTabState extends ConsumerState<_SmsBroadcastTab> {
   }
 }
 
+/// تشغيل كل نوع من الرسائل وإيقافه: النوع الموقوف لا تُوضع رسائله في الطابور ولا تُرسل، ويسري
+/// الإيقاف على كل أجهزة الإدارة.
+class _SmsKindsTab extends ConsumerWidget {
+  const _SmsKindsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final disabled =
+        ref.watch(smsDisabledKindsProvider).value ?? const <String>{};
+    final runtime = ref.watch(runtimeProvider);
+    final policy = SmsKindPolicy(runtime.db, runtime.writer);
+    return ListView(
+      padding: const EdgeInsets.all(ClaySpacing.screenPadding),
+      children: [
+        Text(
+          'أوقف أي نوع من الرسائل لا تريد إرساله: لا تُوضع رسائله في الطابور ولا '
+          'تُرسل، ويسري الإيقاف على كل أجهزة الإدارة. أعد تشغيله متى شئت.',
+          style: text.bodyMedium!.copyWith(color: p.textMuted),
+        ),
+        const SizedBox(height: ClaySpacing.md),
+        for (final definition in SmsTemplateCatalog.definitions)
+          Padding(
+            padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
+            child: ClayListTile(
+              title: definition.title,
+              subtitle: disabled.contains(definition.key)
+                  ? 'موقوف: لا تُرسل رسائل هذا النوع'
+                  : 'يُرسل',
+              trailing: [
+                ClayToggle(
+                  value: !disabled.contains(definition.key),
+                  semanticLabel: 'إرسال رسائل ${definition.title}',
+                  onChanged: (enabled) =>
+                      policy.setEnabled(definition.key, enabled: enabled),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _SmsTemplatesTab extends ConsumerStatefulWidget {
   const _SmsTemplatesTab();
 
@@ -648,6 +700,7 @@ String _sampleVariable(String key) => switch (key) {
   'item' => 'الدورة 1',
   'cycle' => '1',
   'count' => '5',
+  'target' => '12',
   'request' => 'تغيير موعد الحصة',
   'note' => 'يرجى التواصل مع الإدارة',
   _ => key,

@@ -8,7 +8,7 @@ import 'package:school_ui/school_ui.dart';
 import 'staff_debts_card.dart';
 import 'teachers_screens.dart' show showCredentialsDialog;
 
-/// قائمة العمال: اسم وأيام عمل وأجر اليوم، وإضافة عامل.
+/// قائمة العمال: اسم وأجر اليوم ونصفه، وإضافة عامل.
 class WorkersScreen extends ConsumerWidget {
   const WorkersScreen({super.key});
 
@@ -19,7 +19,7 @@ class WorkersScreen extends ConsumerWidget {
       title: 'العمال',
       data: ref.watch(workersProvider),
       emptyTitle: 'لا يوجد عمال بعد',
-      emptyMessage: 'أضف العامل بأجريه وبرنامج عمله لتُنشأ حسابه وصلاحياته',
+      emptyMessage: 'أضف العامل بأجريه لتُنشأ حسابه وصلاحياته',
       searchHint: 'ابحث بالاسم أو الهاتف',
       matches: (item, query) =>
           item.name.contains(query) || item.worker.phone.contains(query),
@@ -31,7 +31,8 @@ class WorkersScreen extends ConsumerWidget {
         leading: ClayAvatar(name: item.name),
         title: item.name,
         subtitle:
-            '${item.workDays} أيام عمل · يوم ${Money.format(item.worker.fullDayWage)}'
+            'يوم ${Money.format(item.worker.fullDayWage)}'
+            ' · نصف يوم ${Money.format(item.worker.halfDayWage)}'
             ' · ${item.worker.phone}',
         onTap: () => context.push('/workers/${item.id}'),
         trailing: const [Icon(Icons.chevron_left_rounded)],
@@ -40,15 +41,8 @@ class WorkersScreen extends ConsumerWidget {
   }
 }
 
-/// مسودة نوع اليوم في النموذج.
-const List<WorkDayKind> _kinds = [
-  WorkDayKind.off,
-  WorkDayKind.half,
-  WorkDayKind.full,
-];
-
-/// إضافة عامل أو تعديله: الاسم والهاتف وأجر اليوم الكامل ونصفه والساعات
-/// وبرنامج الأسبوع (لكل يوم: لا يعمل / نصف يوم / يوم كامل).
+/// إضافة عامل أو تعديله: الاسم والهاتف وأجر اليوم الكامل ونصفه وساعات الدوام المتوقعة. لا أيام
+/// عمل محددة: يُحسب يوم العامل من وقت دخوله وخروجه حسب إعدادات المدرسة.
 class WorkerFormScreen extends ConsumerStatefulWidget {
   const WorkerFormScreen({this.workerId, super.key});
 
@@ -64,9 +58,6 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
   final _phone = TextEditingController();
   final _full = TextEditingController(text: '0');
   final _half = TextEditingController(text: '0');
-  final Map<int, WorkDayKind> _days = {
-    for (final d in GroupService.displayWeekdays) d: WorkDayKind.off,
-  };
   int _start = 480;
   int _end = 1020;
   bool _loaded = false;
@@ -100,10 +91,6 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
       _half.text = '${worker.halfDayWage}';
       _start = worker.expectedStartMinutes;
       _end = worker.expectedEndMinutes;
-      final schedule = WorkerSchedule.fromJson(worker.weeklySchedule);
-      for (final d in GroupService.displayWeekdays) {
-        _days[d] = schedule.kindOn(d);
-      }
     });
   }
 
@@ -115,8 +102,6 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
     _half.dispose();
     super.dispose();
   }
-
-  WorkerSchedule get _schedule => WorkerSchedule(Map.of(_days));
 
   Future<void> _pickTime({required bool start}) async {
     final picked = await showClayTimePicker(
@@ -145,7 +130,6 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
           phone: _phone.text,
           fullDayWage: full,
           halfDayWage: half,
-          schedule: _schedule,
           startMinutes: _start,
           endMinutes: _end,
         );
@@ -156,7 +140,6 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
           phone: _phone.text,
           fullDayWage: full,
           halfDayWage: half,
-          schedule: _schedule,
           startMinutes: _start,
           endMinutes: _end,
         );
@@ -263,44 +246,12 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
                     ),
                   ),
                 gap,
-                Text('برنامج العمل الأسبوعي', style: text.titleSmall),
-                for (final day in GroupService.displayWeekdays)
-                  Padding(
-                    padding: const EdgeInsets.only(top: ClaySpacing.sm),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 76,
-                          child: Text(
-                            GroupService.weekdayName(day),
-                            style: text.bodyMedium,
-                          ),
-                        ),
-                        Expanded(
-                          child: Wrap(
-                            spacing: ClaySpacing.xs,
-                            children: [
-                              for (final kind in _kinds)
-                                ClayChip(
-                                  label: kind.label,
-                                  selected: _days[day] == kind,
-                                  onTap: () =>
-                                      setState(() => _days[day] = kind),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_errors[WorkerService.fieldSchedule] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: ClaySpacing.xs),
-                    child: Text(
-                      _errors[WorkerService.fieldSchedule]!,
-                      style: text.bodySmall!.copyWith(color: p.status.danger),
-                    ),
-                  ),
+                // لا برنامج أسبوعي: يأتي العامل يوماً نصف يوم وبعد أسبوع يوماً كاملاً.
+                Text(
+                  'لا أيام محددة للعامل: يُحسب يومه من وقت دخوله وخروجه الممسوحين '
+                  '(نصف يوم أو يوم كامل) حسب مدتيهما في الإعدادات.',
+                  style: text.bodySmall!.copyWith(color: p.textMuted),
+                ),
                 if (_errors['form'] != null)
                   Padding(
                     padding: const EdgeInsets.only(top: ClaySpacing.md),
@@ -323,7 +274,22 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
   }
 }
 
-/// ملف العامل: بياناته وأجراه وبرنامجه ورمزه وصلاحياته، وإجراءات التعديل
+/// «ساعتان و30 دقيقة» من عدد دقائق.
+String durationText(int minutes) => DateKey.durationText(minutes);
+
+/// شرح احتساب يوم العامل من الإعدادات.
+String workerDayRuleText(SchoolSettings? settings) {
+  final half =
+      settings?.workerHalfDayMinutes ?? SchoolSettings.defaultWorkerHalfDay;
+  final full =
+      settings?.workerFullDayMinutes ?? SchoolSettings.defaultWorkerFullDay;
+  return 'لا أيام عمل محددة. يُحسب يوم العامل من وقت دخوله وخروجه الممسوحين: '
+      'نصف يوم إن أمضى ${durationText(half)} على الأقل، ويوماً كاملاً إن أمضى '
+      '${durationText(full)} على الأقل، وما دون ذلك لا يُحسب إلا بتعديل المدير. '
+      'تُضبط المدتان من الإعدادات.';
+}
+
+/// ملف العامل: بياناته وأجراه ورمزه وصلاحياته، وإجراءات التعديل
 /// والصلاحيات وإعادة كلمة السر والحذف.
 class WorkerProfileScreen extends ConsumerWidget {
   const WorkerProfileScreen({required this.workerId, super.key});
@@ -466,12 +432,14 @@ class WorkerProfileScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('برنامج العمل', style: text.titleSmall),
-                    for (final d in GroupService.displayWeekdays)
-                      row(
-                        GroupService.weekdayName(d),
-                        item.schedule.kindOn(d).label,
+                    Text('احتساب اليوم', style: text.titleSmall),
+                    const SizedBox(height: ClaySpacing.xs),
+                    Text(
+                      workerDayRuleText(
+                        ref.watch(schoolSettingsProvider).value,
                       ),
+                      style: text.bodySmall!.copyWith(color: p.textMuted),
+                    ),
                   ],
                 ),
               ),

@@ -396,6 +396,163 @@ void main() {
     expect(find.text('النسبة من 1 إلى 100'), findsOneWidget);
   });
 
+  /// فوج ثالث بسعر 3000 ونصيب أستاذ 1500 عن كل تلميذ، لاختبار من يتحمّل التخفيض.
+  Future<void> addSharedGroup(WidgetTester tester, Opened o) async {
+    final db = o.runtime.db;
+    await runDb(
+      tester,
+      () => db
+          .into(db.groups)
+          .insert(
+            GroupsCompanion.insert(
+              id: 'g3',
+              createdAt: 1,
+              updatedAt: 1,
+              number: 3,
+              subjectId: 'math',
+              teacherId: 't1',
+              monthlyPrice: const Value(3000),
+              ratePerStudent: const Value(1500),
+            ),
+          ),
+    );
+    await tester.pumpAndSettle();
+    await fillPeople(tester);
+    await pickSubject(tester, 'رياضيات');
+    await pick(tester, 'الفوج', 'الفوج 3 · كمال (0 تلميذ)');
+  }
+
+  /// يسجّل ويعيد صف الانتساب الوحيد.
+  Future<GroupStudentRow> registerAndRead(WidgetTester tester, Opened o) async {
+    await submit(tester);
+    await tester.tap(find.widgetWithText(ClayButton, 'تم'));
+    await tester.pumpAndSettle();
+    return runDb(
+      tester,
+      () => o.runtime.db.select(o.runtime.db.groupStudents).getSingle(),
+    );
+  }
+
+  String teacherTakes(int amount, {int rate = 1500}) =>
+      'يأخذ الأستاذ عن هذا التلميذ: ${Money.format(amount)} '
+      'من نصيبه ${Money.format(rate)}';
+
+  appTest('تخفيض بلا تحمّل: لا حقل بلا تخفيض، والمدرسة هي الأصل', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    expect(find.text('من يتحمّل التخفيض؟'), findsNothing);
+
+    await pick(tester, 'التخفيض', 'نسبة مئوية');
+    await tester.enterText(fieldOf('النسبة (%)'), '20');
+    await tester.pump();
+    expect(find.text('من يتحمّل التخفيض؟'), findsOneWidget);
+    // التخفيض 600 تتحمله المدرسة: الأستاذ يأخذ نصيبه كاملاً.
+    expect(find.text('يدفع عن كل دورة: ${Money.format(2400)}'), findsOneWidget);
+    expect(find.text(teacherTakes(1500)), findsOneWidget);
+
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.discountType, 'percent');
+    expect(enrolment.teacherAmount, isNull, reason: 'نصيب الفوج كاملاً');
+  });
+
+  appTest('الأستاذ يتحمّل التخفيض: يُخصم من نصيبه ويُحفظ مبلغه', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await pick(tester, 'التخفيض', 'نسبة مئوية');
+    await tester.enterText(fieldOf('النسبة (%)'), '20');
+    await tester.pump();
+    await pick(tester, 'من يتحمّل التخفيض؟', 'الأستاذ');
+    expect(find.text('يُخصم التخفيض من نصيب الأستاذ'), findsOneWidget);
+    // التخفيض 600 يُخصم من نصيبه 1500.
+    expect(find.text(teacherTakes(900)), findsOneWidget);
+
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.teacherAmount, 900);
+    expect(enrolment.monthlyPrice, 3000);
+  });
+
+  appTest('إعفاء كامل يتحمّله الأستاذ: لا يأخذ عن التلميذ شيئاً', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await pick(tester, 'التخفيض', 'إعفاء كامل');
+    await pick(tester, 'من يتحمّل التخفيض؟', 'الأستاذ');
+    expect(find.text(teacherTakes(0)), findsOneWidget);
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.discountType, 'exempt');
+    expect(enrolment.teacherAmount, 0);
+  });
+
+  appTest('مبلغ يحدده المدير للأستاذ: حقل يظهر بالاختيار ويُحفظ', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await pick(tester, 'التخفيض', 'مبلغ ثابت');
+    await tester.enterText(fieldOf('مبلغ التخفيض (دج)'), '500');
+    await tester.pump();
+    const label = 'ما يأخذه الأستاذ عن هذا التلميذ (دج)';
+    expect(find.text(label), findsNothing);
+    await pick(tester, 'من يتحمّل التخفيض؟', 'مبلغ أحدده للأستاذ');
+    expect(find.text(label), findsOneWidget);
+
+    await tester.enterText(fieldOf(label), '1200');
+    await tester.pump();
+    expect(find.text(teacherTakes(1200)), findsOneWidget);
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.teacherAmount, 1200);
+  });
+
+  appTest('مبلغ الأستاذ فوق نصيبه أو فارغ: خطأ عند حقله ولا تسجيل', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await pick(tester, 'التخفيض', 'إعفاء كامل');
+    await pick(tester, 'من يتحمّل التخفيض؟', 'مبلغ أحدده للأستاذ');
+    const label = 'ما يأخذه الأستاذ عن هذا التلميذ (دج)';
+    await submit(tester);
+    expect(find.text('أدخل ما يأخذه الأستاذ عن هذا التلميذ'), findsOneWidget);
+
+    await tester.enterText(fieldOf(label), '2000');
+    await submit(tester);
+    expect(
+      find.text(
+        'مبلغ الأستاذ لا يزيد عن نصيبه في الفوج (${Money.format(1500)})',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      await runDb(
+        tester,
+        () => o.runtime.db.select(o.runtime.db.groupStudents).get(),
+      ),
+      isEmpty,
+    );
+  });
+
+  appTest('بلا تخفيض يُهمل اختيار التحمّل القديم ويُحفظ نصيب الفوج', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await pick(tester, 'التخفيض', 'نسبة مئوية');
+    await tester.enterText(fieldOf('النسبة (%)'), '20');
+    await tester.pump();
+    await pick(tester, 'من يتحمّل التخفيض؟', 'الأستاذ');
+    // رجع المدير عن التخفيض: لا حقل ولا خصم من نصيب الأستاذ.
+    await pick(tester, 'التخفيض', 'دون تخفيض');
+    expect(find.text('من يتحمّل التخفيض؟'), findsNothing);
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.discountType, 'none');
+    expect(enrolment.teacherAmount, isNull);
+  });
+
   appTest('الأخ الثاني يُربط بحساب وليّه دون نافذة بيانات دخول', (
     tester,
   ) async {

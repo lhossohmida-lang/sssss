@@ -4,6 +4,7 @@ import 'package:school_ui/school_ui.dart';
 import 'screens/attendance_screens.dart';
 import 'screens/audit_log_screen.dart';
 import 'screens/catalog_screens.dart';
+import 'screens/contacts_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/drive_screen.dart';
 import 'screens/dues_screen.dart';
@@ -324,6 +325,19 @@ final List<AppPage> adminPages = [
     ),
   ),
   AppPage(
+    path: '/groups/review',
+    requires: PermissionModule.groups,
+    action: PermissionAction.add,
+    builder: (context, state) => const ReviewSessionFormScreen(),
+  ),
+  AppPage(
+    path: '/groups/:id/start',
+    requires: PermissionModule.groups,
+    action: PermissionAction.edit,
+    builder: (context, state) =>
+        WaitingGroupStartScreen(groupId: state.pathParameters['id']!),
+  ),
+  AppPage(
     path: '/groups/:id/setup',
     requires: PermissionModule.groups,
     builder: (context, state) => GroupSetupScreen(
@@ -350,6 +364,11 @@ final List<AppPage> adminPages = [
     requires: PermissionModule.students,
     builder: (context, state) =>
         StudentProfileScreen(studentId: state.pathParameters['id']!),
+  ),
+  AppPage(
+    path: '/contacts',
+    requires: PermissionModule.students,
+    builder: (context, state) => const ContactsScreen(),
   ),
   AppPage(
     path: '/teachers',

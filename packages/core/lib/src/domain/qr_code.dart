@@ -4,11 +4,14 @@ import 'dart:math';
 enum QrOwnerKind {
   student('S-'),
   teacher('T-'),
-  worker('W-');
+  worker('W-'),
+
+  /// تذكرة ضيف حصة تُستعمل مرة واحدة (تلميذ لمرة واحدة).
+  guest('G-');
 
   const QrOwnerKind(this.prefix);
 
-  /// بادئة الرمز: `S-` تلميذ، `T-` أستاذ، `W-` عامل.
+  /// بادئة الرمز: `S-` تلميذ، `T-` أستاذ، `W-` عامل، `G-` تذكرة ضيف.
   final String prefix;
 }
 

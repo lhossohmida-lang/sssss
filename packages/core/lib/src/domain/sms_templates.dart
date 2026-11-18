@@ -10,6 +10,8 @@ abstract final class SmsTemplateKeys {
   static const String attendanceAbsent = 'attendance_absent';
   static const String waitingThreshold = 'waiting_threshold';
   static const String groupCreated = 'group_created';
+  static const String groupReady = 'group_ready';
+  static const String groupStarted = 'group_started';
   static const String cycleCompleted = 'cycle_completed';
   static const String scheduleChange = 'schedule_change';
   static const String requestApproved = 'request_approved';
@@ -33,6 +35,12 @@ abstract final class SmsTemplateKeys {
     attendanceAbsent: '{school}: لم يحضر {name} حصة {subject} يوم {date}.',
     waitingThreshold: '{school}: وصل {name} إلى حد الانتظار في {subject}. سنخبركم عند توفر مكان.',
     groupCreated: '{school}: أُنشئ فوج {subject} لـ {name}. موعده: {schedule}.',
+    groupReady:
+        '{school}: اكتمل فوج {subject} (الفوج {group}): {count} من {target} '
+        'تلميذاً. يرجى تحديد تاريخ أول حصة.',
+    groupStarted:
+        '{school}: حُدِّد موعد فوج {subject} لـ {name}. أول حصة: {date}، '
+        'المواعيد: {schedule}.',
     cycleCompleted:
         '{school}: اكتملت دورة {subject} لـ {name}. المستحقات: {amount} دج.',
     scheduleChange: '{school}: تغيّر موعد {subject} لـ {name} إلى {date}، {time}، القاعة {room}.',

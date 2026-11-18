@@ -154,11 +154,43 @@ class ScanPresentation {
         tone: ClayTone.success,
         icon: ClayIcons.workers,
       ),
-      ScanOutcome.workerOut => const ScanPresentation(
+      ScanOutcome.workerOut => ScanPresentation(
         headline: 'خروج العامل',
-        detail: '',
+        detail: result.workedMinutes == null
+            ? ''
+            : 'مدة العمل: ${DateKey.durationText(result.workedMinutes!)}',
         tone: ClayTone.info,
         icon: ClayIcons.workers,
+      ),
+      ScanOutcome.guestOk => ScanPresentation(
+        headline: 'ضيف — حاضر',
+        detail: group,
+        tone: ClayTone.success,
+        icon: ClayIcons.check,
+      ),
+      ScanOutcome.guestDues => ScanPresentation(
+        headline: 'ضيف — لم يدفع ثمن الحصة',
+        detail: group.isEmpty
+            ? 'يُسدَّد ثمن الحصة عند الإدارة'
+            : '$group\nيُسدَّد ثمن الحصة عند الإدارة',
+        tone: ClayTone.warning,
+        icon: ClayIcons.dues,
+      ),
+      ScanOutcome.guestUsed => ScanPresentation(
+        headline: 'التذكرة استُعملت من قبل',
+        detail: group.isEmpty
+            ? 'تُستعمل مرة واحدة فقط'
+            : '$group\nتُستعمل مرة واحدة فقط',
+        tone: ClayTone.danger,
+        icon: ClayIcons.close,
+      ),
+      ScanOutcome.guestInvalid => ScanPresentation(
+        headline: 'التذكرة لا تصلح الآن',
+        detail: group.isEmpty
+            ? 'ليست في وقت حصتها'
+            : '$group\nليست في وقت حصتها',
+        tone: ClayTone.danger,
+        icon: ClayIcons.close,
       ),
       ScanOutcome.unknown => const ScanPresentation(
         headline: 'رمز غير معروف',

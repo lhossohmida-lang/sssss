@@ -98,6 +98,32 @@ class Students extends Table with SyncColumns {
 
   TextColumn get parentAccountId =>
       text().nullable().references(Parents, #id)();
+
+  /// تلميذ لمرة واحدة: حضر حصة واحدة فدفع ثمنها فقط، ولا ينتسب إلى فوج. يُخفى من قائمة التلاميذ
+  /// العادية وإحصاءاتها، ويدخل بتذكرة QR تُستعمل مرة واحدة (انظر `SessionGuests`).
+  BoolColumn get singleUse => boolean().withDefault(const Constant(false))();
+}
+
+/// دليل الهواتف: أرقام يسجلها المدير منفصلة تماماً عن التلاميذ، لتلاميذ لا يوجدون عندنا (حصة واحدة،
+/// أو تركوا رقمهم ليُتَّصل بهم بعد مدة).
+@DataClassName('ContactRow')
+@TableIndex(name: 'idx_contacts_phone', columns: {#phone})
+@TableIndex(name: 'idx_contacts_name', columns: {#name})
+@TableIndex(name: 'idx_contacts_updated', columns: {#updatedAt})
+class Contacts extends Table with SyncColumns {
+  /// اسم صاحب الرقم؛ قد يكون فارغاً إن لم يُعرف.
+  TextColumn get name => text().withDefault(const Constant(''))();
+
+  TextColumn get phone => text()();
+
+  /// ملاحظة، مثل «اتصل بعد شهر» أو «مهتم بالرياضيات».
+  TextColumn get note => text().withDefault(const Constant(''))();
+
+  /// تاريخ التواصل المقرر `YYYY-MM-DD`؛ `null` إن لم يُحدَّد.
+  TextColumn get followUpDate => text().nullable()();
+
+  /// أصل السجل: `manual` أدخله المدير / `one_time` تلميذ لمرة واحدة / `student` رقم تلميذ منسوخ.
+  TextColumn get source => text().withDefault(const Constant('manual'))();
 }
 
 /// المواد.
@@ -194,8 +220,9 @@ class Workers extends Table with SyncColumns {
   /// أجر نصف اليوم بالدينار (مبلغ مستقل يحدده المدير).
   IntColumn get halfDayWage => integer().withDefault(const Constant(0))();
 
-  /// برنامج العمل الأسبوعي: JSON من رقم اليوم (1 = الاثنين … 7 = الأحد)
-  /// إلى `off` / `half` / `full`.
+  /// برنامج العمل الأسبوعي القديم: JSON من رقم اليوم إلى `off` / `half` / `full`. لم يعد يُستعمل:
+  /// العمال بلا أيام محددة، ويُحسب يوم العامل من وقت دخوله وخروجه (`WageRules`). يبقى العمود
+  /// ليتفق مع الخادم وأجهزة لم تُحدَّث.
   TextColumn get weeklySchedule => text().withDefault(const Constant('{}'))();
 
   /// الصلاحيات: JSON من اسم الوحدة إلى قائمة الأفعال المسموحة.

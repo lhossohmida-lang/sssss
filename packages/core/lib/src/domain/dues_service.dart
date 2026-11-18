@@ -471,6 +471,63 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
   }
 
   // ---------------------------------------------------------------------------
+  // حصة واحدة (ضيف الحصة)
+  // ---------------------------------------------------------------------------
+
+  /// الباقي من ثمن حصة [sessionId] على ضيفها [studentId]؛ صفر إن لم يكن ضيفها.
+  Future<int> sessionRemaining({
+    required String studentId,
+    required String sessionId,
+  }) async {
+    final guest =
+        await (db.select(db.sessionGuests)..where(
+              (g) =>
+                  g.sessionId.equals(sessionId) &
+                  g.studentId.equals(studentId) &
+                  g.deletedAt.isNull(),
+            ))
+            .getSingleOrNull();
+    if (guest == null) return 0;
+    final paid = await _paidFor(
+      studentId: studentId,
+      type: PaymentType.session,
+      periodKey: sessionId,
+    );
+    final remaining = guest.price - paid;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  /// يسجّل دفع ثمن حصة [sessionId] (كله أو بعضه) من ضيفها.
+  Future<PaymentRow> paySession({
+    required String studentId,
+    required String sessionId,
+    required int amount,
+    required String receivedBy,
+    required String receiptNumber,
+  }) {
+    return db.transaction(() async {
+      final remaining = await sessionRemaining(
+        studentId: studentId,
+        sessionId: sessionId,
+      );
+      _checkAmount(amount, remaining);
+      final session = await (db.select(
+        db.sessions,
+      )..where((s) => s.id.equals(sessionId))).getSingle();
+      return _insertPayment(
+        studentId: studentId,
+        type: PaymentType.session,
+        groupId: session.groupId,
+        cycleNumber: session.cycleNumber,
+        periodKey: sessionId,
+        amount: amount,
+        receivedBy: receivedBy,
+        receiptNumber: receiptNumber,
+      );
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // أرقام الوصولات
   // ---------------------------------------------------------------------------
 

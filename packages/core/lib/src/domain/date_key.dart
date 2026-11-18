@@ -71,4 +71,19 @@ abstract final class DateKey {
     final m = (minutes % 60).toString().padLeft(2, '0');
     return '$h:$m';
   }
+
+  /// مدة بالعربية: «ساعة»، «4 ساعات»، «ساعتان و30 دقيقة»، «45 دقيقة».
+  static String durationText(int minutes) {
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    if (hours == 0) return '$rest دقيقة';
+    final hoursText = hours == 1
+        ? 'ساعة'
+        : hours == 2
+        ? 'ساعتان'
+        : hours <= 10
+        ? '$hours ساعات'
+        : '$hours ساعة';
+    return rest == 0 ? hoursText : '$hoursText و$rest دقيقة';
+  }
 }

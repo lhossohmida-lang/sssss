@@ -8,6 +8,7 @@ import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
 import 'new_year_section.dart';
+import 'workers_screens.dart' show durationText;
 
 /// تاريخ `YYYY-MM-DD` بصيغة العرض `DD/MM/YYYY` بأرقام لاتينية.
 String displayDate(String key) {
@@ -32,6 +33,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _margin = TextEditingController();
   final _grace = TextEditingController();
   final _threshold = TextEditingController();
+  final _workerHalf = TextEditingController();
+  final _workerFull = TextEditingController();
 
   SchoolSettings? _loaded;
   File? _logo;
@@ -56,6 +59,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _margin.text = '${settings.scanMarginMinutes}';
         _grace.text = '${settings.graceMinutes}';
         _threshold.text = '${settings.duesSessionThreshold}';
+        _workerHalf.text = '${settings.workerHalfDayMinutes}';
+        _workerFull.text = '${settings.workerFullDayMinutes}';
         _period = settings.registrationFeePeriod;
         _semesters = settings.semesters;
       });
@@ -93,6 +98,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _margin,
       _grace,
       _threshold,
+      _workerHalf,
+      _workerFull,
     ]) {
       c.dispose();
     }
@@ -125,6 +132,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final margin = number(_margin, SettingKeys.scanMarginMinutes);
     final grace = number(_grace, SettingKeys.graceMinutes);
     final threshold = number(_threshold, SettingKeys.duesSessionThreshold);
+    final workerHalf = number(_workerHalf, SettingKeys.workerHalfDayMinutes);
+    final workerFull = number(_workerFull, SettingKeys.workerFullDayMinutes);
     if (errors.isNotEmpty) {
       setState(() => _errors = errors);
       return null;
@@ -139,6 +148,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       scanMarginMinutes: margin!,
       graceMinutes: grace!,
       duesSessionThreshold: threshold!,
+      workerHalfDayMinutes: workerHalf!,
+      workerFullDayMinutes: workerFull!,
     );
   }
 
@@ -376,6 +387,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ]),
                     section('المستويات الدراسية', [
+                      Text(
+                        'للدورات والمواد التي لا ترتبط بسنة دراسية ولا بعمر (لغات، حاسوب...) '
+                        'اختر الطور «أخرى» عند إضافة مستوى واكتب له اسماً خاصاً.',
+                        style: text.bodySmall!.copyWith(color: p.textMuted),
+                      ),
+                      gap(),
                       for (final stage in EducationStage.values) ...[
                         Text(
                           stage.label,
@@ -449,6 +466,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         error: _errors[SettingKeys.duesSessionThreshold],
                       ),
                     ]),
+                    section('العمال', [
+                      Text(
+                        'العمال بلا أيام محددة: يأتي العامل يوماً نصف يوم وبعد أسبوع '
+                        'يوماً كاملاً. يُمسح دخوله وخروجه بالماسح، ويُحسب يومه من مدة '
+                        'بقائه: نصف يوم أو يوم كامل حسب المدتين أدناه.',
+                        style: text.bodySmall!.copyWith(color: p.textMuted),
+                      ),
+                      gap(),
+                      ClayTextField(
+                        controller: _workerHalf,
+                        label: 'مدة نصف اليوم (دقيقة)',
+                        enabled: canEdit,
+                        keyboardType: TextInputType.number,
+                        textDirection: TextDirection.ltr,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (_) => setState(() {}),
+                        helper: _minutesHelper(
+                          _workerHalf.text,
+                          'من أمضى هذه المدة على الأقل حُسب له نصف يوم',
+                        ),
+                        error: _errors[SettingKeys.workerHalfDayMinutes],
+                      ),
+                      gap(),
+                      ClayTextField(
+                        controller: _workerFull,
+                        label: 'مدة اليوم الكامل (دقيقة)',
+                        enabled: canEdit,
+                        keyboardType: TextInputType.number,
+                        textDirection: TextDirection.ltr,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (_) => setState(() {}),
+                        helper: _minutesHelper(
+                          _workerFull.text,
+                          'من أمضى هذه المدة على الأقل حُسب له يوم كامل',
+                        ),
+                        error: _errors[SettingKeys.workerFullDayMinutes],
+                      ),
+                    ]),
+                    section('أرشيف سجل الحضور (PDF)', [
+                      _AttendanceArchiveField(canEdit: canEdit),
+                    ]),
                     if (_message != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: ClaySpacing.md),
@@ -478,6 +540,115 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+/// «= 4 ساعات» تحت حقل دقائق، مع [hint] عن معناه.
+String _minutesHelper(String raw, String hint) {
+  final minutes = int.tryParse(raw.trim());
+  if (minutes == null) return hint;
+  return '$hint (= ${durationText(minutes)})';
+}
+
+/// مجلد أرشيف سجل الحضور PDF على هذا الجهاز: نسخة جديدة من سجل كل حصة تنتهي، ولا تُحدَّث نسخة قائمة.
+/// المجلد خاص بهذا الجهاز لا يُزامَن مع غيره.
+class _AttendanceArchiveField extends ConsumerStatefulWidget {
+  const _AttendanceArchiveField({required this.canEdit});
+
+  final bool canEdit;
+
+  @override
+  ConsumerState<_AttendanceArchiveField> createState() =>
+      _AttendanceArchiveFieldState();
+}
+
+class _AttendanceArchiveFieldState
+    extends ConsumerState<_AttendanceArchiveField> {
+  String? _message;
+  bool _busy = false;
+
+  Future<void> _choose() async {
+    final path = await ref
+        .read(directorySourceProvider)
+        .pick(context, title: 'اختر مجلد أرشيف سجل الحضور');
+    if (path == null || !mounted) return;
+    await _set(path);
+  }
+
+  Future<void> _set(String? path) async {
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await ref.read(attendanceArchiveServiceProvider).setFolder(path);
+      if (mounted) {
+        setState(
+          () => _message = path == null
+              ? 'أُوقفت الأرشفة'
+              : 'تم ضبط المجلد؛ تُنسخ الحصص التي تنتهي من الآن',
+        );
+      }
+    } on FileSystemException catch (e) {
+      if (mounted) {
+        setState(() => _message = 'تعذّرت الكتابة في المجلد: ${e.message}');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final folder = ref.watch(attendanceArchiveFolderProvider).value;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'تُنتَج نسخة PDF جديدة من سجل حضور كل حصة بعد انتهائها، لكل الأفواج، في هذا '
+          'المجلد. لا تُحدَّث نسخة سابقة: كل حصة جديدة ملف جديد. المجلد خاص بهذا الجهاز.',
+          style: text.bodySmall!.copyWith(color: p.textMuted),
+        ),
+        const SizedBox(height: ClaySpacing.md),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: SelectableText(
+            folder ?? 'لم يُحدَّد مجلد: الأرشفة متوقفة على هذا الجهاز',
+            style: text.bodyMedium,
+          ),
+        ),
+        const SizedBox(height: ClaySpacing.sm),
+        Wrap(
+          spacing: ClaySpacing.sm,
+          runSpacing: ClaySpacing.sm,
+          children: [
+            ClayButton(
+              label: folder == null ? 'اختيار المجلد' : 'تغيير المجلد',
+              icon: Icons.folder_open_rounded,
+              kind: ClayButtonKind.secondary,
+              loading: _busy,
+              onPressed: widget.canEdit && !_busy ? _choose : null,
+            ),
+            if (folder != null)
+              ClayButton(
+                label: 'إيقاف الأرشفة',
+                kind: ClayButtonKind.secondary,
+                onPressed: widget.canEdit && !_busy ? () => _set(null) : null,
+              ),
+          ],
+        ),
+        if (_message != null)
+          Padding(
+            padding: const EdgeInsets.only(top: ClaySpacing.sm),
+            child: Semantics(
+              liveRegion: true,
+              child: Text(_message!, style: text.bodySmall),
+            ),
+          ),
+      ],
     );
   }
 }

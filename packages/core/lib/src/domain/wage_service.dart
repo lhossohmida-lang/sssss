@@ -1,51 +1,20 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
 import 'date_key.dart';
 import 'enums.dart';
+import 'school_settings.dart';
+import 'settings_service.dart';
 import 'stable_id.dart';
 
-/// برنامج عمل العامل الأسبوعي: لكل يوم «يوم كامل» أو «نصف يوم» أو «لا يعمل».
-class WorkerSchedule {
-  const WorkerSchedule(this._days);
-
-  /// يقرأ البرنامج من JSON بصيغة `{"1": "full", "6": "half"}`
-  /// (1 = الاثنين … 7 = الأحد). اليوم غير المذكور «لا يعمل».
-  factory WorkerSchedule.fromJson(String json) {
-    final decoded = jsonDecode(json.isEmpty ? '{}' : json);
-    if (decoded is! Map) {
-      throw const FormatException('برنامج العمل يجب أن يكون كائن JSON');
-    }
-    final days = <int, WorkDayKind>{};
-    for (final entry in decoded.entries) {
-      final weekday = int.tryParse(entry.key.toString());
-      if (weekday == null || weekday < 1 || weekday > 7) {
-        throw FormatException('يوم غير صالح في برنامج العمل', entry.key);
-      }
-      days[weekday] = WorkDayKind.fromCode(entry.value.toString());
-    }
-    return WorkerSchedule(days);
-  }
-
-  final Map<int, WorkDayKind> _days;
-
-  /// برنامج يوم الأسبوع [weekday] (1 = الاثنين … 7 = الأحد).
-  WorkDayKind kindOn(int weekday) => _days[weekday] ?? WorkDayKind.off;
-
-  String toJson() => jsonEncode({
-    for (final entry in _days.entries)
-      if (entry.value != WorkDayKind.off) '${entry.key}': entry.value.code,
-  });
-}
-
 /// يوم واحد في كشف حضور وأجر العامل.
+///
+/// العمال بلا أيام عمل محددة: يأتي العامل يوماً نصف يوم وبعد أسبوع يوماً كاملاً. فيُحسب يومه من
+/// وقت دخوله وخروجه الممسوحين مقابل مدتي نصف اليوم واليوم الكامل في الإعدادات (انظر [WageRules]).
 class WorkerDay {
   const WorkerDay({
     required this.date,
-    required this.scheduled,
     required this.present,
     required this.paidKind,
     required this.wage,
@@ -56,9 +25,6 @@ class WorkerDay {
   });
 
   final String date;
-
-  /// ما يقوله برنامج العمل لهذا اليوم.
-  final WorkDayKind scheduled;
 
   /// هل مسح العامل دخوله هذا اليوم؟
   final bool present;
@@ -78,8 +44,15 @@ class WorkerDay {
   final int? checkIn;
   final int? checkOut;
 
-  /// يوم عمل مبرمج لم يحضره العامل (ولم يعدّله المدير).
-  bool get isAbsence => scheduled != WorkDayKind.off && !present && !overridden;
+  /// مدة العمل بالدقائق من الدخول إلى آخر خروج؛ `null` إن لم يمسح أحدهما.
+  int? get workedMinutes => WageRules.workedMinutes(checkIn, checkOut);
+
+  /// دخل ولم يمسح خروجه: ما زال في عمله أو نسي المسح. لا يُحسب أجره حتى يخرج أو يعدّله المدير.
+  bool get isOpen => present && checkOut == null && !overridden;
+
+  /// عمل مدة أقل من نصف اليوم فلم يُحسب له شيء (إلا أن يعدّله المدير).
+  bool get isBelowHalf =>
+      present && checkOut != null && !overridden && paidKind == WorkDayKind.off;
 }
 
 /// كشف شهر لعامل.
@@ -96,28 +69,57 @@ class WorkerMonth {
 
   int get halfDays => days.where((d) => d.paidKind == WorkDayKind.half).length;
 
-  /// أيام الغياب حتى [today] (ما بعده لم يحن بعد).
-  int absencesUntil(String today) =>
-      days.where((d) => d.isAbsence && d.date.compareTo(today) <= 0).length;
+  /// أيام دخل فيها العامل ولم يمسح خروجه قبل [today]؛ اليوم نفسه لا يُعدّ لأنه قد يكون ما زال في عمله.
+  int openDaysBefore(String today) =>
+      days.where((d) => d.isOpen && d.date.compareTo(today) < 0).length;
+
+  /// مجموع مدة العمل بالدقائق للأيام المغلقة.
+  int get totalWorkedMinutes =>
+      days.fold(0, (sum, day) => sum + (day.workedMinutes ?? 0));
 
   int get totalLateMinutes => days.fold(0, (sum, day) => sum + day.lateMinutes);
 }
 
 /// قواعد أجر اليوم (دوال صافية).
 abstract final class WageRules {
+  /// مدة العمل بالدقائق من [checkIn] إلى [checkOut] (بالمللي ثانية)، و`null` إن غاب أحدهما.
+  static int? workedMinutes(int? checkIn, int? checkOut) {
+    if (checkIn == null || checkOut == null) return null;
+    final minutes = (checkOut - checkIn) ~/ Duration.millisecondsPerMinute;
+    return minutes < 0 ? 0 : minutes;
+  }
+
+  /// نوع اليوم من مدة العمل: من أمضى [fullDayMinutes] فأكثر يوم كامل، ومن أمضى [halfDayMinutes]
+  /// فأكثر نصف يوم، وما دون ذلك لا يُحسب له شيء.
+  static WorkDayKind kindForMinutes(
+    int minutes, {
+    required int halfDayMinutes,
+    required int fullDayMinutes,
+  }) {
+    if (minutes >= fullDayMinutes) return WorkDayKind.full;
+    if (minutes >= halfDayMinutes) return WorkDayKind.half;
+    return WorkDayKind.off;
+  }
+
   /// ما يُدفع عن اليوم.
   ///
   /// - تعديل المدير اليدوي يغلب كل شيء.
-  /// - من حضر يأخذ أجر اليوم حسب برنامجه (كامل أو نصف).
-  /// - من غاب، أو حضر في يوم ليس من برنامجه، لا يأخذ شيئاً.
+  /// - من دخل وخرج يُحسب يومه من مدة عمله.
+  /// - من لم يمسح دخوله أو خروجه لا يأخذ شيئاً حتى يكتمل مسحه أو يعدّله المدير.
   /// - التأخر لا يخصم شيئاً.
   static WorkDayKind paidKind({
-    required WorkDayKind scheduled,
-    required bool present,
+    required int? workedMinutes,
+    required int halfDayMinutes,
+    required int fullDayMinutes,
     WorkDayKind? override,
   }) {
     if (override != null) return override;
-    return present ? scheduled : WorkDayKind.off;
+    if (workedMinutes == null) return WorkDayKind.off;
+    return kindForMinutes(
+      workedMinutes,
+      halfDayMinutes: halfDayMinutes,
+      fullDayMinutes: fullDayMinutes,
+    );
   }
 
   /// الأجر بالدينار عن يوم من النوع [kind].
@@ -159,13 +161,18 @@ class WageService {
   final AppDatabase db;
   final SyncWriter writer;
 
-  /// كشف شهر [month] (`YYYY-MM`) للعامل: يوم بيوم مع الأجر.
-  Future<WorkerMonth> month(String workerId, String month) async {
+  /// كشف شهر [month] (`YYYY-MM`) للعامل: يوم بيوم مع الأجر. [settings] لمن يحسب عدة عمال فلا
+  /// يقرأ الإعدادات لكل واحد.
+  Future<WorkerMonth> month(
+    String workerId,
+    String month, {
+    SchoolSettings? settings,
+  }) async {
     final first = _monthStart(month);
     final worker = await (db.select(
       db.workers,
     )..where((w) => w.id.equals(workerId))).getSingle();
-    final schedule = WorkerSchedule.fromJson(worker.weeklySchedule);
+    final config = settings ?? await SettingsService(db, writer).load();
     final start = DateKey.parse(first);
     final daysInMonth = DateTime(start.year, start.month + 1, 0).day;
     final last = '$month-${daysInMonth.toString().padLeft(2, '0')}';
@@ -184,20 +191,19 @@ class WageService {
     var date = first;
     for (var i = 0; i < daysInMonth; i++) {
       final row = byDate[date];
-      final scheduled = schedule.kindOn(DateKey.weekday(date));
       final present = row?.checkIn != null;
       final override = row?.overrideKind == null
           ? null
           : WorkDayKind.fromCode(row!.overrideKind!);
       final paid = WageRules.paidKind(
-        scheduled: scheduled,
-        present: present,
+        workedMinutes: WageRules.workedMinutes(row?.checkIn, row?.checkOut),
+        halfDayMinutes: config.workerHalfDayMinutes,
+        fullDayMinutes: config.workerFullDayMinutes,
         override: override,
       );
       days.add(
         WorkerDay(
           date: date,
-          scheduled: scheduled,
           present: present,
           paidKind: paid,
           wage: WageRules.wageFor(
@@ -226,6 +232,7 @@ class WageService {
             db.workerAttendance,
             db.expenses,
             db.expenseCategories,
+            db.settings,
           },
         )
         .watch()
@@ -240,12 +247,13 @@ class WageService {
               ..orderBy([(w) => OrderingTerm.asc(w.name)]))
             .get();
     final expenses = await _wageExpenses(month);
+    final config = await SettingsService(db, writer).load();
     return [
       for (final w in workers)
         WorkerMonthSummary(
           workerId: w.id,
           name: w.name,
-          month: await this.month(w.id, month),
+          month: await this.month(w.id, month, settings: config),
           wageExpenseId: expenses[w.id]?.id,
           wageExpenseAmount: expenses[w.id]?.amount,
         ),

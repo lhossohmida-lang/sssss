@@ -54,10 +54,14 @@ class RosterStudent {
     required this.name,
     this.status,
     this.method,
+    this.guest = false,
   });
 
   final String studentId;
   final String name;
+
+  /// ضيف الحصة: ليس منتسباً إلى فوجها، حضرها وحدها (تلميذ لمرة واحدة أو تلميذ فوج آخر).
+  final bool guest;
 
   /// حالته المسجَّلة، و`null` إن لم يُسجَّل شيء.
   final AttendanceStatus? status;
@@ -207,6 +211,7 @@ class AttendanceService {
             db.groupStudents,
             db.students,
             db.groups,
+            db.sessionGuests,
           },
         )
         .watch()
@@ -232,21 +237,33 @@ class AttendanceService {
     // المنتسبون الحاليون لهذه الدورة، ومن سُجّل له حضور فيها وإن غادر.
     final rows = await db
         .customSelect(
-          'SELECT s.id, s.first_name, s.last_name, a.status, a.method '
+          'SELECT s.id, s.first_name, s.last_name, a.status, a.method, '
+          'EXISTS (SELECT 1 FROM session_guests sg WHERE sg.student_id = s.id '
+          'AND sg.session_id = ? AND sg.deleted_at IS NULL) AS is_guest '
           'FROM students s '
           'LEFT JOIN attendance a ON a.student_id = s.id AND a.session_id = ? '
           'AND a.deleted_at IS NULL '
           'WHERE s.deleted_at IS NULL AND (a.id IS NOT NULL OR EXISTS ('
           'SELECT 1 FROM group_students gs WHERE gs.student_id = s.id '
           'AND gs.group_id = ? AND gs.deleted_at IS NULL '
-          'AND gs.left_at IS NULL AND gs.joined_at_cycle_number <= ?)) '
+          'AND gs.left_at IS NULL AND gs.joined_at_cycle_number <= ?) '
+          'OR EXISTS (SELECT 1 FROM session_guests sg2 '
+          'WHERE sg2.student_id = s.id AND sg2.session_id = ? '
+          'AND sg2.deleted_at IS NULL)) '
           'ORDER BY s.last_name, s.first_name, s.id',
           variables: [
             Variable<String>(sessionId),
+            Variable<String>(sessionId),
             Variable<String>(session.groupId),
             Variable<int>(session.cycleNumber),
+            Variable<String>(sessionId),
           ],
-          readsFrom: {db.students, db.attendance, db.groupStudents},
+          readsFrom: {
+            db.students,
+            db.attendance,
+            db.groupStudents,
+            db.sessionGuests,
+          },
         )
         .get();
     return SessionRoster(
@@ -267,6 +284,7 @@ class AttendanceService {
             method: row.read<String?>('method') == null
                 ? null
                 : AttendanceMethod.fromCode(row.read<String>('method')),
+            guest: row.read<int>('is_guest') != 0,
           ),
       ],
     );
@@ -403,6 +421,7 @@ class AttendanceService {
             cycleNumber: finished,
           );
           await _payouts.createCyclePayout(session.groupId, finished);
+          await _archiveIfReview(session.groupId);
         } else {
           final threshold = (await SettingsService(
             db,
@@ -431,6 +450,19 @@ class AttendanceService {
   // ---------------------------------------------------------------------------
   // داخلي
   // ---------------------------------------------------------------------------
+
+  /// حصة المراجعة حصة واحدة: بعد انتهائها يُؤرشف فوجها فلا يبقى في قائمة الأفواج النشطة.
+  Future<void> _archiveIfReview(String groupId) async {
+    final group = await (db.select(
+      db.groups,
+    )..where((g) => g.id.equals(groupId))).getSingleOrNull();
+    if (group == null || !group.isReview || group.archivedAt != null) return;
+    await writer.patch(
+      db.groups,
+      key: {'id': groupId},
+      values: {'archived_at': writer.now()},
+    );
+  }
 
   /// ينبّه صاحب المدرسة إن أُغلقت الحصة ولم يمسح أستاذها دخوله لها.
   Future<void> _alertIfTeacherAbsent(SessionRow session) async {
@@ -504,15 +536,19 @@ class AttendanceService {
           'AND gs.group_id = ? AND gs.deleted_at IS NULL '
           'AND gs.left_at IS NULL AND gs.joined_at_cycle_number <= ? '
           'UNION SELECT 1 FROM attendance a WHERE a.student_id = ? '
-          'AND a.session_id = ? AND a.deleted_at IS NULL LIMIT 1',
+          'AND a.session_id = ? AND a.deleted_at IS NULL '
+          'UNION SELECT 1 FROM session_guests sg WHERE sg.student_id = ? '
+          'AND sg.session_id = ? AND sg.deleted_at IS NULL LIMIT 1',
           variables: [
             Variable<String>(studentId),
             Variable<String>(session.groupId),
             Variable<int>(session.cycleNumber),
             Variable<String>(studentId),
             Variable<String>(session.id),
+            Variable<String>(studentId),
+            Variable<String>(session.id),
           ],
-          readsFrom: {db.groupStudents, db.attendance},
+          readsFrom: {db.groupStudents, db.attendance, db.sessionGuests},
         )
         .getSingleOrNull();
     return row != null;

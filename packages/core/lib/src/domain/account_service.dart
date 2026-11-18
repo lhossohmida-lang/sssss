@@ -8,6 +8,7 @@ import 'catalog_service.dart';
 import 'enums.dart';
 import 'phone.dart';
 import 'setting_keys.dart';
+import 'sms_kind_policy.dart';
 import 'sms_templates.dart';
 
 /// حساب دخول أُنشئ للتو: بياناته تُعرض للمدير مرة واحدة وتُرسل برسالة.
@@ -104,6 +105,7 @@ class AccountService {
       name: displayName,
       credentials: credentials,
     );
+    var smsQueued = false;
     await db.transaction(() async {
       final now = writer.now();
       await writer.save(
@@ -120,14 +122,18 @@ class AccountService {
         ),
         key: {'id': accountId},
       );
-      await _queueSms(phone, message, SmsTemplateKeys.accountCreated);
+      smsQueued = await _queueSms(
+        phone,
+        message,
+        SmsTemplateKeys.accountCreated,
+      );
     });
     return ProvisionedAccount(
       accountId: accountId,
       email: credentials.email,
       password: credentials.password,
       created: true,
-      smsQueued: true,
+      smsQueued: smsQueued,
     );
   }
 
@@ -151,6 +157,7 @@ class AccountService {
         password: password,
       ),
     );
+    var smsQueued = false;
     await db.transaction(() async {
       await writer.patch(
         db.userAccounts,
@@ -158,7 +165,11 @@ class AccountService {
         values: {'must_change_password': 1},
       );
       if (phone != null) {
-        await _queueSms(phone, message, SmsTemplateKeys.passwordReset);
+        smsQueued = await _queueSms(
+          phone,
+          message,
+          SmsTemplateKeys.passwordReset,
+        );
       }
     });
     return ProvisionedAccount(
@@ -166,7 +177,7 @@ class AccountService {
       email: account.email,
       password: password,
       created: false,
-      smsQueued: phone != null,
+      smsQueued: smsQueued,
     );
   }
 
@@ -213,7 +224,9 @@ class AccountService {
     });
   }
 
-  Future<void> _queueSms(String phone, String message, String kind) async {
+  /// يضع الرسالة في الطابور، ويعيد `false` إن أوقف المدير هذا النوع فلم توضع.
+  Future<bool> _queueSms(String phone, String message, String kind) async {
+    if (!await SmsKindPolicy(db, writer).isEnabled(kind)) return false;
     final stamp = writer.now();
     final id = writer.newId();
     await writer.save(
@@ -230,5 +243,6 @@ class AccountService {
       ),
       key: {'id': id},
     );
+    return true;
   }
 }

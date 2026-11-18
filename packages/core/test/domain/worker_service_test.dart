@@ -10,10 +10,6 @@ void main() {
   late AccountService accounts;
   late WorkerService service;
 
-  final weekdays = WorkerSchedule.fromJson(
-    '{"6":"full","7":"full","1":"half"}',
-  );
-
   setUp(() {
     env = TestEnv();
     provisioner = FakeAccountProvisioner();
@@ -22,17 +18,11 @@ void main() {
   });
   tearDown(() => env.close());
 
-  Future<WorkerCreated> addDefault({String phone = '0660123456'}) =>
-      service.add(
-        name: 'سمير',
-        phone: phone,
-        fullDayWage: 1500,
-        halfDayWage: 800,
-        schedule: weekdays,
-      );
+  Future<WorkerCreated> addDefault({String phone = '0660123456'}) => service
+      .add(name: 'سمير', phone: phone, fullDayWage: 1500, halfDayWage: 800);
 
   group('إضافة', () {
-    test('عامل بحسابه ورمزه وأجرَيه وبرنامجه وصلاحياته الفارغة', () async {
+    test('عامل بحسابه ورمزه وأجرَيه وصلاحياته الفارغة', () async {
       final created = await addDefault();
       final worker = created.worker;
       expect(worker.name, 'سمير');
@@ -44,18 +34,7 @@ void main() {
       expect(worker.expectedStartMinutes, 480);
       expect(worker.expectedEndMinutes, 1020);
       expect(worker.authUserId, created.account.accountId);
-      expect(
-        WorkerSchedule.fromJson(worker.weeklySchedule).kindOn(6),
-        WorkDayKind.full,
-      );
-      expect(
-        WorkerSchedule.fromJson(worker.weeklySchedule).kindOn(1),
-        WorkDayKind.half,
-      );
-      expect(
-        WorkerSchedule.fromJson(worker.weeklySchedule).kindOn(3),
-        WorkDayKind.off,
-      );
+      expect(worker.weeklySchedule, '{}', reason: 'لا أيام محددة للعامل');
       expect(WorkerPermissions.decode(worker.permissions).isEmpty, isTrue);
     });
 
@@ -83,7 +62,6 @@ void main() {
         phone: '0770123456',
         fullDayWage: 1000,
         halfDayWage: 500,
-        schedule: weekdays,
         permissions: perms,
       );
       expect(
@@ -100,7 +78,6 @@ void main() {
           phone: '123',
           fullDayWage: -10,
           halfDayWage: 15,
-          schedule: const WorkerSchedule({}),
           startMinutes: 600,
           endMinutes: 600,
         ),
@@ -113,7 +90,6 @@ void main() {
               WorkerService.fieldPhone,
               WorkerService.fieldFullWage,
               WorkerService.fieldHours,
-              WorkerService.fieldSchedule,
             ]),
           ),
         ),
@@ -129,7 +105,6 @@ void main() {
         halfDayWage: 1500,
         startMinutes: 480,
         endMinutes: 1020,
-        schedule: weekdays,
       );
       expect(errors[WorkerService.fieldHalfWage], contains('لا يزيد'));
       final odd = WorkerService.validate(
@@ -138,7 +113,6 @@ void main() {
         halfDayWage: 500,
         startMinutes: 480,
         endMinutes: 1020,
-        schedule: weekdays,
       );
       expect(odd[WorkerService.fieldFullWage], contains('10'));
       expect(
@@ -148,7 +122,6 @@ void main() {
           halfDayWage: 500,
           startMinutes: 480,
           endMinutes: 1020,
-          schedule: weekdays,
         ),
         isEmpty,
       );
@@ -171,28 +144,24 @@ void main() {
   });
 
   group('قراءة وتعديل', () {
-    test('القائمة مرتبة بالاسم بأيام العمل وصلاحياتها', () async {
+    test('القائمة مرتبة بالاسم', () async {
       await service.add(
         name: 'ياسين',
         phone: '0660000002',
         fullDayWage: 1000,
         halfDayWage: 500,
-        schedule: weekdays,
       );
       await service.add(
         name: 'أمين',
         phone: '0660000001',
         fullDayWage: 1000,
         halfDayWage: 500,
-        schedule: WorkerSchedule.fromJson('{"6":"full"}'),
       );
       final items = await service.watchAll().first;
       expect(items.map((i) => i.name), ['أمين', 'ياسين']);
-      expect(items.first.workDays, 1);
-      expect(items.last.workDays, 3);
     });
 
-    test('التعديل: الاسم والأجران والبرنامج والساعات واسم الحساب', () async {
+    test('التعديل: الاسم والأجران والساعات واسم الحساب', () async {
       final created = await addDefault();
       final changed = await service.update(
         created.worker.id,
@@ -200,7 +169,6 @@ void main() {
         phone: '0661111111',
         fullDayWage: 2000,
         halfDayWage: 1000,
-        schedule: WorkerSchedule.fromJson('{"2":"full"}'),
         startMinutes: 540,
         endMinutes: 1080,
       );
@@ -215,10 +183,6 @@ void main() {
       expect(row.halfDayWage, 1000);
       expect(row.expectedStartMinutes, 540);
       expect(row.expectedEndMinutes, 1080);
-      expect(
-        WorkerSchedule.fromJson(row.weeklySchedule).kindOn(2),
-        WorkDayKind.full,
-      );
       final account = await (env.db.select(
         env.db.userAccounts,
       )..where((a) => a.id.equals(created.account.accountId))).getSingle();
@@ -234,7 +198,6 @@ void main() {
           phone: '0661111111',
           fullDayWage: 1000,
           halfDayWage: 500,
-          schedule: weekdays,
           startMinutes: 480,
           endMinutes: 1020,
         ),
@@ -247,7 +210,6 @@ void main() {
           phone: '0661111111',
           fullDayWage: 1000,
           halfDayWage: 500,
-          schedule: weekdays,
           startMinutes: 480,
           endMinutes: 1020,
         ),

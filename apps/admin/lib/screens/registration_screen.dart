@@ -22,9 +22,19 @@ class ChoiceDraft {
   DiscountType discountType = DiscountType.none;
   final discount = TextEditingController();
 
+  /// من يتحمل التخفيض: المدرسة (الأصل)، أو الأستاذ، أو مبلغ يحدده المدير للأستاذ ([teacherAmount]).
+  DiscountBearer bearer = DiscountBearer.school;
+  final teacherAmount = TextEditingController();
+
+  /// المبلغ الذي كتبه المدير للأستاذ، أو `null` إن لم يكتب شيئاً.
+  int? get customTeacherAmount => teacherAmount.text.trim().isEmpty
+      ? null
+      : int.tryParse(teacherAmount.text.trim());
+
   void dispose() {
     price.dispose();
     discount.dispose();
+    teacherAmount.dispose();
   }
 }
 
@@ -85,6 +95,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             // السعر سعر الفوج الذي عُيِّن عند إنشائه: تأخذه الخدمة منه.
             discountType: c.discountType,
             discountValue: int.tryParse(c.discount.text.trim()) ?? 0,
+            bearer: c.discountType == DiscountType.none
+                ? DiscountBearer.school
+                : c.bearer,
+            customTeacherAmount: c.customTeacherAmount,
           ),
     ],
   );
@@ -589,6 +603,24 @@ class SubjectChoiceCard extends ConsumerWidget {
                     onChanged: (_) => onChanged(),
                   ),
                 ],
+                if (draft.discountType != DiscountType.none) ...[
+                  gap,
+                  _BearerField(
+                    draft: draft,
+                    errors: errors,
+                    index: index,
+                    rate:
+                        groups
+                            .where((g) => g.id == draft.groupId)
+                            .firstOrNull
+                            ?.group
+                            .ratePerStudent ??
+                        0,
+                    price: price,
+                    net: net,
+                    onChanged: onChanged,
+                  ),
+                ],
                 gap,
                 Text(
                   'يدفع عن كل دورة: ${Money.format(net)}',
@@ -608,6 +640,89 @@ class SubjectChoiceCard extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// «من يتحمّل التخفيض؟»: المدرسة (الأستاذ يأخذ نصيبه كاملاً من مالها)، أو الأستاذ (يُخصم التخفيض من
+/// نصيبه)، أو مبلغ يحدده المدير للأستاذ. تحته ما يأخذه الأستاذ فعلاً عن هذا التلميذ.
+class _BearerField extends StatelessWidget {
+  const _BearerField({
+    required this.draft,
+    required this.errors,
+    required this.index,
+    required this.rate,
+    required this.price,
+    required this.net,
+    required this.onChanged,
+  });
+
+  final ChoiceDraft draft;
+  final Map<String, String> errors;
+  final int index;
+
+  /// نصيب الأستاذ لكل تلميذ في الفوج، وسعر الفوج، وما يدفعه التلميذ بعد التخفيض.
+  final int rate;
+  final int price;
+  final int net;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final amount =
+        Pricing.teacherAmountFor(
+          draft.bearer,
+          rate: rate,
+          price: price,
+          net: net,
+          custom: draft.customTeacherAmount,
+        ) ??
+        rate;
+    final error =
+        errors[RegistrationService.choiceField(
+          index,
+          EnrolmentService.fieldTeacherAmount,
+        )];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClayDropdown<DiscountBearer>(
+          label: 'من يتحمّل التخفيض؟',
+          searchable: false,
+          value: draft.bearer,
+          options: [
+            for (final bearer in DiscountBearer.values)
+              ClayOption(value: bearer, label: bearer.label),
+          ],
+          helper: draft.bearer.help,
+          onChanged: (value) {
+            draft.bearer = value ?? DiscountBearer.school;
+            onChanged();
+          },
+        ),
+        if (draft.bearer == DiscountBearer.custom) ...[
+          const SizedBox(height: ClaySpacing.md),
+          ClayTextField(
+            controller: draft.teacherAmount,
+            label: 'ما يأخذه الأستاذ عن هذا التلميذ (${Money.currency})',
+            keyboardType: TextInputType.number,
+            textDirection: TextDirection.ltr,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            error: error,
+            onChanged: (_) => onChanged(),
+          ),
+        ],
+        const SizedBox(height: ClaySpacing.xs),
+        Text(
+          'يأخذ الأستاذ عن هذا التلميذ: ${Money.format(amount)}'
+          '${rate > 0 ? ' من نصيبه ${Money.format(rate)}' : ''}',
+          style: text.bodySmall!.copyWith(color: p.textMuted),
+        ),
+        if (error != null && draft.bearer != DiscountBearer.custom)
+          Text(error, style: text.bodySmall!.copyWith(color: p.status.danger)),
+      ],
     );
   }
 }

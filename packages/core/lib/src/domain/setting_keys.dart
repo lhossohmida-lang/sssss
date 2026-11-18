@@ -39,4 +39,14 @@ abstract final class SettingKeys {
 
   /// وقت آخر تنفيذ لزر «سنة جديدة» بالمللي ثانية (UTC).
   static const String lastNewYearAt = 'last_new_year_at';
+
+  /// مدة العمل بالدقائق التي يُحسب بها يوم العامل «نصف يوم» ثم «يوماً كاملاً». العمال بلا أيام
+  /// محددة: يأتي العامل يوماً نصف يوم وأسبوعاً بعده يوماً كاملاً، فيُحسب يومه من وقت دخوله
+  /// وخروجه الممسوحين لا من برنامج أسبوعي.
+  static const String workerHalfDayMinutes = 'worker_half_day_minutes';
+  static const String workerFullDayMinutes = 'worker_full_day_minutes';
+
+  /// أنواع رسائل SMS المعطَّلة: JSON قائمة من مفاتيح القوالب (`payment_receipt`...). الرسالة
+  /// من نوع معطَّل لا تُوضع في الطابور أصلاً.
+  static const String smsDisabledKinds = 'sms_disabled_kinds';
 }

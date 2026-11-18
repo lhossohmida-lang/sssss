@@ -120,6 +120,8 @@ class PaymentListItem {
         return 'نقل — ${payment.periodKey ?? ''}';
       case PaymentType.registrationFee:
         return 'حقوق التسجيل — ${payment.periodKey ?? ''}';
+      case PaymentType.session:
+        return 'حصة واحدة — ${subjectName ?? ''} · الفوج ${groupNumber ?? ''}';
     }
   }
 }
@@ -249,6 +251,8 @@ class PaymentService {
       );
     }
 
+    items.addAll(await _guestSessionItems(studentId));
+
     final student = await (db.select(
       db.students,
     )..where((s) => s.id.equals(studentId))).getSingle();
@@ -337,6 +341,13 @@ class PaymentService {
           receivedBy: receivedBy,
           receiptNumber: receipt,
         ),
+        PaymentType.session => _recordSession(
+          studentId: studentId,
+          sessionId: periodKey!,
+          amount: amount,
+          receivedBy: receivedBy,
+          receipt: receipt,
+        ),
       };
       await sms.paymentReceipt(payment);
       return payment;
@@ -365,6 +376,67 @@ class PaymentService {
     );
     await _payouts.releasePending(groupId);
     return payment;
+  }
+
+  /// دفع ثمن حصة: يُفرَج بعده عن نصيب أستاذ الحصة المعلّق إن كان الضيف قد حضرها.
+  Future<PaymentRow> _recordSession({
+    required String studentId,
+    required String sessionId,
+    required int amount,
+    required String receivedBy,
+    required String receipt,
+  }) async {
+    final payment = await dues.paySession(
+      studentId: studentId,
+      sessionId: sessionId,
+      amount: amount,
+      receivedBy: receivedBy,
+      receiptNumber: receipt,
+    );
+    final groupId = payment.groupId;
+    if (groupId != null) await _payouts.releasePending(groupId);
+    return payment;
+  }
+
+  /// أثمان الحصص التي لم يُسدِّدها ضيف (تلميذ لمرة واحدة أو تلميذ يحضر حصة فوج آخر).
+  Future<List<PayableItem>> _guestSessionItems(String studentId) async {
+    final rows = await db
+        .customSelect(
+          'SELECT g.session_id, g.price, se.group_id, se.cycle_number, '
+          'se.date, gr.number, ${GroupSql.subjectLabel} AS subject, '
+          '(SELECT COALESCE(SUM(p.amount), 0) FROM payments p '
+          "WHERE p.student_id = g.student_id AND p.type = 'session' "
+          'AND p.period_key = g.session_id AND p.deleted_at IS NULL) AS paid '
+          'FROM session_guests g JOIN sessions se ON se.id = g.session_id '
+          'JOIN groups gr ON gr.id = se.group_id '
+          'JOIN subjects sub ON sub.id = gr.subject_id '
+          'WHERE g.student_id = ? AND g.deleted_at IS NULL '
+          'AND se.deleted_at IS NULL ORDER BY se.date, g.session_id',
+          variables: [Variable<String>(studentId)],
+          readsFrom: {
+            db.sessionGuests,
+            db.sessions,
+            db.groups,
+            db.subjects,
+            db.payments,
+          },
+        )
+        .get();
+    return [
+      for (final row in rows)
+        if (row.read<int>('price') - row.read<int>('paid') > 0)
+          PayableItem(
+            type: PaymentType.session,
+            label:
+                'حصة ${row.read<String>('subject')} · الفوج '
+                '${row.read<int>('number')} · ${row.read<String>('date')}',
+            total: row.read<int>('price'),
+            paid: row.read<int>('paid'),
+            groupId: row.read<String>('group_id'),
+            cycleNumber: row.read<int>('cycle_number'),
+            periodKey: row.read<String>('session_id'),
+          ),
+    ];
   }
 
   Future<int> _remaining({
@@ -404,6 +476,14 @@ class PaymentService {
           throw ValidationException.field(fieldItem, 'اختر الشهر');
         }
         return dues.transportRemaining(studentId: studentId, month: periodKey);
+      case PaymentType.session:
+        if (periodKey == null) {
+          throw ValidationException.field(fieldItem, 'اختر الحصة');
+        }
+        return dues.sessionRemaining(
+          studentId: studentId,
+          sessionId: periodKey,
+        );
     }
   }
 

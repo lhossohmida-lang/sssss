@@ -231,6 +231,7 @@ class StatisticsService {
             'SELECT CAST(strftime(\'%m\', datetime(created_at / 1000, '
             '\'unixepoch\', \'localtime\')) AS INTEGER) AS month, '
             'COUNT(*) AS count FROM students WHERE deleted_at IS NULL '
+            'AND single_use = 0 '
             'AND created_at >= ? AND created_at < ? GROUP BY month',
             variables: [Variable<int>(start), Variable<int>(end)],
             readsFrom: {db.students},
@@ -238,7 +239,8 @@ class StatisticsService {
           .get();
       final active = await db
           .customSelect(
-            'SELECT COUNT(*) AS count FROM students WHERE deleted_at IS NULL',
+            'SELECT COUNT(*) AS count FROM students WHERE deleted_at IS NULL '
+            'AND single_use = 0',
             readsFrom: {db.students},
           )
           .getSingle();

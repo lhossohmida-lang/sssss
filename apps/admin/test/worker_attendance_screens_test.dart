@@ -36,11 +36,6 @@ const _expenseRecorder = TestAccount(
   permissions: '{"workers":["view"],"expenses":["add"]}',
 );
 
-/// كل أيام الأسبوع يوم كامل: أجر الشهر يتبع الحضور وتعديلاته فقط.
-const _allDays =
-    '{"1":"full","2":"full","3":"full","4":"full","5":"full",'
-    '"6":"full","7":"full"}';
-
 /// يبذر عاملاً حضر أول الشهر الجاري ثم يفتح «حضور العمال».
 Future<AppRuntime> openSheet(
   WidgetTester tester, {
@@ -71,7 +66,6 @@ Future<AppRuntime> openSheet(
               qrCode: 'W-AAAAAAAAAA',
               fullDayWage: const Value(1000),
               halfDayWage: const Value(600),
-              weeklySchedule: const Value(_allDays),
             ),
           );
       await db
@@ -135,8 +129,10 @@ void main() {
     await openSheet(tester);
     final today = DateTime.now().day;
     expect(find.text('سمير'), findsOneWidget);
+    // يوم الحضور مغلق (دخل وخرج): لا أيام بلا خروج، ولا أيام عمل محددة فلا غياب.
+    expect(today, greaterThan(0));
     expect(
-      find.textContaining('1 يوم كامل · 0 نصف · ${today - 1} غياب'),
+      find.textContaining('1 يوم كامل · 0 نصف · 0 بلا خروج'),
       findsOneWidget,
     );
     expect(find.textContaining('تأخر 10 د'), findsOneWidget);
@@ -193,7 +189,13 @@ void main() {
       find.textContaining('أجر الشهر ${Money.format(1000)}'),
       findsOneWidget,
     );
-    expect(find.textContaining('حضر 08:10–17:00 · تأخر 10 د'), findsOneWidget);
+    // مدة بقائه 8 ساعات و50 دقيقة: يُحسب يوماً كاملاً بالحدّ الافتراضي (8 ساعات).
+    expect(
+      find.textContaining(
+        'حضر 08:10–17:00 · عمل 8 ساعات و50 دقيقة · تأخر 10 د',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('يوم كامل'), findsWidgets);
   });
 
@@ -268,7 +270,10 @@ void main() {
     await tester.pumpAndSettle();
     final next = DateKey.shiftMonth(currentMonthKey(), 1);
     expect(find.text(DateKey.monthLabel(next)), findsOneWidget);
-    expect(find.textContaining('0 يوم كامل · 0 نصف · 0 غياب'), findsOneWidget);
+    expect(
+      find.textContaining('0 يوم كامل · 0 نصف · 0 بلا خروج'),
+      findsOneWidget,
+    );
     await tester.tap(find.byTooltip('الشهر السابق'));
     await tester.pumpAndSettle();
     expect(find.textContaining('1 يوم كامل'), findsOneWidget);

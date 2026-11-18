@@ -44,7 +44,7 @@ void main() {
   test('الرموز المخزَّنة فريدة داخل كل نوع', () {
     expect(SessionStatus.values.map((v) => v.code).toSet(), hasLength(4));
     expect(SessionRequestType.values.map((v) => v.code).toSet(), hasLength(4));
-    expect(PaymentType.values.map((v) => v.code).toSet(), hasLength(3));
+    expect(PaymentType.values.map((v) => v.code).toSet(), hasLength(4));
   });
 
   test('الرمز المجهول يرمي خطأ', () {

@@ -43,6 +43,7 @@ Future<AppRuntime> bootApp(
   PhotoSource? photoSource,
   PdfPresenter? pdfPresenter,
   FileSource? fileSource,
+  DirectorySource? directorySource,
   QrCodeSource Function()? qrCamera,
   QrCodeSource Function()? usbReader,
   ScanFeedback? scanFeedback,
@@ -76,6 +77,8 @@ Future<AppRuntime> bootApp(
           pdfPresenterProvider.overrideWithValue(pdfPresenter),
         if (fileSource != null)
           fileSourceProvider.overrideWithValue(fileSource),
+        if (directorySource != null)
+          directorySourceProvider.overrideWithValue(directorySource),
         if (qrCamera != null)
           qrCameraFactoryProvider.overrideWithValue(qrCamera),
         if (usbReader != null)
@@ -152,6 +155,20 @@ class FakeFileSource implements FileSource {
   }) async {
     requests.add(extensions);
     return file;
+  }
+}
+
+/// منتقي مجلدات وهمي: يعيد [path] كأن المستخدم اختاره (أو `null` كأنه ألغى).
+class FakeDirectorySource implements DirectorySource {
+  FakeDirectorySource(this.path);
+
+  String? path;
+  int requests = 0;
+
+  @override
+  Future<String?> pick(BuildContext context, {required String title}) async {
+    requests++;
+    return path;
   }
 }
 

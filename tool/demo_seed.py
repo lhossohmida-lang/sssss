@@ -336,6 +336,10 @@ def build_dataset(today: date, owner_id: str, accounts: Optional[dict[str, str]]
             "monthly_price": SUBJECTS[subject][1],
             "rate_per_student": TEACHERS[teacher][1],
             "archived_at": None,
+            # أفواج عادية: ليست منتظِرة ولا حصص مراجعة.
+            "waiting_target": None,
+            "start_alerted_at": None,
+            "is_review": False,
         }
         for g, (subject, teacher, room, _, _) in enumerate(GROUPS)
     ]
@@ -389,6 +393,7 @@ def build_dataset(today: date, owner_id: str, accounts: Optional[dict[str, str]]
                 "transport_line_id": None,
                 "qr_code": qr_code("S", p["id"]),
                 "parent_account_id": parent.key,
+                "single_use": False,
             }
         )
     data["students"] = students
@@ -415,6 +420,8 @@ def build_dataset(today: date, owner_id: str, accounts: Optional[dict[str, str]]
                 "discount_type": dtype,
                 "discount_value": dvalue,
                 "left_at": None,
+                # نصيب الأستاذ كاملاً (الأصل): التخفيض على حساب المدرسة.
+                "teacher_amount": None,
             }
             enrolments.append(row)
             members[g].append({**row, "due": due_amount(price, dtype, dvalue)})

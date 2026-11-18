@@ -8,9 +8,8 @@ void main() {
   late TestEnv env;
   late WageService wages;
 
-  // نوفمبر 2026: 1 أحد، 2 اثنين، 3 ثلاثاء، 7 سبت، 14 سبت.
-  // البرنامج: الاثنين والثلاثاء يوم كامل، السبت نصف يوم.
-  const schedule = '{"1": "full", "2": "full", "6": "half"}';
+  // نوفمبر 2026: 2 و9 و16 أيام اثنين، و7 سبت. العمال بلا أيام محددة: يُحسب اليوم من مدة بقاء
+  // العامل (الافتراضي: نصف يوم من 4 ساعات، ويوم كامل من 8 ساعات).
 
   setUp(() async {
     env = TestEnv();
@@ -28,14 +27,26 @@ void main() {
             qrCode: 'W-AAAAAAAAAA',
             fullDayWage: const Value(2000),
             halfDayWage: const Value(1200),
-            weeklySchedule: const Value(schedule),
           ),
         );
   });
 
   tearDown(() => env.close());
 
-  Future<void> scan(String date, {int late = 0, bool out = true}) => env.db
+  int at(String date, int hour, [int minute = 0]) {
+    final h = '$hour'.padLeft(2, '0');
+    final m = '$minute'.padLeft(2, '0');
+    return DateTime.parse('${date}T$h:$m:00').toUtc().millisecondsSinceEpoch;
+  }
+
+  /// يدخل العامل الساعة [from] ويخرج الساعة [to] (بلا خروج إن كان `null`).
+  Future<void> scan(
+    String date, {
+    int late = 0,
+    int from = 8,
+    int? to = 16,
+    int toMinute = 30,
+  }) => env.db
       .into(env.db.workerAttendance)
       .insert(
         WorkerAttendanceCompanion.insert(
@@ -44,8 +55,8 @@ void main() {
           updatedAt: 1,
           workerId: 'w1',
           date: date,
-          checkIn: const Value(100),
-          checkOut: Value(out ? 200 : null),
+          checkIn: Value(at(date, from)),
+          checkOut: Value(to == null ? null : at(date, to, toMinute)),
           lateMinutes: Value(late),
         ),
       );
@@ -54,35 +65,41 @@ void main() {
       month.days.firstWhere((d) => d.date == date);
 
   group('القواعد', () {
-    test('برنامج العمل يُقرأ ويُكتب', () {
-      final s = WorkerSchedule.fromJson(schedule);
-      expect(s.kindOn(1), WorkDayKind.full);
-      expect(s.kindOn(6), WorkDayKind.half);
-      expect(s.kindOn(5), WorkDayKind.off);
-      expect(WorkerSchedule.fromJson(s.toJson()).kindOn(6), WorkDayKind.half);
-      expect(WorkerSchedule.fromJson('').kindOn(1), WorkDayKind.off);
-      expect(WorkerSchedule.fromJson('{}').kindOn(1), WorkDayKind.off);
-      expect(() => WorkerSchedule.fromJson('[]'), throwsFormatException);
-      expect(
-        () => WorkerSchedule.fromJson('{"9": "full"}'),
-        throwsFormatException,
-      );
-      expect(
-        () => WorkerSchedule.fromJson('{"1": "double"}'),
-        throwsArgumentError,
-      );
+    test('مدة العمل من الدخول والخروج', () {
+      expect(WageRules.workedMinutes(null, 5), isNull);
+      expect(WageRules.workedMinutes(5, null), isNull);
+      expect(WageRules.workedMinutes(0, 90 * 60000), 90);
+      expect(WageRules.workedMinutes(10 * 60000, 0), 0, reason: 'لا مدة سالبة');
     });
 
-    test('ما يُدفع عن اليوم', () {
-      WorkDayKind paid(WorkDayKind s, bool present, [WorkDayKind? o]) =>
-          WageRules.paidKind(scheduled: s, present: present, override: o);
-      expect(paid(WorkDayKind.full, true), WorkDayKind.full);
-      expect(paid(WorkDayKind.half, true), WorkDayKind.half);
-      expect(paid(WorkDayKind.full, false), WorkDayKind.off);
-      expect(paid(WorkDayKind.off, true), WorkDayKind.off);
-      expect(paid(WorkDayKind.full, false, WorkDayKind.full), WorkDayKind.full);
-      expect(paid(WorkDayKind.full, true, WorkDayKind.half), WorkDayKind.half);
-      expect(paid(WorkDayKind.full, true, WorkDayKind.off), WorkDayKind.off);
+    test('نوع اليوم من المدة: نصف يوم من حدّه، ويوم كامل من حدّه', () {
+      WorkDayKind kind(int minutes) => WageRules.kindForMinutes(
+        minutes,
+        halfDayMinutes: 240,
+        fullDayMinutes: 480,
+      );
+      expect(kind(0), WorkDayKind.off);
+      expect(kind(239), WorkDayKind.off);
+      expect(kind(240), WorkDayKind.half);
+      expect(kind(479), WorkDayKind.half);
+      expect(kind(480), WorkDayKind.full);
+      expect(kind(900), WorkDayKind.full);
+    });
+
+    test('ما يُدفع عن اليوم: المدة تحسمه وتعديل المدير يغلبها', () {
+      WorkDayKind paid(int? minutes, [WorkDayKind? o]) => WageRules.paidKind(
+        workedMinutes: minutes,
+        halfDayMinutes: 240,
+        fullDayMinutes: 480,
+        override: o,
+      );
+      expect(paid(500), WorkDayKind.full);
+      expect(paid(300), WorkDayKind.half);
+      expect(paid(100), WorkDayKind.off);
+      expect(paid(null), WorkDayKind.off, reason: 'لم يمسح خروجه');
+      expect(paid(null, WorkDayKind.full), WorkDayKind.full);
+      expect(paid(500, WorkDayKind.half), WorkDayKind.half);
+      expect(paid(500, WorkDayKind.off), WorkDayKind.off);
     });
 
     test('أجر اليوم الكامل ونصف اليوم مبلغان مستقلان', () {
@@ -92,23 +109,63 @@ void main() {
       expect(wage(WorkDayKind.half), 1200);
       expect(wage(WorkDayKind.off), 0);
     });
+
+    test('مدة اليوم بالعربية', () {
+      expect(DateKey.durationText(45), '45 دقيقة');
+      expect(DateKey.durationText(60), 'ساعة');
+      expect(DateKey.durationText(120), 'ساعتان');
+      expect(DateKey.durationText(240), '4 ساعات');
+      expect(DateKey.durationText(150), 'ساعتان و30 دقيقة');
+      expect(DateKey.durationText(11 * 60), '11 ساعة');
+    });
   });
 
-  test('من حضر يأخذ أجر يومه حسب برنامجه، ومن غاب لا يأخذ شيئاً', () async {
-    await scan('2026-11-02'); // اثنين: كامل
-    await scan('2026-11-07'); // سبت: نصف
-    // الثلاثاء 3 نوفمبر: غائب
+  test(
+    'يوم العامل يُحسب من مدة بقائه: نصف يوم ثم يوم كامل ثم أقل من النصف',
+    () async {
+      await scan('2026-11-02', to: 12); // 4س30: نصف يوم
+      await scan('2026-11-09'); // 8س30: يوم كامل
+      await scan('2026-11-16', to: 10, toMinute: 0); // ساعتان: دون النصف
+
+      final month = await wages.month('w1', '2026-11');
+      expect(month.days, hasLength(30));
+      expect(day(month, '2026-11-02').paidKind, WorkDayKind.half);
+      expect(day(month, '2026-11-02').wage, 1200);
+      expect(day(month, '2026-11-02').workedMinutes, 270);
+      expect(day(month, '2026-11-09').paidKind, WorkDayKind.full);
+      expect(day(month, '2026-11-09').wage, 2000);
+      expect(day(month, '2026-11-16').wage, 0);
+      expect(day(month, '2026-11-16').isBelowHalf, isTrue);
+      expect(month.total, 3200);
+      expect(month.fullDays, 1);
+      expect(month.halfDays, 1);
+      expect(month.totalWorkedMinutes, 270 + 510 + 120);
+    },
+  );
+
+  test('لا أيام محددة: يأتي العامل أي يوم، ومن لم يأتِ لا غياب عليه', () async {
+    await scan('2026-11-06', to: 13); // جمعة: نصف يوم
+    final month = await wages.month('w1', '2026-11');
+    expect(day(month, '2026-11-06').wage, 1200);
+    expect(day(month, '2026-11-03').present, isFalse);
+    expect(day(month, '2026-11-03').wage, 0);
+    expect(day(month, '2026-11-03').isOpen, isFalse);
+  });
+
+  test('حدّا نصف اليوم واليوم الكامل من الإعدادات', () async {
+    await SettingsService(env.db, env.writer).save(
+      const SchoolSettings(
+        workerHalfDayMinutes: 120,
+        workerFullDayMinutes: 300,
+      ),
+    );
+    await scan('2026-11-02', to: 10, toMinute: 30); // ساعتان ونصف: نصف يوم
+    await scan('2026-11-09', to: 13, toMinute: 30); // 5س30: يوم كامل
 
     final month = await wages.month('w1', '2026-11');
-    expect(month.days, hasLength(30));
-    expect(day(month, '2026-11-02').wage, 2000);
-    expect(day(month, '2026-11-07').wage, 1200);
-    expect(day(month, '2026-11-03').wage, 0);
-    expect(day(month, '2026-11-03').isAbsence, isTrue);
-    expect(day(month, '2026-11-01').isAbsence, isFalse, reason: 'ليس يوم عمل');
+    expect(day(month, '2026-11-02').paidKind, WorkDayKind.half);
+    expect(day(month, '2026-11-09').paidKind, WorkDayKind.full);
     expect(month.total, 3200);
-    expect(month.fullDays, 1);
-    expect(month.halfDays, 1);
   });
 
   test('التأخر لا يخصم من الأجر ويظهر للعرض فقط', () async {
@@ -119,68 +176,62 @@ void main() {
     expect(month.totalLateMinutes, 45);
   });
 
-  test('من نسي مسح الخروج يُحسب له يومه', () async {
-    await scan('2026-11-02', out: false);
-    final month = await wages.month('w1', '2026-11');
-    expect(day(month, '2026-11-02').wage, 2000);
-    expect(day(month, '2026-11-02').checkOut, isNull);
-  });
-
-  test('الحضور في يوم ليس من البرنامج لا أجر له إلا بتعديل المدير', () async {
-    await scan('2026-11-01'); // أحد: لا يعمل
+  test('من لم يمسح خروجه لا يُحسب يومه حتى يخرج أو يعدّله المدير', () async {
+    await scan('2026-11-02', to: null);
     var month = await wages.month('w1', '2026-11');
-    expect(day(month, '2026-11-01').wage, 0);
+    expect(day(month, '2026-11-02').wage, 0);
+    expect(day(month, '2026-11-02').isOpen, isTrue);
+    expect(day(month, '2026-11-02').checkOut, isNull);
+    // اليوم نفسه قد يكون ما زال في عمله فلا يُعدّ نقصاً، وما قبله يُعدّ.
+    expect(month.openDaysBefore('2026-11-02'), 0);
+    expect(month.openDaysBefore('2026-11-03'), 1);
 
     await wages.setOverride(
       workerId: 'w1',
-      date: '2026-11-01',
-      kind: WorkDayKind.half,
+      date: '2026-11-02',
+      kind: WorkDayKind.full,
     );
     month = await wages.month('w1', '2026-11');
-    expect(day(month, '2026-11-01').wage, 1200);
-    expect(day(month, '2026-11-01').overridden, isTrue);
+    expect(day(month, '2026-11-02').wage, 2000);
+    expect(day(month, '2026-11-02').isOpen, isFalse);
   });
 
   test(
-    'تعديل المدير: احتساب يوم غياب، أو إلغاء يوم حضور، ثم التراجع',
+    'تعديل المدير يغلب المدة: يوم دون النصف يصير كاملاً ثم التراجع',
     () async {
-      await wages.setOverride(
-        workerId: 'w1',
-        date: '2026-11-03',
-        kind: WorkDayKind.full,
-      );
-      await scan('2026-11-02');
+      await scan('2026-11-02', to: 9, toMinute: 0); // ساعة: لا شيء
+      expect((await wages.month('w1', '2026-11')).total, 0);
+
       await wages.setOverride(
         workerId: 'w1',
         date: '2026-11-02',
-        kind: WorkDayKind.off,
+        kind: WorkDayKind.full,
       );
-
       var month = await wages.month('w1', '2026-11');
-      expect(day(month, '2026-11-03').wage, 2000);
-      expect(day(month, '2026-11-03').isAbsence, isFalse);
-      expect(day(month, '2026-11-02').wage, 0);
-      expect(month.total, 2000);
+      expect(day(month, '2026-11-02').wage, 2000);
+      expect(day(month, '2026-11-02').overridden, isTrue);
 
       await wages.setOverride(workerId: 'w1', date: '2026-11-02', kind: null);
-      await wages.setOverride(workerId: 'w1', date: '2026-11-03', kind: null);
       month = await wages.month('w1', '2026-11');
-      expect(day(month, '2026-11-02').wage, 2000);
-      expect(day(month, '2026-11-03').wage, 0);
-      expect(day(month, '2026-11-03').isAbsence, isTrue);
+      expect(day(month, '2026-11-02').wage, 0);
+      expect(day(month, '2026-11-02').overridden, isFalse);
     },
   );
+
+  test('يوم لم يحضره العامل يُحتسب بتعديل المدير وحده', () async {
+    await wages.setOverride(
+      workerId: 'w1',
+      date: '2026-11-03',
+      kind: WorkDayKind.half,
+    );
+    final month = await wages.month('w1', '2026-11');
+    expect(day(month, '2026-11-03').wage, 1200);
+    expect(day(month, '2026-11-03').present, isFalse);
+  });
 
   test('إلغاء تعديل غير موجود لا يفعل شيئاً', () async {
     await wages.setOverride(workerId: 'w1', date: '2026-11-20', kind: null);
     expect(await env.db.select(env.db.workerAttendance).get(), isEmpty);
-  });
-
-  test('الغيابات تُعدّ حتى اليوم فقط', () async {
-    final month = await wages.month('w1', '2026-11');
-    // حتى 8 نوفمبر: الاثنين 2، الثلاثاء 3، السبت 7.
-    expect(month.absencesUntil('2026-11-08'), 3);
-    expect(month.absencesUntil('2026-11-01'), 0);
   });
 
   test('الشهر يُحصر بأيامه: فبراير في سنة كبيسة 29 يوماً', () async {
@@ -189,15 +240,6 @@ void main() {
     expect(month.days, hasLength(29));
     expect(month.days.last.date, '2028-02-29');
     expect(month.total, 0);
-  });
-
-  test('عامل بلا برنامج لا أجر له ولا غيابات', () async {
-    await (env.db.update(env.db.workers)..where((w) => w.id.equals('w1')))
-        .write(const WorkersCompanion(weeklySchedule: Value('{}')));
-    await scan('2026-11-02');
-    final month = await wages.month('w1', '2026-11');
-    expect(month.total, 0);
-    expect(month.absencesUntil('2026-11-30'), 0);
   });
 
   group('الكشف الجامع لكل العمال', () {
@@ -213,7 +255,6 @@ void main() {
             email: '0660000001@school.local',
             qrCode: 'W-BBBBBBBBBB',
             fullDayWage: const Value(1000),
-            weeklySchedule: const Value('{"2": "full"}'),
           ),
         );
 
@@ -255,8 +296,8 @@ void main() {
 
   group('تسجيل الأجور كمصروفات', () {
     test('مصروف ثابت للعامل والشهر، ويتحدث بعد تصحيح الحضور', () async {
-      await scan('2026-11-02');
-      await scan('2026-11-07');
+      await scan('2026-11-02'); // يوم كامل
+      await scan('2026-11-07', to: 12); // نصف يوم
       final id = await wages.recordAsExpense(workerId: 'w1', month: '2026-11');
       final categoryId = StableId.workerWagesCategory();
       final firstExpense = await env.db.select(env.db.expenses).getSingle();

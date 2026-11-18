@@ -13,6 +13,9 @@ Future<AppRuntime> openDetails(
   WidgetTester tester, {
   TestAccount account = owner,
   bool withStudents = true,
+
+  /// بيانات إضافية تُكتب قبل فتح التفاصيل (دفعات أو حصص مراجعة مثلاً).
+  Future<void> Function(AppDatabase db, GroupRow group)? seed,
 }) async {
   final runtime = await openGroups(tester, account: account);
   final db = runtime.db;
@@ -81,6 +84,7 @@ Future<AppRuntime> openDetails(
     await mark(1, 's1', 'absent');
     await mark(2, 's1', 'excused');
     await mark(0, 's2', 'present');
+    await seed?.call(db, group);
   });
   await tapGroup(tester);
   return runtime;
@@ -117,6 +121,128 @@ void main() {
     expect(find.text('1/8'), findsNWidgets(2));
     semantics.dispose();
   });
+
+  appTest(
+    'الشبكة: الحصص المسدَّدة زرقاء ولو لم تُحضَر، وما حُضر ولم يُسدَّد أحمر',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      final semantics = tester.ensureSemantics();
+      await openDetails(
+        tester,
+        // سمير دفع نصف الشهر (1000 من 2000) فتغطي دفعته 4 من 8 حصص.
+        seed: (db, group) => db
+            .into(db.payments)
+            .insert(
+              PaymentsCompanion.insert(
+                id: 'p1',
+                createdAt: 1,
+                updatedAt: 1,
+                studentId: 's1',
+                type: PaymentType.month.code,
+                groupId: Value(group.id),
+                cycleNumber: const Value(1),
+                amount: 1000,
+                receivedBy: 'u-owner',
+                receiptNumber: 'A-000001',
+              ),
+            ),
+      );
+      await tester.pumpAndSettle();
+      // حصصه الأربع الأولى مسدَّدة: حضرها أو غاب أو لم تُسجَّل بعد (الرابعة لم تُسجَّل).
+      final paid = tester.getSemantics(find.text('سمير بن علي')).label;
+      expect(paid, contains('حاضر · مدفوعة'));
+      expect(paid, contains('غائب · مدفوعة'));
+      expect(paid, contains('غائب برخصة · مدفوعة'));
+      expect(paid, contains('لم يُسجَّل · مدفوعة'));
+      expect(RegExp('مدفوعة').allMatches(paid), hasLength(4));
+      expect(paid, isNot(contains('لم يدفع')));
+      // نور لم تدفع: حضرت الأولى فمربعها أحمر، وبقية حصصها بلا لون ولا «مدفوعة».
+      final unpaid = tester.getSemantics(find.text('نور بن علي')).label;
+      expect(unpaid, contains('حاضر · لم يدفع'));
+      expect(unpaid, isNot(contains('مدفوعة')));
+      // مفتاح الألوان تحت الشبكة.
+      expect(find.text('مربع أزرق: حصة مدفوعة'), findsOneWidget);
+      expect(find.text('مربع أحمر: حضر ولم يدفع'), findsOneWidget);
+      semantics.dispose();
+    },
+  );
+
+  appTest(
+    'الشبكة: حصة مراجعة حضرها تلميذ من الفوج عمود إضافي لا يدخل حصص الدورة',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      final semantics = tester.ensureSemantics();
+      await openDetails(
+        tester,
+        seed: (db, group) async {
+          await db
+              .into(db.groups)
+              .insert(
+                GroupsCompanion.insert(
+                  id: 'rev',
+                  createdAt: 1,
+                  updatedAt: 1,
+                  number: 2,
+                  subjectId: 'math',
+                  teacherId: 't1',
+                  sessionsPerCycle: const Value(1),
+                  isReview: const Value(true),
+                ),
+              );
+          await db
+              .into(db.sessions)
+              .insert(
+                SessionsCompanion.insert(
+                  id: 'rev-s',
+                  createdAt: 1,
+                  updatedAt: 1,
+                  groupId: 'rev',
+                  cycleNumber: 1,
+                  sessionNumber: const Value(1),
+                  date: '2026-11-12',
+                  startMinutes: 600,
+                  endMinutes: 780,
+                ),
+              );
+          await db
+              .into(db.sessionGuests)
+              .insert(
+                SessionGuestsCompanion.insert(
+                  id: 'sg1',
+                  createdAt: 1,
+                  updatedAt: 1,
+                  sessionId: 'rev-s',
+                  studentId: 's1',
+                ),
+              );
+          await db
+              .into(db.attendance)
+              .insert(
+                AttendanceCompanion.insert(
+                  id: 'a-rev',
+                  createdAt: 1,
+                  updatedAt: 1,
+                  sessionId: 'rev-s',
+                  studentId: 's1',
+                  status: 'present',
+                  method: 'manual',
+                ),
+              );
+        },
+      );
+      await tester.pumpAndSettle();
+      // عنوان العمود «م» بتسمية «حصة مراجعة»، ولسمير وحده خلية فيه.
+      expect(find.text('م'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('^حصة مراجعة')), findsOneWidget);
+      final first = tester.getSemantics(find.text('سمير بن علي')).label;
+      expect(RegExp('حاضر').allMatches(first), hasLength(2));
+      final second = tester.getSemantics(find.text('نور بن علي')).label;
+      expect(RegExp('حاضر').allMatches(second), hasLength(1));
+      // مجموع الدورة لا يشمل المراجعة: 1 من 8 لكليهما.
+      expect(find.text('1/8'), findsNWidgets(2));
+      semantics.dispose();
+    },
+  );
 
   appTest('فوج بلا تلاميذ: رسالة فارغة', (tester) async {
     tester.view.physicalSize = const Size(900, 1400);

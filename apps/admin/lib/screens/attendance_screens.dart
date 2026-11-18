@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'guests_panel.dart';
+
 /// الحضور: حصص يوم محدد (اليوم افتراضياً)، ومنها إلى ورقة حضور الحصة.
 class AttendanceScreen extends ConsumerStatefulWidget {
   const AttendanceScreen({super.key});
@@ -182,6 +184,8 @@ class AdminSessionRoster extends ConsumerWidget {
       sessionId: sessionId,
       canWrite: canWrite,
       canExcuse: canWrite,
+      // تلاميذ لمرة واحدة أو من فوج آخر يحضرون هذه الحصة ويدفعون ثمنها.
+      belowHeader: canWrite ? (roster) => GuestsButton(roster: roster) : null,
     );
   }
 }

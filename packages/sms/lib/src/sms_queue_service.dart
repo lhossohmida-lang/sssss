@@ -243,7 +243,7 @@ class SmsQueueService {
     try {
       final now = _localNow();
       final nowStamp = _epoch(now);
-      final pending =
+      final queued =
           await (db.select(db.smsQueue)
                 ..where((row) => row.status.equals(SmsStatus.pending.code))
                 ..orderBy([
@@ -251,6 +251,7 @@ class SmsQueueService {
                   (row) => OrderingTerm.asc(row.id),
                 ]))
               .get();
+      final pending = await _dropDisabledKinds(queued);
       if (pending.isEmpty) return const SmsProcessResult(SmsProcessKind.empty);
 
       SmsQueueRow? row;
@@ -379,6 +380,32 @@ class SmsQueueService {
         'not_before': null,
       },
     );
+  }
+
+  static const String disabledKindMessage =
+      'أوقف المدير هذا النوع من الرسائل فلم تُرسل.';
+
+  /// يلغي الرسائل المنتظرة من نوع أوقفه المدير (وصلت الطابور قبل الإيقاف)، ويعيد الباقي.
+  Future<List<SmsQueueRow>> _dropDisabledKinds(List<SmsQueueRow> rows) async {
+    final disabled = await SmsKindPolicy(db, writer).disabled();
+    if (disabled.isEmpty) return rows;
+    final kept = <SmsQueueRow>[];
+    for (final row in rows) {
+      if (!disabled.contains(row.kind)) {
+        kept.add(row);
+        continue;
+      }
+      await writer.patch(
+        db.smsQueue,
+        key: {'id': row.id},
+        values: {
+          'status': SmsStatus.cancelled.code,
+          'last_error': disabledKindMessage,
+          'not_before': null,
+        },
+      );
+    }
+    return kept;
   }
 
   Future<void> _defer(String id, DateTime at) async {

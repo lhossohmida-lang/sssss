@@ -6,6 +6,7 @@ import 'date_key.dart';
 import 'dues_service.dart';
 import 'payment_service.dart';
 import 'teacher_attendance.dart';
+import 'waiting_group_service.dart';
 import 'waiting_service.dart';
 
 /// مبلغ ليوم (لرسم مقبوضات الأسبوع).
@@ -33,6 +34,13 @@ class DashboardStats {
     required this.pendingRequests,
     required this.missedSessions,
     required this.weekReceipts,
+    this.teachers = 0,
+    this.teachersPresent = 0,
+    this.workers = 0,
+    this.workersPresent = 0,
+    this.workersInside = 0,
+    this.waitingGroups = 0,
+    this.waitingGroupsReady = 0,
   });
 
   /// التلاميذ الأحياء.
@@ -70,6 +78,19 @@ class DashboardStats {
   /// مقبوضات آخر 7 أيام (الأقدم أولاً، وآخرها اليوم).
   final List<DailyAmount> weekReceipts;
 
+  /// الأساتذة الأحياء، ومن مسح منهم دخوله اليوم.
+  final int teachers;
+  final int teachersPresent;
+
+  /// العمال الأحياء، ومن مسح منهم دخوله اليوم، ومن هو في عمله الآن (دخل ولم يخرج).
+  final int workers;
+  final int workersPresent;
+  final int workersInside;
+
+  /// الأفواج المنتظِرة (لها تلاميذ بلا موعد لأول حصة)، ومنها ما اكتمل عدده فينتظر تحديد التاريخ.
+  final int waitingGroups;
+  final int waitingGroupsReady;
+
   int get weekTotal => weekReceipts.fold(0, (sum, d) => sum + d.amount);
 }
 
@@ -102,6 +123,9 @@ class DashboardQueries {
             db.waitingEntries,
             db.sessionRequests,
             db.teacherAttendance,
+            db.teachers,
+            db.workers,
+            db.workerAttendance,
           },
         )
         .watch()
@@ -122,7 +146,7 @@ class DashboardQueries {
     final counts = await db
         .customSelect(
           'SELECT '
-          '(SELECT COUNT(*) FROM students WHERE deleted_at IS NULL) AS students, '
+          '(SELECT COUNT(*) FROM students WHERE deleted_at IS NULL AND single_use = 0) AS students, '
           '(SELECT COUNT(*) FROM groups WHERE deleted_at IS NULL '
           'AND archived_at IS NULL) AS groups, '
           '(SELECT COUNT(*) FROM sessions WHERE date = ? '
@@ -134,9 +158,25 @@ class DashboardQueries {
           'AND paid_at IS NULL) AS payouts_count, '
           '(SELECT COALESCE(SUM(amount), 0) FROM teacher_payouts '
           'WHERE deleted_at IS NULL AND paid_at IS NULL) AS payouts_sum, '
+          '(SELECT COUNT(DISTINCT teacher_id) FROM teacher_attendance '
+          'WHERE date = ? AND check_in IS NOT NULL AND deleted_at IS NULL) '
+          'AS teachers_present, '
+          '(SELECT COUNT(*) FROM worker_attendance WHERE date = ? '
+          'AND check_in IS NOT NULL AND deleted_at IS NULL) AS workers_present, '
+          '(SELECT COUNT(*) FROM worker_attendance WHERE date = ? '
+          'AND check_in IS NOT NULL AND check_out IS NULL '
+          'AND deleted_at IS NULL) AS workers_inside, '
+          '(SELECT COUNT(*) FROM teachers WHERE deleted_at IS NULL) AS teachers, '
+          '(SELECT COUNT(*) FROM workers WHERE deleted_at IS NULL) AS workers, '
           "(SELECT COUNT(*) FROM session_requests WHERE status = 'pending' "
           'AND deleted_at IS NULL) AS requests',
-          variables: [Variable<String>(today), Variable<String>(today)],
+          variables: [
+            Variable<String>(today),
+            Variable<String>(today),
+            Variable<String>(today),
+            Variable<String>(today),
+            Variable<String>(today),
+          ],
           readsFrom: {
             db.students,
             db.groups,
@@ -144,6 +184,10 @@ class DashboardQueries {
             db.attendance,
             db.teacherPayouts,
             db.sessionRequests,
+            db.teachers,
+            db.workers,
+            db.teacherAttendance,
+            db.workerAttendance,
           },
         )
         .getSingle();
@@ -153,6 +197,7 @@ class DashboardQueries {
     final duesStudents = {for (final d in dues) d.studentId}.length;
 
     final waiting = await WaitingService(db, writer).lists();
+    final waitingGroups = await WaitingGroupService(db, writer).list();
     final missed = await TeacherAttendanceQueries(db, writer).missed(
       since: DateKey.of(now.subtract(const Duration(days: windowDays))),
       now: now,
@@ -187,6 +232,13 @@ class DashboardQueries {
       pendingRequests: counts.read<int>('requests'),
       missedSessions: missed.length,
       weekReceipts: week,
+      teachers: counts.read<int>('teachers'),
+      teachersPresent: counts.read<int>('teachers_present'),
+      workers: counts.read<int>('workers'),
+      workersPresent: counts.read<int>('workers_present'),
+      workersInside: counts.read<int>('workers_inside'),
+      waitingGroups: waitingGroups.length,
+      waitingGroupsReady: waitingGroups.where((g) => g.isReady).length,
     );
   }
 }

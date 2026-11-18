@@ -472,6 +472,68 @@ void main() {
       expect(errors[RegistrationService.fieldSubjects], contains('مكررة'));
     });
 
+    test('مبلغ الأستاذ يُفحص قبل إنشاء الحساب ومفهرس برقم المادة', () async {
+      await env.group(id: 'g2', number: 2, rate: 1500, price: 3000);
+      RegistrationRequest withBearer(
+        DiscountBearer bearer, {
+        int? custom,
+        DiscountType type = DiscountType.percent,
+      }) => request(
+        choices: [
+          SubjectChoice(
+            subjectId: 'sub',
+            groupId: 'g2',
+            discountType: type,
+            discountValue: 20,
+            bearer: bearer,
+            customTeacherAmount: custom,
+          ),
+        ],
+      );
+      final field = RegistrationService.choiceField(
+        0,
+        EnrolmentService.fieldTeacherAmount,
+      );
+      // مبلغ يحدده المدير ولم يكتبه.
+      final empty = await service.validate(withBearer(DiscountBearer.custom));
+      expect(empty[field], 'أدخل ما يأخذه الأستاذ عن هذا التلميذ');
+      // فوق نصيبه (1500)، أو ليس من مضاعفات 10.
+      expect(
+        (await service.validate(
+          withBearer(DiscountBearer.custom, custom: 2000),
+        ))[field],
+        contains('لا يزيد عن نصيبه'),
+      );
+      expect(
+        (await service.validate(
+          withBearer(DiscountBearer.custom, custom: 1205),
+        ))[field],
+        contains('مضاعفات 10'),
+      );
+      // المدرسة (الأصل) أو الأستاذ أو مبلغ سليم: لا خطأ.
+      for (final ok in [
+        withBearer(DiscountBearer.school),
+        withBearer(DiscountBearer.teacher),
+        withBearer(DiscountBearer.custom, custom: 1200),
+        withBearer(DiscountBearer.teacher, type: DiscountType.exempt),
+      ]) {
+        expect(await service.validate(ok), isEmpty);
+      }
+      // التسجيل نفسه يُرفض قبل أي كتابة أو حساب.
+      await expectLater(
+        service.register(withBearer(DiscountBearer.custom), settings: settings),
+        throwsA(
+          isA<ValidationException>().having(
+            (e) => e.errors.keys,
+            'keys',
+            contains(field),
+          ),
+        ),
+      );
+      expect(provisioner.created, isEmpty);
+      expect(await env.db.select(env.db.students).get(), isEmpty);
+    });
+
     test('نفس التلميذ لنفس الوليّ مرتين مرفوض', () async {
       await service.register(request(), settings: settings);
       await expectLater(

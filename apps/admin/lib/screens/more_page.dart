@@ -93,6 +93,13 @@ const List<MoreEntry> moreEntries = [
     requires: PermissionModule.scanner,
   ),
   MoreEntry(
+    label: 'دليل الهواتف',
+    icon: Icons.contacts_outlined,
+    path: '/contacts',
+    section: MoreSection.teaching,
+    requires: PermissionModule.students,
+  ),
+  MoreEntry(
     label: 'المستحقات',
     icon: ClayIcons.dues,
     path: '/dues',

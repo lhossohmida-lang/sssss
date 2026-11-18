@@ -378,25 +378,94 @@ void main() {
     });
   });
 
-  group('ترقية القاعدة المحلية إلى الإصدار 5', () {
-    test('تضيف عمود سعر الفوج وتملؤه من مادته ومبلغ أستاذه', () async {
-      // قاعدة بمخطط الإصدار 4: بلا العمود، وفوج أُنشئ قبله بلا مبلغ أستاذ.
-      await env.db.customStatement(
-        'ALTER TABLE groups DROP COLUMN monthly_price',
-      );
+  group('ترقية القاعدة المحلية', () {
+    /// يرجع بالقاعدة إلى مخطط الإصدار 5 (قبل الأفواج المنتظِرة وضيوف الحصص ودليل الهواتف).
+    Future<void> downToV5() async {
+      for (final statement in [
+        'ALTER TABLE groups DROP COLUMN waiting_target',
+        'ALTER TABLE groups DROP COLUMN start_alerted_at',
+        'ALTER TABLE groups DROP COLUMN is_review',
+        'ALTER TABLE group_students DROP COLUMN teacher_amount',
+        'ALTER TABLE students DROP COLUMN single_use',
+        'DROP TABLE session_guests',
+        'DROP TABLE contacts',
+      ]) {
+        await env.db.customStatement(statement);
+      }
+    }
+
+    Future<Set<String>> columns(String table) async => {
+      for (final row
+          in await env.db.customSelect('PRAGMA table_info($table)').get())
+        row.read<String>('name'),
+    };
+
+    test(
+      'من الإصدار 4: تضيف عمود سعر الفوج وتملؤه من مادته ومبلغ أستاذه',
+      () async {
+        // قاعدة بمخطط الإصدار 4: بلا العمود، وفوج أُنشئ قبله بلا مبلغ أستاذ.
+        await downToV5();
+        await env.db.customStatement(
+          'ALTER TABLE groups DROP COLUMN monthly_price',
+        );
+        await env.db.customStatement(
+          'INSERT INTO groups (id, created_at, updated_at, number, subject_id, '
+          'teacher_id, sessions_per_cycle, current_cycle_number) '
+          "VALUES ('legacy', 1, 1, 1, 'secondary', 't1', 8, 1)",
+        );
+        await env.db.migration.onUpgrade(Migrator(env.db), 4, 6);
+        final row = await env.db
+            .customSelect(
+              "SELECT monthly_price, rate_per_student FROM groups WHERE id = 'legacy'",
+            )
+            .getSingle();
+        expect(row.read<int>('monthly_price'), 3000);
+        expect(row.read<int>('rate_per_student'), 1000);
+      },
+    );
+
+    test('من الإصدار 5: تضيف أعمدة الأفواج المنتظِرة والضيوف وجدولي الضيوف والهواتف', () async {
+      await downToV5();
       await env.db.customStatement(
         'INSERT INTO groups (id, created_at, updated_at, number, subject_id, '
-        'teacher_id, sessions_per_cycle, current_cycle_number) '
-        "VALUES ('legacy', 1, 1, 1, 'secondary', 't1', 8, 1)",
+        'teacher_id, sessions_per_cycle, current_cycle_number, monthly_price) '
+        "VALUES ('legacy', 1, 1, 1, 'secondary', 't1', 8, 1, 4200)",
       );
-      await env.db.migration.onUpgrade(Migrator(env.db), 4, 5);
+      await env.db.migration.onUpgrade(Migrator(env.db), 5, 6);
+
+      expect(
+        await columns('groups'),
+        containsAll(['waiting_target', 'start_alerted_at', 'is_review']),
+      );
+      expect(await columns('group_students'), contains('teacher_amount'));
+      expect(await columns('students'), contains('single_use'));
+      expect(
+        await columns('session_guests'),
+        containsAll(['session_id', 'student_id', 'price', 'ticket_code']),
+      );
+      expect(await columns('contacts'), containsAll(['name', 'phone', 'note']));
+
+      // الفوج القائم: عادي (ليس منتظِراً ولا مراجعة)، وسعره كما هو لم يُمسّ.
       final row = await env.db
           .customSelect(
-            "SELECT monthly_price, rate_per_student FROM groups WHERE id = 'legacy'",
+            "SELECT monthly_price, waiting_target, is_review FROM groups WHERE id = 'legacy'",
           )
           .getSingle();
-      expect(row.read<int>('monthly_price'), 3000);
-      expect(row.read<int>('rate_per_student'), 1000);
+      expect(row.read<int>('monthly_price'), 4200);
+      expect(row.read<int?>('waiting_target'), isNull);
+      expect(row.read<int>('is_review'), 0);
+
+      final indexes = [
+        for (final r
+            in await env.db
+                .customSelect(
+                  "SELECT name FROM sqlite_master WHERE type = 'index' "
+                  "AND (name LIKE 'idx_session_guests%' OR name LIKE 'idx_contacts%')",
+                )
+                .get())
+          r.read<String>('name'),
+      ];
+      expect(indexes, hasLength(7));
     });
   });
 }

@@ -16,6 +16,7 @@ part 'app_database.g.dart';
     TransportLines,
     Parents,
     Students,
+    Contacts,
     Subjects,
     Rooms,
     Teachers,
@@ -27,6 +28,7 @@ part 'app_database.g.dart';
     WaitingLists,
     WaitingEntries,
     Sessions,
+    SessionGuests,
     Attendance,
     TeacherAttendance,
     WorkerAttendance,
@@ -60,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -94,6 +96,24 @@ class AppDatabase extends _$AppDatabase {
           'FROM teachers t WHERE t.id = groups.teacher_id) '
           'WHERE rate_per_student IS NULL',
         );
+      }
+      // 6: الأفواج المنتظِرة وحصص المراجعة، وما يأخذه الأستاذ عن كل تلميذ، والتلاميذ لمرة واحدة وضيوف
+      // الحصص، ودليل الهواتف (الترحيل 0011 على الخادم).
+      if (from < 6) {
+        await m.addColumn(groups, groups.waitingTarget);
+        await m.addColumn(groups, groups.startAlertedAt);
+        await m.addColumn(groups, groups.isReview);
+        await m.addColumn(groupStudents, groupStudents.teacherAmount);
+        await m.addColumn(students, students.singleUse);
+        await m.createTable(sessionGuests);
+        await m.createIndex(idxSessionGuestsPair);
+        await m.createIndex(idxSessionGuestsTicket);
+        await m.createIndex(idxSessionGuestsStudent);
+        await m.createIndex(idxSessionGuestsUpdated);
+        await m.createTable(contacts);
+        await m.createIndex(idxContactsPhone);
+        await m.createIndex(idxContactsName);
+        await m.createIndex(idxContactsUpdated);
       }
     },
     beforeOpen: (details) async {

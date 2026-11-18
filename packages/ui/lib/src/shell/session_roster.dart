@@ -21,10 +21,14 @@ class SessionRosterScreen extends ConsumerStatefulWidget {
     required this.sessionId,
     required this.canWrite,
     required this.canExcuse,
+    this.belowHeader,
     super.key,
   });
 
   final String sessionId;
+
+  /// ما يُعرض تحت بطاقة الحصة (تطبيق الإدارة: زر ضيوف الحصة).
+  final Widget Function(SessionRoster roster)? belowHeader;
 
   /// هل يسجّل المستخدم الحضور (وإلا عرض فقط)؟
   final bool canWrite;
@@ -220,6 +224,7 @@ class _SessionRosterScreenState extends ConsumerState<SessionRosterScreen> {
                   ),
                 ),
               ),
+              ?widget.belowHeader?.call(r),
               Expanded(
                 child: r.students.isEmpty
                     ? const ClayEmptyView(
@@ -319,6 +324,8 @@ class _StudentRow extends StatelessWidget {
                     (!editable ||
                         (!canExcuse && current == AttendanceStatus.excused)))
                   ClayBadge(label: current.label, tone: _tones[current]!),
+                if (student.guest)
+                  const ClayBadge(label: 'ضيف', tone: ClayTone.info),
                 if (current != null &&
                     student.method == AttendanceMethod.qr &&
                     editable)

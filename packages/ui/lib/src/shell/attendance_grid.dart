@@ -70,7 +70,9 @@ class _GroupGridViewState extends ConsumerState<GroupGridView> {
             else
               AttendanceGridTable(grid: g),
             const SizedBox(height: ClaySpacing.lg),
-            const _Legend(),
+            _Legend(
+              showPayment: g.students.any((s) => s.coveredSessions != null),
+            ),
           ],
         );
       },
@@ -154,7 +156,8 @@ class AttendanceGridTable extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       // على الشاشات العريضة تتمدد خانات الحصص لتملأ العرض.
-      final sessionCount = grid.sessions.isEmpty ? 1 : grid.sessions.length;
+      final shown = grid.sessions.length + grid.reviewSessions.length;
+      final sessionCount = shown == 0 ? 1 : shown;
       final spare = box.maxWidth - nameWidth - totalsWidth;
       final cell = spare / sessionCount > cellWidth
           ? spare / sessionCount
@@ -167,7 +170,11 @@ class AttendanceGridTable extends StatelessWidget {
     final p = context.palette;
     final text = Theme.of(context).textTheme;
     final sessions = grid.sessions;
-    final tableWidth = nameWidth + sessions.length * cellWidth + totalsWidth;
+    final reviews = grid.reviewSessions;
+    final tableWidth =
+        nameWidth +
+        (sessions.length + reviews.length) * cellWidth +
+        totalsWidth;
 
     Widget header(SessionRow s) {
       final cancelled = !SessionStatus.fromCode(s.status).countsInCycle;
@@ -203,6 +210,26 @@ class AttendanceGridTable extends StatelessWidget {
       );
     }
 
+    // حصة مراجعة حضرها بعض تلاميذ الفوج ضيوفاً: عمود إضافي بعنوان «م».
+    Widget reviewHeader(SessionRow s) => SizedBox(
+      width: cellWidth,
+      height: headerHeight,
+      child: Semantics(
+        label: 'حصة مراجعة ${_shortDate(s.date)}',
+        excludeSemantics: true,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('م', style: text.labelLarge!.copyWith(color: p.accent)),
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text(_shortDate(s.date), style: text.labelSmall),
+            ),
+          ],
+        ),
+      ),
+    );
+
     return ClayContainer.flat(
       padding: EdgeInsets.zero,
       child: SingleChildScrollView(
@@ -230,6 +257,7 @@ class AttendanceGridTable extends StatelessWidget {
                       ),
                     ),
                     for (final s in sessions) header(s),
+                    for (final s in reviews) reviewHeader(s),
                     SizedBox(
                       width: totalsWidth,
                       child: Center(
@@ -247,6 +275,7 @@ class AttendanceGridTable extends StatelessWidget {
                   itemBuilder: (context, i) => _GridRow(
                     student: grid.students[i],
                     sessions: sessions,
+                    reviews: reviews,
                     cellWidth: cellWidth,
                   ),
                 ),
@@ -263,11 +292,13 @@ class _GridRow extends StatelessWidget {
   const _GridRow({
     required this.student,
     required this.sessions,
+    required this.reviews,
     required this.cellWidth,
   });
 
   final GridStudent student;
   final List<SessionRow> sessions;
+  final List<SessionRow> reviews;
   final double cellWidth;
 
   @override
@@ -277,6 +308,33 @@ class _GridRow extends StatelessWidget {
     final counted = sessions
         .where((s) => SessionStatus.fromCode(s.status).countsInCycle)
         .length;
+    // الحصص المحسوبة (غير الملغاة) بالترتيب: من دفع شهره تُدفع أولى حصصه بقدر ما دفع.
+    var position = 0;
+    final cells = <Widget>[];
+    for (final s in sessions) {
+      final cancelled = !SessionStatus.fromCode(s.status).countsInCycle;
+      cells.add(
+        _Cell(
+          width: cellWidth,
+          status: student.cells[s.id],
+          cancelled: cancelled,
+          paid: cancelled ? null : student.paidAt(position),
+        ),
+      );
+      if (!cancelled) position++;
+    }
+    // أعمدة المراجعة: خلية لمن هو ضيف فيها، وفراغ لغيره.
+    for (final s in reviews) {
+      cells.add(
+        student.reviewSessionIds.contains(s.id)
+            ? _Cell(
+                width: cellWidth,
+                status: student.cells[s.id],
+                cancelled: false,
+              )
+            : SizedBox(width: cellWidth),
+      );
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
@@ -299,19 +357,14 @@ class _GridRow extends StatelessWidget {
               ),
             ),
           ),
-          for (final s in sessions)
-            _Cell(
-              width: cellWidth,
-              status: student.cells[s.id],
-              cancelled: !SessionStatus.fromCode(s.status).countsInCycle,
-            ),
+          ...cells,
           SizedBox(
             width: AttendanceGridTable.totalsWidth,
             child: Center(
               child: Directionality(
                 textDirection: TextDirection.ltr,
                 child: Text(
-                  '${student.count(AttendanceStatus.present)}/$counted',
+                  '${student.countIn(sessions, AttendanceStatus.present)}/$counted',
                   style: text.labelMedium,
                 ),
               ),
@@ -323,18 +376,26 @@ class _GridRow extends StatelessWidget {
   }
 }
 
-/// خلية حضور: حاضر أخضر، غائب أحمر، برخصة بنفسجي، لا تسجيل شرطة باهتة،
-/// والحصة الملغاة خلية فارغة. الحالة تُقرأ أيضاً بقارئ الشاشة لا باللون فقط.
+/// خلية حضور: مربع تدل علامته على الحضور (✓ حاضر، ✗ غائب، رمز «برخصة»)، ولونه على الدفع:
+/// **أزرق** لحصة مدفوعة (حتى قبل أن يحضرها)، و**أحمر** لمن حضر ولم يدفع، وبلا لون لما سوى ذلك.
+/// حيث لا تُحسب المدفوعات (تطبيق الأستاذ) تبقى العلامة وحدها. والحصة الملغاة خلية فارغة. الحالة
+/// تُقرأ أيضاً بقارئ الشاشة لا باللون فقط.
 class _Cell extends StatelessWidget {
   const _Cell({
     required this.width,
     required this.status,
     required this.cancelled,
+    this.paid,
   });
 
   final double width;
   final AttendanceStatus? status;
   final bool cancelled;
+
+  /// هل الحصة مدفوعة؟ `null` إن لم تُحسب المدفوعات.
+  final bool? paid;
+
+  static const double _box = 34;
 
   @override
   Widget build(BuildContext context) {
@@ -359,13 +420,40 @@ class _Cell extends StatelessWidget {
             ),
             null => (null, p.outline, 'لم يُسجَّل'),
           };
+    final unpaidAttended = paid == false && status == AttendanceStatus.present;
+    final Color? fill = cancelled
+        ? null
+        : paid == true
+        ? p.status.info
+        : unpaidAttended
+        ? p.status.danger
+        : null;
+    final payment = cancelled || paid == null
+        ? ''
+        : paid!
+        ? ' · مدفوعة'
+        : unpaidAttended
+        ? ' · لم يدفع'
+        : '';
     return SizedBox(
       width: width,
       child: Center(
         child: Semantics(
-          label: look.$3,
+          label: '${look.$3}$payment',
           excludeSemantics: true,
-          child: look.$1 == null
+          child: fill != null
+              ? Container(
+                  width: _box,
+                  height: _box,
+                  decoration: BoxDecoration(
+                    color: fill,
+                    borderRadius: BorderRadius.circular(ClayRadius.sm),
+                  ),
+                  child: look.$1 == null
+                      ? null
+                      : Icon(look.$1, color: Colors.white, size: 22),
+                )
+              : look.$1 == null
               ? Text('·', style: TextStyle(color: look.$2, fontSize: 20))
               : Icon(look.$1, color: look.$2, size: 24),
         ),
@@ -375,17 +463,24 @@ class _Cell extends StatelessWidget {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend();
+  const _Legend({this.showPayment = false});
+
+  /// هل تُحسب المدفوعات؟ فيُشرح لونا المربعين.
+  final bool showPayment;
 
   @override
   Widget build(BuildContext context) {
-    return const Wrap(
+    return Wrap(
       spacing: ClaySpacing.sm,
       runSpacing: ClaySpacing.xs,
       children: [
-        ClayBadge(label: 'حاضر', tone: ClayTone.success),
-        ClayBadge(label: 'غائب', tone: ClayTone.danger),
-        ClayBadge(label: 'غائب برخصة', tone: ClayTone.excused),
+        const ClayBadge(label: 'حاضر', tone: ClayTone.success),
+        const ClayBadge(label: 'غائب', tone: ClayTone.danger),
+        const ClayBadge(label: 'غائب برخصة', tone: ClayTone.excused),
+        if (showPayment) ...const [
+          ClayBadge(label: 'مربع أزرق: حصة مدفوعة', tone: ClayTone.info),
+          ClayBadge(label: 'مربع أحمر: حضر ولم يدفع', tone: ClayTone.danger),
+        ],
       ],
     );
   }

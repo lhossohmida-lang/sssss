@@ -9,6 +9,7 @@ import 'enums.dart';
 import 'group_sql.dart';
 import 'qr_code.dart';
 import 'stable_id.dart';
+import 'wage_service.dart';
 
 /// إعدادات الماسح القابلة للضبط من شاشة الإعدادات.
 class ScanConfig {
@@ -78,6 +79,18 @@ enum ScanOutcome {
   /// عامل: خروج.
   workerOut,
 
+  /// ضيف حصة (تلميذ لمرة واحدة أو تلميذ يحضر حصة فوج آخر): حضوره سُجّل بتذكرته.
+  guestOk,
+
+  /// ضيف حصة: حضوره سُجّل ولم يسدّد ثمن الحصة بعد.
+  guestDues,
+
+  /// تذكرة ضيف استُعملت من قبل (تُستعمل مرة واحدة).
+  guestUsed,
+
+  /// تذكرة ضيف لا تصلح الآن: حصتها في يوم آخر أو انتهت أو أُلغيت.
+  guestInvalid,
+
   /// قراءة مزدوجة لنفس الرمز خلال ثوانٍ: تُتجاهل.
   repeated,
 
@@ -96,6 +109,7 @@ class ScanResult {
     this.sessionId,
     this.lateMinutes = 0,
     this.sessionCreated = false,
+    this.workedMinutes,
   });
 
   final ScanOutcome outcome;
@@ -113,6 +127,9 @@ class ScanResult {
 
   /// هل أُنشئت الحصة تلقائياً عند هذا المسح؟
   final bool sessionCreated;
+
+  /// مدة عمل العامل اليوم بالدقائق عند مسح خروجه (من دخوله إلى هذا المسح).
+  final int? workedMinutes;
 }
 
 /// منطق ماسح المدخل. يميّز نوع الرمز من بادئته: `S-` تلميذ، `T-` أستاذ،
@@ -153,8 +170,13 @@ class ScanService {
           'FROM teachers WHERE deleted_at IS NULL '
           'UNION ALL '
           "SELECT qr_code, id, name, NULL, NULL, 'W' FROM workers "
-          'WHERE deleted_at IS NULL',
-          readsFrom: {db.students, db.teachers, db.workers},
+          'WHERE deleted_at IS NULL '
+          'UNION ALL '
+          "SELECT sg.ticket_code, sg.id, s.first_name || ' ' || s.last_name, "
+          "NULL, NULL, 'G' FROM session_guests sg "
+          'JOIN students s ON s.id = sg.student_id AND s.deleted_at IS NULL '
+          'WHERE sg.deleted_at IS NULL AND sg.ticket_code IS NOT NULL',
+          readsFrom: {db.students, db.teachers, db.workers, db.sessionGuests},
         )
         .get();
     _index.clear();
@@ -162,6 +184,7 @@ class ScanService {
       final kind = switch (row.read<String>('kind')) {
         'S' => QrOwnerKind.student,
         'T' => QrOwnerKind.teacher,
+        'G' => QrOwnerKind.guest,
         _ => QrOwnerKind.worker,
       };
       _index[row.read<String>('qr_code').toUpperCase()] = QrEntry(
@@ -193,6 +216,7 @@ class ScanService {
         QrOwnerKind.student => _scanStudent(owner, now),
         QrOwnerKind.teacher => _scanTeacher(owner, now),
         QrOwnerKind.worker => _scanWorker(owner, now),
+        QrOwnerKind.guest => _scanGuest(owner, now),
       },
     );
   }
@@ -219,6 +243,11 @@ class ScanService {
       skipPresentStudent: owner.id,
     );
     if (found == null) {
+      // لا حصة من فوجه الآن: قد يكون ضيفاً على حصة (مراجعة أو حصة فوج آخر) يدخلها برمزه.
+      final guest = await _guestSessionFor(owner.id, now);
+      if (guest != null) {
+        return _recordGuest(owner, guest.guest, guest.session, now);
+      }
       return ScanResult(outcome: ScanOutcome.studentNoSession, owner: owner);
     }
     final session = found.session;
@@ -431,7 +460,7 @@ class ScanService {
       );
     }
 
-    // المسح الثاني وما بعده = خروج (يُحفظ آخر وقت خروج).
+    // المسح الثاني وما بعده = خروج (يُحفظ آخر وقت خروج). من وقت خروجه يُحسب يومه: نصف يوم أو كامل.
     await writer.save(
       db.workerAttendance,
       existing.copyWith(checkOut: Value(stamp)),
@@ -441,7 +470,160 @@ class ScanService {
       outcome: ScanOutcome.workerOut,
       owner: owner,
       lateMinutes: existing.lateMinutes,
+      workedMinutes: WageRules.workedMinutes(existing.checkIn, stamp),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ضيف الحصة
+  // ---------------------------------------------------------------------------
+
+  /// تذكرة ضيف: تصلح مرة واحدة، في يوم حصتها، من هامش المسح قبل بدايتها حتى نهايتها.
+  Future<ScanResult> _scanGuest(QrEntry owner, DateTime now) async {
+    final guest = await (db.select(
+      db.sessionGuests,
+    )..where((g) => g.id.equals(owner.id))).getSingleOrNull();
+    if (guest == null || guest.deletedAt != null) {
+      return const ScanResult(outcome: ScanOutcome.unknown);
+    }
+    final session = await (db.select(
+      db.sessions,
+    )..where((s) => s.id.equals(guest.sessionId))).getSingleOrNull();
+    if (session == null ||
+        session.deletedAt != null ||
+        session.status == SessionStatus.cancelled.code) {
+      return ScanResult(outcome: ScanOutcome.guestInvalid, owner: owner);
+    }
+    final info = await _groupInfo(session);
+    if (guest.usedAt != null) {
+      return ScanResult(
+        outcome: ScanOutcome.guestUsed,
+        owner: owner,
+        subjectName: info.subjectName,
+        groupNumber: info.groupNumber,
+        roomName: info.roomName,
+        sessionId: session.id,
+      );
+    }
+    final minutes = DateKey.minutesOf(now);
+    if (session.date != DateKey.of(now) ||
+        minutes + config.marginMinutes < session.startMinutes ||
+        minutes > session.endMinutes) {
+      return ScanResult(
+        outcome: ScanOutcome.guestInvalid,
+        owner: owner,
+        subjectName: info.subjectName,
+        groupNumber: info.groupNumber,
+        roomName: info.roomName,
+        sessionId: session.id,
+      );
+    }
+
+    return _recordGuest(owner, guest, session, now);
+  }
+
+  /// يسجّل حضور ضيف في حصته ويعلّم تذكرته مستعملة، ويعيد نتيجة الماسح.
+  Future<ScanResult> _recordGuest(
+    QrEntry owner,
+    SessionGuestRow guest,
+    SessionRow session,
+    DateTime now,
+  ) async {
+    final info = await _groupInfo(session);
+    final stamp = now.toUtc().millisecondsSinceEpoch;
+    final id = StableId.attendance(session.id, guest.studentId);
+    final existing = await (db.select(
+      db.attendance,
+    )..where((a) => a.id.equals(id))).getSingleOrNull();
+    if (existing != null &&
+        existing.deletedAt == null &&
+        existing.status == AttendanceStatus.present.code) {
+      if (guest.usedAt == null) {
+        await writer.patch(
+          db.sessionGuests,
+          key: {'id': guest.id},
+          values: {'used_at': stamp},
+        );
+      }
+      return ScanResult(
+        outcome: ScanOutcome.studentAlreadyPresent,
+        owner: owner,
+        subjectName: info.subjectName,
+        groupNumber: info.groupNumber,
+        roomName: info.roomName,
+        sessionId: session.id,
+      );
+    }
+    final row = existing == null
+        ? AttendanceRow(
+            id: id,
+            createdAt: stamp,
+            updatedAt: stamp,
+            sessionId: session.id,
+            studentId: guest.studentId,
+            status: AttendanceStatus.present.code,
+            scannedAt: stamp,
+            method: AttendanceMethod.qr.code,
+          )
+        : existing.copyWith(
+            status: AttendanceStatus.present.code,
+            scannedAt: Value(stamp),
+            method: AttendanceMethod.qr.code,
+            deletedAt: const Value(null),
+          );
+    await writer.save(db.attendance, row, key: {'id': id});
+    await writer.patch(
+      db.sessionGuests,
+      key: {'id': guest.id},
+      values: {'used_at': stamp},
+    );
+    final remaining = await dues.sessionRemaining(
+      studentId: guest.studentId,
+      sessionId: session.id,
+    );
+    return ScanResult(
+      outcome: remaining > 0 ? ScanOutcome.guestDues : ScanOutcome.guestOk,
+      owner: owner,
+      subjectName: info.subjectName,
+      groupNumber: info.groupNumber,
+      roomName: info.roomName,
+      sessionId: session.id,
+    );
+  }
+
+  /// حصة اليوم التي يضيف فيها تلميذٌ مسجَّل ضيفاً (ضمن هامش المسح قبل بدايتها حتى نهايتها)، أو `null`.
+  Future<({SessionGuestRow guest, SessionRow session})?> _guestSessionFor(
+    String studentId,
+    DateTime now,
+  ) async {
+    final minutes = DateKey.minutesOf(now);
+    final row = await db
+        .customSelect(
+          'SELECT sg.id AS guest_id, se.id AS session_id '
+          'FROM session_guests sg JOIN sessions se ON se.id = sg.session_id '
+          'WHERE sg.student_id = ? AND sg.deleted_at IS NULL '
+          "AND se.deleted_at IS NULL AND se.status <> 'cancelled' "
+          'AND se.date = ? AND se.start_minutes - ? <= ? AND se.end_minutes >= ? '
+          'ORDER BY ABS(se.start_minutes - ?) LIMIT 1',
+          variables: [
+            Variable<String>(studentId),
+            Variable<String>(DateKey.of(now)),
+            Variable<int>(config.marginMinutes),
+            Variable<int>(minutes),
+            Variable<int>(minutes),
+            Variable<int>(minutes),
+          ],
+          readsFrom: {db.sessionGuests, db.sessions},
+        )
+        .getSingleOrNull();
+    if (row == null) return null;
+    final guest = await (db.select(
+      db.sessionGuests,
+    )..where((g) => g.id.equals(row.read<String>('guest_id')))).getSingle();
+    final session = await (db.select(
+      db.sessions,
+    )..where((s) => s.id.equals(row.read<String>('session_id')))).getSingle();
+    return (guest: guest, session: session);
   }
 
   // ---------------------------------------------------------------------------

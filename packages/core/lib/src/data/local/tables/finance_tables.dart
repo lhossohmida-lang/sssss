@@ -18,7 +18,7 @@ import 'teaching_tables.dart';
 class Payments extends Table with SyncColumns {
   TextColumn get studentId => text().references(Students, #id)();
 
-  /// `month` / `transport` / `registration`.
+  /// `month` / `transport` / `registration` / `session` (ثمن حصة لضيف).
   TextColumn get type => text()();
 
   /// المجموعة عند دفع «شهر»؛ فارغ لغيره.

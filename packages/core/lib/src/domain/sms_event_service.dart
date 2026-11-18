@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../auth/credentials.dart';
 import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
 import 'date_key.dart';
@@ -9,6 +10,7 @@ import 'group_sql.dart';
 import 'money.dart';
 import 'phone.dart';
 import 'setting_keys.dart';
+import 'sms_kind_policy.dart';
 import 'sms_templates.dart';
 
 /// يربط أحداث النظام بقوالب SMS ويضع الرسائل في الطابور المحلي.
@@ -250,6 +252,109 @@ class SmsEventService {
     return queued;
   }
 
+  /// هاتف المدير: رقم دخول حساب صاحب المدرسة (إن بُني من هاتف)، أو `null`.
+  ///
+  /// لا يُحفظ رقم المدير في الإعدادات (جدول `settings` مقروء لكل الأدوار)؛ حساب الدخول هو مصدره.
+  Future<String?> managerPhone() async {
+    final owner =
+        await (db.select(db.userAccounts)
+              ..where(
+                (a) =>
+                    a.role.equals(UserRole.owner.code) & a.deletedAt.isNull(),
+              )
+              ..orderBy([(a) => OrderingTerm.asc(a.createdAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    return owner == null ? null : LoginCredentials.phoneOfEmail(owner.email);
+  }
+
+  /// عند اكتمال فوج منتظِر: رسالة إلى هاتف المدير بأن عدد تلاميذه بلغ المطلوب ويُحدَّد تاريخ أول
+  /// حصة. مرة واحدة لكل فوج. يعيد `false` إن لم يكن للمدير رقم معروف أو أوقف المدير هذا النوع.
+  Future<bool> groupReady({required String groupId, required int count}) async {
+    final group = await db
+        .customSelect(
+          'SELECT g.number, g.waiting_target, '
+          '${GroupSql.subjectLabel} AS subject FROM groups g '
+          'JOIN subjects sub ON sub.id = g.subject_id WHERE g.id = ?',
+          variables: [Variable<String>(groupId)],
+          readsFrom: {db.groups, db.subjects, db.levels},
+        )
+        .getSingleOrNull();
+    if (group == null) return false;
+    final phone = await managerPhone();
+    if (phone == null) return false;
+    return _enqueueTemplate(
+      phone: phone,
+      key: SmsTemplateKeys.groupReady,
+      eventKey: 'group_ready:$groupId',
+      values: {
+        'subject': group.read<String>('subject'),
+        'group': '${group.read<int>('number')}',
+        'count': '$count',
+        'target': '${group.read<int?>('waiting_target') ?? count}',
+      },
+    );
+  }
+
+  /// عند تحديد تاريخ أول حصة لفوج منتظِر: يخبر أولياء تلاميذه بالموعد.
+  Future<int> groupStarted({
+    required String groupId,
+    required String firstDate,
+  }) async {
+    final group = await db
+        .customSelect(
+          'SELECT ${GroupSql.subjectLabel} AS subject FROM groups g '
+          'JOIN subjects sub ON sub.id = g.subject_id WHERE g.id = ?',
+          variables: [Variable<String>(groupId)],
+          readsFrom: {db.groups, db.subjects, db.levels},
+        )
+        .getSingleOrNull();
+    if (group == null) return 0;
+    final contacts = await _groupStudentContacts(groupId);
+    final slots =
+        await (db.select(db.groupSlots)
+              ..where(
+                (slot) =>
+                    slot.groupId.equals(groupId) & slot.deletedAt.isNull(),
+              )
+              ..orderBy([
+                (slot) => OrderingTerm.asc(slot.weekday),
+                (slot) => OrderingTerm.asc(slot.startMinutes),
+              ]))
+            .get();
+    final schedule = slots
+        .map(
+          (slot) =>
+              '${_weekdays[slot.weekday]} '
+              '${DateKey.formatMinutes(slot.startMinutes)}–'
+              '${DateKey.formatMinutes(slot.endMinutes)}',
+        )
+        .join('، ');
+    final namesByPhone = <String, Set<String>>{};
+    for (final student in contacts.values) {
+      if (!PhoneNumbers.isValid(student.phone)) continue;
+      namesByPhone
+          .putIfAbsent(PhoneNumbers.toInternational(student.phone), () => {})
+          .add(student.name);
+    }
+    var queued = 0;
+    for (final entry in namesByPhone.entries) {
+      final didQueue = await _enqueueTemplate(
+        phone: entry.key,
+        key: SmsTemplateKeys.groupStarted,
+        eventKey: 'group_started:$groupId:$firstDate:${entry.key}',
+        values: {
+          'name': entry.value.join('، '),
+          'subject': group.read<String>('subject'),
+          'date': firstDate,
+          'schedule': schedule.isEmpty ? 'تُحدَّد لاحقاً' : schedule,
+        },
+      );
+      if (didQueue) queued++;
+    }
+    return queued;
+  }
+
   /// يخبر أولياء المجموعة باكتمال الدورة، مع الباقي على كل تلميذ.
   Future<int> cycleCompleted({
     required String groupId,
@@ -373,6 +478,17 @@ class SmsEventService {
         item = 'حقوق التسجيل ${payment.periodKey}';
       case PaymentType.transport:
         item = 'النقل ${payment.periodKey}';
+      case PaymentType.session:
+        final row = await db
+            .customSelect(
+              'SELECT sub.name FROM groups g JOIN subjects sub '
+              'ON sub.id = g.subject_id WHERE g.id = ?',
+              variables: [Variable<String>(payment.groupId!)],
+              readsFrom: {db.groups, db.subjects},
+            )
+            .getSingleOrNull();
+        subject = row?.read<String>('name') ?? '';
+        item = 'حصة واحدة · $subject';
     }
     return _enqueueTemplate(
       phone: student.phone,
@@ -512,6 +628,8 @@ class SmsEventService {
     DateTime? notBeforeAt,
   }) async {
     if (!PhoneNumbers.isValid(phone)) return false;
+    // نوع أوقفه المدير: لا رسالة ولا أثر في الطابور.
+    if (!await SmsKindPolicy(db, writer).isEnabled(key)) return false;
     final existing = await (db.select(
       db.smsQueue,
     )..where((row) => row.eventKey.equals(eventKey))).getSingleOrNull();

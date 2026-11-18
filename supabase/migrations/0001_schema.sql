@@ -126,6 +126,27 @@ drop trigger if exists trg_sync_stamp on public."chat_rooms";
 create trigger trg_sync_stamp before insert or update on public."chat_rooms"
   for each row execute function public.sync_stamp();
 
+create table if not exists public."contacts" (
+  "id" text not null,
+  "created_at" bigint not null,
+  "updated_at" bigint not null,
+  "deleted_at" bigint,
+  "name" text not null,
+  "phone" text not null,
+  "note" text not null,
+  "follow_up_date" text,
+  "source" text not null,
+  "synced_at" bigint not null default 0,
+  primary key ("id")
+);
+create index if not exists "idx_contacts_name" on public."contacts" (name);
+create index if not exists "idx_contacts_phone" on public."contacts" (phone);
+create index if not exists "idx_contacts_updated" on public."contacts" (updated_at);
+create index if not exists "idx_contacts_synced" on public."contacts" (synced_at);
+drop trigger if exists trg_sync_stamp on public."contacts";
+create trigger trg_sync_stamp before insert or update on public."contacts"
+  for each row execute function public.sync_stamp();
+
 create table if not exists public."expense_categories" (
   "id" text not null,
   "created_at" bigint not null,
@@ -248,6 +269,7 @@ create table if not exists public."group_students" (
   "discount_type" text not null,
   "discount_value" bigint not null,
   "left_at" bigint,
+  "teacher_amount" bigint,
   "synced_at" bigint not null default 0,
   primary key ("id")
 );
@@ -273,6 +295,9 @@ create table if not exists public."groups" (
   "monthly_price" bigint not null,
   "rate_per_student" bigint,
   "archived_at" bigint,
+  "waiting_target" bigint,
+  "start_alerted_at" bigint,
+  "is_review" boolean not null,
   "synced_at" bigint not null default 0,
   primary key ("id")
 );
@@ -410,6 +435,29 @@ create index if not exists "idx_rooms_updated" on public."rooms" (updated_at);
 create index if not exists "idx_rooms_synced" on public."rooms" (synced_at);
 drop trigger if exists trg_sync_stamp on public."rooms";
 create trigger trg_sync_stamp before insert or update on public."rooms"
+  for each row execute function public.sync_stamp();
+
+create table if not exists public."session_guests" (
+  "id" text not null,
+  "created_at" bigint not null,
+  "updated_at" bigint not null,
+  "deleted_at" bigint,
+  "session_id" text not null,
+  "student_id" text not null,
+  "price" bigint not null,
+  "teacher_amount" bigint not null,
+  "ticket_code" text,
+  "used_at" bigint,
+  "synced_at" bigint not null default 0,
+  primary key ("id")
+);
+create unique index if not exists "idx_session_guests_pair" on public."session_guests" (session_id, student_id);
+create index if not exists "idx_session_guests_student" on public."session_guests" (student_id);
+create unique index if not exists "idx_session_guests_ticket" on public."session_guests" (ticket_code);
+create index if not exists "idx_session_guests_updated" on public."session_guests" (updated_at);
+create index if not exists "idx_session_guests_synced" on public."session_guests" (synced_at);
+drop trigger if exists trg_sync_stamp on public."session_guests";
+create trigger trg_sync_stamp before insert or update on public."session_guests"
   for each row execute function public.sync_stamp();
 
 create table if not exists public."session_requests" (
@@ -585,6 +633,7 @@ create table if not exists public."students" (
   "transport_line_id" text,
   "qr_code" text not null,
   "parent_account_id" text,
+  "single_use" boolean not null,
   "synced_at" bigint not null default 0,
   primary key ("id")
 );
@@ -845,6 +894,7 @@ begin
       'chat_members',
       'chat_messages',
       'chat_rooms',
+      'contacts',
       'expense_categories',
       'expenses',
       'grades',
@@ -858,6 +908,7 @@ begin
       'payments',
       'registration_fees',
       'rooms',
+      'session_guests',
       'session_requests',
       'sessions',
       'settings',

@@ -54,7 +54,7 @@ Finder fieldOf(String label) => find.descendant(
   matching: find.byType(TextField),
 );
 
-/// يملأ نموذج عامل جديد ويختار يوم السبت يوماً كاملاً.
+/// يملأ نموذج عامل جديد: لا أيام محددة للعامل، فلا برنامج أسبوعي في النموذج.
 Future<void> fillWorker(
   WidgetTester tester, {
   String name = 'سمير حداد',
@@ -68,14 +68,6 @@ Future<void> fillWorker(
   await tester.enterText(fieldOf('الهاتف'), phone);
   await tester.enterText(fieldOf('أجر اليوم الكامل (دج)'), full);
   await tester.enterText(fieldOf('أجر نصف اليوم (دج)'), half);
-  // السبت: «يوم كامل».
-  final saturday = find.ancestor(
-    of: find.text('السبت'),
-    matching: find.byType(Row),
-  );
-  await tester.tap(
-    find.descendant(of: saturday.first, matching: find.text('يوم كامل')),
-  );
   await tester.pumpAndSettle();
 }
 
@@ -101,9 +93,7 @@ void main() {
     expect(find.widgetWithText(ClayButton, 'إضافة عامل'), findsOneWidget);
   });
 
-  appTest('إضافة عامل: بيانات دخوله مرة واحدة ثم ملفه بأجريه وبرنامجه', (
-    tester,
-  ) async {
+  appTest('إضافة عامل: بيانات دخوله مرة واحدة ثم ملفه بأجريه', (tester) async {
     final o = await openWorkers(tester);
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة عامل'));
     await tester.pumpAndSettle();
@@ -129,7 +119,11 @@ void main() {
     expect(find.text('سمير حداد'), findsOneWidget);
     expect(find.text(Money.format(1500)), findsOneWidget);
     expect(find.text(Money.format(800)), findsOneWidget);
-    expect(find.text('يوم كامل'), findsOneWidget);
+    // لا برنامج أسبوعي: يُحسب يومه من وقت دخوله وخروجه حسب إعدادات المدرسة.
+    expect(find.text('احتساب اليوم'), findsOneWidget);
+    expect(find.textContaining('لا أيام عمل محددة'), findsOneWidget);
+    expect(find.textContaining('4 ساعات'), findsOneWidget);
+    expect(find.textContaining('8 ساعات'), findsOneWidget);
     expect(
       find.text('بلا صلاحيات؛ لا يرى شيئاً في التطبيق حتى تُفعَّل له'),
       findsOneWidget,
@@ -137,7 +131,7 @@ void main() {
     expect(find.byType(ClayQrCode), findsOneWidget);
   });
 
-  appTest('أخطاء التحقق: لا يوم عمل وأجر نصف أكبر من الكامل', (tester) async {
+  appTest('أخطاء التحقق: اسم ناقص وأجر نصف أكبر من الكامل', (tester) async {
     await openWorkers(tester);
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة عامل'));
     await tester.pumpAndSettle();
@@ -152,7 +146,7 @@ void main() {
       find.text('أجر نصف اليوم لا يزيد عن أجر اليوم الكامل'),
       findsOneWidget,
     );
-    expect(find.text('اختر يوم عمل واحداً على الأقل'), findsOneWidget);
+    expect(find.text('اختر يوم عمل واحداً على الأقل'), findsNothing);
     expect(find.text('بيانات دخول'), findsNothing);
   });
 
@@ -168,14 +162,16 @@ void main() {
     expect(find.text('رقم الهاتف مستعمل في حساب آخر'), findsOneWidget);
   });
 
-  appTest('القائمة تعرض العامل بأيام عمله وأجر يومه، والبحث', (tester) async {
+  appTest('القائمة تعرض العامل بأجرَي يومه ونصفه، والبحث', (tester) async {
     await openWorkers(tester);
     await addWorker(tester);
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();
     expect(find.text('سمير حداد'), findsOneWidget);
     expect(
-      find.textContaining('1 أيام عمل · يوم ${Money.format(1500)}'),
+      find.textContaining(
+        'يوم ${Money.format(1500)} · نصف يوم ${Money.format(800)}',
+      ),
       findsOneWidget,
     );
     await tester.enterText(find.byType(TextField).first, 'لا أحد');
@@ -183,7 +179,7 @@ void main() {
     expect(find.text('لا نتائج مطابقة للبحث'), findsOneWidget);
   });
 
-  appTest('تعديل الأجرين والبرنامج', (tester) async {
+  appTest('تعديل الأجرين', (tester) async {
     final o = await openWorkers(tester);
     await addWorker(tester);
     await tester.tap(find.widgetWithText(ClayButton, 'تعديل البيانات'));
@@ -272,7 +268,6 @@ void main() {
         phone: '0660000009',
         fullDayWage: 1000,
         halfDayWage: 500,
-        schedule: WorkerSchedule.fromJson('{"6":"full"}'),
       );
     });
     await tester.pumpAndSettle();

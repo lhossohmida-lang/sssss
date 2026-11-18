@@ -124,6 +124,12 @@ abstract final class PayoutRules {
 /// الأستاذ يأخذ نصيبه عن الحصص التي حضرها التلميذ **ودُفعت قيمتها**.
 /// الغياب (برخصة أو بدونها) لا يُحسب له. ما لم يُدفع بعد يبقى معلّقاً
 /// ويُصرف في خلاص لاحق (`release`) عندما يدفع التلميذ.
+///
+/// - نصيب الأستاذ عن تلميذ هو مبلغ الفوج، إلا إن عُيِّن له مبلغ آخر عند انتسابه (`teacherAmount`):
+///   فإن بقي كاملاً مع تخفيض أو إعفاء فالتخفيض على حساب المدرسة (الأستاذ يأخذ حقه من مالها)، وإن نقص
+///   فالأستاذ يتحمل من التخفيض (والمدرسة تأخذ من حقه).
+/// - ضيف الحصة (تلميذ لمرة واحدة أو تلميذ يحضر حصة فوج آخر) يأخذ الأستاذ عنه مبلغه المسجَّل لحصته إن
+///   حضرها، بقدر ما دفعه من ثمنها.
 class PayoutService {
   PayoutService(this.db, this.writer, this.dues);
 
@@ -154,6 +160,8 @@ class PayoutService {
       db.teachers,
     )..where((t) => t.id.equals(group.teacherId))).getSingle();
     final rate = group.ratePerStudent ?? teacher.ratePerStudent;
+    final amounts = await _teacherAmounts(groupId);
+    final guests = await _guestLines(groupId, wanted);
 
     final attendedRows = await db
         .customSelect(
@@ -191,20 +199,28 @@ class PayoutService {
     for (final cycle in wanted) {
       final cycleAttended = attended[cycle] ?? const <String, int>{};
       final cycleDues = duesByCycle[cycle] ?? const <String, CycleDue>{};
-      final studentIds = {...cycleAttended.keys, ...cycleDues.keys}.toList()
-        ..sort();
+      final guestLines = guests[cycle] ?? const <String, PayoutLine>{};
+      // الضيوف لهم خطوطهم الخاصة؛ حضورهم لا يُحسب بنسبة حصص الدورة.
+      final studentIds = {
+        ...cycleAttended.keys,
+        ...cycleDues.keys,
+      }.where((id) => !guestLines.containsKey(id)).toList()..sort();
       final lines = <PayoutLine>[];
       for (final studentId in studentIds) {
         final due = cycleDues[studentId];
         lines.add(
           PayoutRules.line(
             studentId: studentId,
-            ratePerStudent: rate,
+            ratePerStudent: amounts[studentId] ?? rate,
             attended: cycleAttended[studentId] ?? 0,
             covered: due == null ? 0 : _covered(due, group.sessionsPerCycle),
             sessionsPerCycle: group.sessionsPerCycle,
           ),
         );
+      }
+      final guestIds = guestLines.keys.toList()..sort();
+      for (final id in guestIds) {
+        lines.add(guestLines[id]!);
       }
       result[cycle] = CyclePayout(
         teacherId: group.teacherId,
@@ -305,15 +321,89 @@ class PayoutService {
       PayoutLine.fromJson((item! as Map).cast<String, Object?>()),
   ];
 
-  static int _covered(CycleDue due, int sessionsPerCycle) {
-    final credits = due.credits > due.netPrice ? due.netPrice : due.credits;
-    return PayoutRules.coveredSessions(
-      netPrice: due.netPrice,
-      settled: credits + due.paid,
-      sessionsPerCycle: sessionsPerCycle,
-      exempt: due.exempt,
-    );
+  /// ما يأخذه الأستاذ عن تلاميذ عُيِّن لهم مبلغ غير مبلغ الفوج: معرّف التلميذ ← المبلغ.
+  Future<Map<String, int>> _teacherAmounts(String groupId) async {
+    final rows = await db
+        .customSelect(
+          'SELECT student_id, teacher_amount FROM group_students '
+          'WHERE group_id = ? AND teacher_amount IS NOT NULL '
+          'AND deleted_at IS NULL',
+          variables: [Variable<String>(groupId)],
+          readsFrom: {db.groupStudents},
+        )
+        .get();
+    return {
+      for (final row in rows)
+        row.read<String>('student_id'): row.read<int>('teacher_amount'),
+    };
   }
+
+  /// خطوط ضيوف حصص الفوج لكل دورة: ما يأخذه الأستاذ عن كل ضيف حضر ودفع، مجموعاً لكل تلميذ.
+  Future<Map<int, Map<String, PayoutLine>>> _guestLines(
+    String groupId,
+    Set<int> cycles,
+  ) async {
+    final rows = await db
+        .customSelect(
+          'SELECT g.student_id, g.price, g.teacher_amount, se.cycle_number, '
+          '(SELECT COUNT(*) FROM attendance a WHERE a.session_id = se.id '
+          "AND a.student_id = g.student_id AND a.status = 'present' "
+          'AND a.deleted_at IS NULL) AS present, '
+          '(SELECT COALESCE(SUM(p.amount), 0) FROM payments p '
+          "WHERE p.student_id = g.student_id AND p.type = 'session' "
+          'AND p.period_key = se.id AND p.deleted_at IS NULL) AS paid '
+          'FROM session_guests g JOIN sessions se ON se.id = g.session_id '
+          'WHERE se.group_id = ? AND g.deleted_at IS NULL '
+          'AND se.deleted_at IS NULL',
+          variables: [Variable<String>(groupId)],
+          readsFrom: {
+            db.sessionGuests,
+            db.sessions,
+            db.attendance,
+            db.payments,
+          },
+        )
+        .get();
+    final result = <int, Map<String, PayoutLine>>{};
+    for (final row in rows) {
+      final cycle = row.read<int>('cycle_number');
+      if (!cycles.contains(cycle)) continue;
+      final studentId = row.read<String>('student_id');
+      final present = row.read<int>('present') > 0;
+      final price = row.read<int>('price');
+      final teacherAmount = row.read<int>('teacher_amount');
+      final paid = row.read<int>('paid');
+      final earned = !present
+          ? 0
+          : price <= 0
+          ? teacherAmount
+          : Money.roundToTen(
+              teacherAmount * (paid > price ? price : paid) / price,
+            );
+      final line = PayoutLine(
+        studentId: studentId,
+        attended: present ? 1 : 0,
+        covered: price <= 0 || paid >= price ? 1 : 0,
+        earned: earned,
+        full: present ? teacherAmount : 0,
+      );
+      final byStudent = result.putIfAbsent(cycle, () => {});
+      final existing = byStudent[studentId];
+      byStudent[studentId] = existing == null
+          ? line
+          : PayoutLine(
+              studentId: studentId,
+              attended: existing.attended + line.attended,
+              covered: existing.covered + line.covered,
+              earned: existing.earned + line.earned,
+              full: existing.full + line.full,
+            );
+    }
+    return result;
+  }
+
+  static int _covered(CycleDue due, int sessionsPerCycle) =>
+      due.coveredSessions(sessionsPerCycle);
 
   Future<Map<String, int>> _paidOutPerStudent(String groupId, int cycle) async {
     final payouts =

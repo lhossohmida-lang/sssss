@@ -56,7 +56,8 @@ class StudentQueries {
   /// يبني شرط WHERE ومتغيراته لنص البحث [query]. بلا بحث: كل التلاميذ الأحياء.
   ({String where, List<Variable<Object>> vars}) _filter(String query) {
     final text = query.trim();
-    const base = 's.deleted_at IS NULL';
+    // تلاميذ لمرة واحدة (ضيوف حصة) لا يظهرون في القائمة العادية.
+    const base = 's.deleted_at IS NULL AND s.single_use = 0';
     if (text.isEmpty) return (where: base, vars: const []);
 
     String range(String column, String prefix, List<Variable<Object>> vars) {

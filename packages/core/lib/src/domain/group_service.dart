@@ -5,6 +5,7 @@ import '../data/local/sync_writer.dart';
 import 'catalog_service.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
+import 'enums.dart';
 import 'group_price.dart';
 import 'group_sql.dart';
 import 'schedule_service.dart';
@@ -112,6 +113,13 @@ class GroupService {
   static const String fieldPrice = 'price';
   static const String fieldSlots = 'slots';
 
+  /// عدد التلاميذ المطلوب لبدء فوج منتظِر.
+  static const String fieldWaitingTarget = 'waiting_target';
+
+  /// تاريخ أول حصة لفوج منتظِر، وتاريخ حصة المراجعة.
+  static const String fieldFirstDate = 'first_date';
+  static const String fieldDate = 'date';
+
   /// أخطاء خانة محددة: `slot:<رقمها من صفر>`.
   static String slotField(int index) => 'slot:$index';
 
@@ -218,6 +226,7 @@ class GroupService {
     int? monthlyPrice,
     required List<GroupSlotInput> slots,
     String? excludeGroupId,
+    bool requireSlots = true,
   }) async {
     final errors = <String, String>{};
     final subject =
@@ -261,7 +270,7 @@ class GroupService {
         errors[fieldPrice] = 'السعر من مضاعفات 10 دج';
       }
     }
-    if (slots.isEmpty) {
+    if (slots.isEmpty && requireSlots) {
       errors[fieldSlots] = 'أضف خانة أسبوعية واحدة على الأقل';
     }
     for (var i = 0; i < slots.length; i++) {
@@ -442,6 +451,217 @@ class GroupService {
     });
   }
 
+  /// عدد التلاميذ المطلوب لبدء الفوج المنتظِر: من 1 إلى 500.
+  static String? waitingTargetError(int? target) =>
+      target == null || target < 1 || target > 500
+      ? 'أدخل عدد التلاميذ المطلوب لبدء الفوج (من 1 إلى 500)'
+      : null;
+
+  /// ينشئ فوجاً **منتظِراً**: ينسب إليه المدير تلاميذه دون موعد لأول حصة، وينتظر حتى يبلغ عددهم
+  /// [waitingTarget] (يُحدَّد هنا فقط). عند بلوغه يُنبَّه المدير في التطبيق وبرسالة SMS ليحدد تاريخ أول
+  /// حصة ([startWaiting]). لا جدول ولا حصص له قبل ذلك، فلا تُنشأ له حصة تلقائياً.
+  ///
+  /// [monthlyPrice] و[ratePerStudent] كما في [create]: يُعيَّنان هنا فقط.
+  Future<GroupRow> createWaiting({
+    required String subjectId,
+    required String teacherId,
+    String? roomId,
+    int sessionsPerCycle = 8,
+    int? monthlyPrice,
+    int? ratePerStudent,
+    required int waitingTarget,
+  }) async {
+    final errors = await validate(
+      subjectId: subjectId,
+      teacherId: teacherId,
+      roomId: roomId,
+      sessionsPerCycle: sessionsPerCycle,
+      ratePerStudent: ratePerStudent,
+      monthlyPrice: monthlyPrice,
+      slots: const [],
+      requireSlots: false,
+    );
+    final targetError = waitingTargetError(waitingTarget);
+    if (targetError != null) errors[fieldWaitingTarget] = targetError;
+    if (errors.isNotEmpty) throw ValidationException(errors);
+
+    return db.transaction(() async {
+      final number = await _nextNumber(subjectId);
+      final subject = await (db.select(
+        db.subjects,
+      )..where((s) => s.id.equals(subjectId))).getSingle();
+      final teacher = await (db.select(
+        db.teachers,
+      )..where((t) => t.id.equals(teacherId))).getSingle();
+      final id = writer.newId();
+      await writer.save(
+        db.groups,
+        GroupsCompanion.insert(
+          id: id,
+          createdAt: 0,
+          updatedAt: 0,
+          number: number,
+          subjectId: subjectId,
+          teacherId: teacherId,
+          roomId: Value(roomId),
+          sessionsPerCycle: Value(sessionsPerCycle),
+          monthlyPrice: Value(monthlyPrice ?? subject.monthlyPrice),
+          ratePerStudent: Value(ratePerStudent ?? teacher.ratePerStudent),
+          waitingTarget: Value(waitingTarget),
+        ),
+        key: {'id': id},
+      );
+      return (db.select(db.groups)..where((g) => g.id.equals(id))).getSingle();
+    });
+  }
+
+  /// معرّف أول حصة (غير محذوفة) للفوج بترتيب التاريخ، أو `null` إن لم تكن له حصة.
+  Future<String?> firstSessionId(String groupId) async {
+    final row = await db
+        .customSelect(
+          'SELECT id FROM sessions WHERE group_id = ? AND deleted_at IS NULL '
+          'ORDER BY date, start_minutes LIMIT 1',
+          variables: [Variable<String>(groupId)],
+          readsFrom: {db.sessions},
+        )
+        .getSingleOrNull();
+    return row?.read<String>('id');
+  }
+
+  /// هل للفوج حصص (غير محذوفة)؟ فالفوج المنتظِر لا حصص له حتى يُحدَّد تاريخ أول حصة.
+  Future<bool> _hasSessions(String groupId) async {
+    final row = await db
+        .customSelect(
+          'SELECT 1 FROM sessions WHERE group_id = ? AND deleted_at IS NULL '
+          'LIMIT 1',
+          variables: [Variable<String>(groupId)],
+          readsFrom: {db.sessions},
+        )
+        .getSingleOrNull();
+    return row != null;
+  }
+
+  /// يحدد تاريخ أول حصة لفوج منتظِر: يحفظ جدوله الأسبوعي ويولّد حصص دورته الأولى من [startDate]
+  /// (أول يوم من الجدول يوافق التاريخ أو يليه)، ثم يخبر أولياء تلاميذه بالموعد. [today] اليوم
+  /// (`YYYY-MM-DD`): لا يُبدأ الفوج في الماضي. يعيد `false` إن لم يوجد فوج منتظِر بهذا المعرّف.
+  Future<bool> startWaiting(
+    String groupId, {
+    required List<GroupSlotInput> slots,
+    required String startDate,
+    required String today,
+  }) async {
+    final group =
+        await (db.select(db.groups)..where(
+              (g) =>
+                  g.id.equals(groupId) &
+                  g.deletedAt.isNull() &
+                  g.archivedAt.isNull(),
+            ))
+            .getSingleOrNull();
+    if (group == null || group.waitingTarget == null) return false;
+    final errors = await validate(
+      subjectId: group.subjectId,
+      teacherId: group.teacherId,
+      roomId: group.roomId,
+      sessionsPerCycle: group.sessionsPerCycle,
+      ratePerStudent: null,
+      monthlyPrice: null,
+      slots: slots,
+      excludeGroupId: groupId,
+    );
+    if (await _hasSessions(groupId)) {
+      errors[fieldGroup] = 'بدأ هذا الفوج من قبل';
+    }
+    if (startDate.compareTo(today) < 0) {
+      errors[fieldFirstDate] = 'اختر تاريخاً من اليوم فصاعداً';
+    }
+    if (errors.isNotEmpty) throw ValidationException(errors);
+
+    return db.transaction(() async {
+      for (final old in await slotsOf(groupId)) {
+        await writer.softDelete(db.groupSlots, key: {'id': old.id});
+      }
+      for (final slot in slots) {
+        await _saveSlot(groupId, slot);
+      }
+      final created = await cycles.topUp(groupId, fromDate: startDate);
+      await sms.groupStarted(
+        groupId: groupId,
+        firstDate: created.isEmpty ? startDate : created.first.date,
+      );
+      return true;
+    });
+  }
+
+  /// ينشئ **حصة مراجعة**: فوجاً من حصة واحدة في [date] من [startMinutes] إلى [endMinutes]. [fee] ثمن
+  /// الحصة لمن يحضرها، و[teacherAmount] ما يأخذه الأستاذ عن كل حاضر. لا جدول أسبوعي ولا دورة ثانية؛
+  /// تُؤرشف بعد انتهائها. يحضرها تلاميذ لمرة واحدة أو تلاميذ فوج آخر كضيوف (انظر `GuestService`).
+  Future<GroupRow> createReview({
+    required String subjectId,
+    required String teacherId,
+    String? roomId,
+    required String date,
+    required int startMinutes,
+    required int endMinutes,
+    required int fee,
+    required int teacherAmount,
+    required String today,
+  }) async {
+    final errors = await validate(
+      subjectId: subjectId,
+      teacherId: teacherId,
+      roomId: roomId,
+      sessionsPerCycle: 1,
+      ratePerStudent: teacherAmount,
+      monthlyPrice: fee,
+      slots: [
+        GroupSlotInput(
+          weekday: DateKey.weekday(date),
+          startMinutes: startMinutes,
+          endMinutes: endMinutes,
+          roomId: roomId,
+        ),
+      ],
+    );
+    // الرسائل هنا لثمن الحصة لا لسعر الشهر.
+    if (errors.containsKey(fieldPrice)) errors[fieldPrice] = 'أدخل ثمن الحصة';
+    if (date.compareTo(today) < 0) {
+      errors[fieldDate] = 'اختر تاريخاً من اليوم فصاعداً';
+    }
+    if (errors.isNotEmpty) throw ValidationException(errors);
+
+    return db.transaction(() async {
+      final number = await _nextNumber(subjectId);
+      final id = writer.newId();
+      await writer.save(
+        db.groups,
+        GroupsCompanion.insert(
+          id: id,
+          createdAt: 0,
+          updatedAt: 0,
+          number: number,
+          subjectId: subjectId,
+          teacherId: teacherId,
+          roomId: Value(roomId),
+          sessionsPerCycle: const Value(1),
+          monthlyPrice: Value(fee),
+          ratePerStudent: Value(teacherAmount),
+          isReview: const Value(true),
+        ),
+        key: {'id': id},
+      );
+      await cycles.addSession(
+        groupId: id,
+        date: date,
+        startMinutes: startMinutes,
+        endMinutes: endMinutes,
+        roomId: roomId,
+        status: SessionStatus.normal,
+      );
+      return (db.select(db.groups)..where((g) => g.id.equals(id))).getSingle();
+    });
+  }
+
   /// يعدّل أستاذ المجموعة وقاعتها وجدولها، وسعرها ومبلغ الأستاذ إن لم يُربط بها تلميذ بعد. عدد
   /// حصص الدورة لا يُعدَّل لأنه أساس المستحقات.
   ///
@@ -461,6 +681,7 @@ class GroupService {
     int? ratePerStudent,
     required List<GroupSlotInput> slots,
     required String today,
+    bool requireSlots = true,
   }) async {
     final group =
         await (db.select(db.groups)
@@ -476,6 +697,7 @@ class GroupService {
       monthlyPrice: monthlyPrice,
       slots: slots,
       excludeGroupId: groupId,
+      requireSlots: requireSlots,
     );
     final currentPrice = await GroupPrice.of(db, group);
     final currentRate =

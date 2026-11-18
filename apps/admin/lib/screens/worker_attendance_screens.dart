@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'workers_screens.dart' show durationText;
+
 export 'package:school_ui/school_ui.dart' show MonthBar, currentMonthKey;
 
-/// كشف حضور العمال الشهري: لكل عامل أيام الكامل والنصف والغياب وأجر الشهر،
+/// كشف حضور العمال الشهري: لكل عامل أيام الكامل والنصف والأيام بلا خروج وأجر الشهر،
 /// وإجمالي الأجور. يُفتح كشف العامل اليومي بالنقر عليه.
 class WorkerSheetScreen extends ConsumerStatefulWidget {
   const WorkerSheetScreen({super.key});
@@ -126,7 +128,7 @@ class _WorkerSheetScreenState extends ConsumerState<WorkerSheetScreen> {
                       title: w.name,
                       subtitle:
                           '${m.fullDays} يوم كامل · ${m.halfDays} نصف · '
-                          '${m.absencesUntil(today)} غياب\n'
+                          '${m.openDaysBefore(today)} بلا خروج\n'
                           'تأخر ${m.totalLateMinutes} د',
                       subtitleLines: 2,
                       onTap: () => context.push(
@@ -168,7 +170,7 @@ class _WorkerSheetScreenState extends ConsumerState<WorkerSheetScreen> {
 /// نتيجة اختيار التعديل: نوع اليوم، أو `null` لإلغاء التعديل.
 typedef OverrideChoice = ({WorkDayKind? kind});
 
-/// كشف عامل لشهر يوماً بيوم: ما يقوله برنامجه وحضوره وما يُدفع عنه، مع
+/// كشف عامل لشهر يوماً بيوم: دخوله وخروجه ومدة عمله وما يُدفع عنه، مع
 /// تعديل يدوي لكل يوم (كامل / نصف / غائب أو إلغاء التعديل).
 class WorkerMonthScreen extends ConsumerStatefulWidget {
   const WorkerMonthScreen({required this.workerId, this.month, super.key});
@@ -289,7 +291,7 @@ class _WorkerMonthScreenState extends ConsumerState<WorkerMonthScreen> {
                         Text(
                           '${summary.month.fullDays} يوم كامل · '
                           '${summary.month.halfDays} نصف · '
-                          '${summary.month.absencesUntil(today)} غياب · '
+                          '${summary.month.openDaysBefore(today)} بلا خروج · '
                           'تأخر ${summary.month.totalLateMinutes} د',
                           style: text.bodySmall!.copyWith(color: p.textMuted),
                         ),
@@ -337,15 +339,16 @@ class _DayTile extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final dayNumber = int.parse(day.date.substring(8));
     final weekday = GroupService.weekdayName(DateKey.weekday(day.date));
+    final worked = day.workedMinutes;
     final attendance = day.present
         ? 'حضر ${time(day.checkIn!)}'
               '${day.checkOut == null ? '' : '–${time(day.checkOut!)}'}'
+              '${worked == null ? '' : ' · عمل ${durationText(worked)}'}'
               '${day.lateMinutes > 0 ? ' · تأخر ${day.lateMinutes} د' : ''}'
-        : day.scheduled == WorkDayKind.off
-        ? 'يوم راحة'
         : day.date.compareTo(today) > 0
         ? 'لم يحن بعد'
-        : 'غائب';
+        : 'لم يحضر';
+    final stillIn = day.isOpen && day.date == today;
     final badge = switch (day.paidKind) {
       WorkDayKind.full => const ClayBadge(
         label: 'يوم كامل',
@@ -356,15 +359,19 @@ class _DayTile extends StatelessWidget {
         tone: ClayTone.info,
       ),
       WorkDayKind.off =>
-        day.isAbsence && day.date.compareTo(today) <= 0
-            ? const ClayBadge(label: 'غياب', tone: ClayTone.danger)
+        stillIn
+            ? const ClayBadge(label: 'في العمل', tone: ClayTone.info)
+            : day.isOpen
+            ? const ClayBadge(label: 'بلا خروج', tone: ClayTone.warning)
+            : day.isBelowHalf
+            ? const ClayBadge(label: 'أقل من نصف يوم', tone: ClayTone.danger)
             : null,
     };
     return ClayListTile(
       title:
           '$dayNumber ${DateKey.monthName(int.parse(day.date.substring(5, 7)))}'
           ' · $weekday${day.overridden ? ' (معدَّل)' : ''}',
-      subtitle: '${day.scheduled.label} · $attendance',
+      subtitle: attendance,
       onTap: onTap,
       trailing: [
         ?badge,

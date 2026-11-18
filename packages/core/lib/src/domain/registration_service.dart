@@ -9,6 +9,7 @@ import 'enrolment_service.dart';
 import 'enums.dart';
 import 'group_price.dart';
 import 'phone.dart';
+import 'pricing.dart';
 import 'qr_code.dart';
 import 'school_settings.dart';
 
@@ -22,6 +23,8 @@ class SubjectChoice {
     this.monthlyPrice,
     this.discountType = DiscountType.none,
     this.discountValue = 0,
+    this.bearer = DiscountBearer.school,
+    this.customTeacherAmount,
   });
 
   final String subjectId;
@@ -37,6 +40,10 @@ class SubjectChoice {
   final int? monthlyPrice;
   final DiscountType discountType;
   final int discountValue;
+
+  /// من يتحمل التخفيض (انظر [DiscountBearer])، ومبلغ الأستاذ المحدد عند [DiscountBearer.custom].
+  final DiscountBearer bearer;
+  final int? customTeacherAmount;
 
   bool get isWaiting => groupId == null;
 }
@@ -145,10 +152,37 @@ class RegistrationService {
           choice.monthlyPrice ?? await GroupPrice.ofId(db, choice.groupId!);
       // فوج غير موجود يرفضه الانتساب برسالته.
       if (price == null) continue;
-      EnrolmentService.priceErrors(
+      final priceProblems = EnrolmentService.priceErrors(
         price: price,
         discountType: choice.discountType,
         discountValue: choice.discountValue,
+      );
+      priceProblems.forEach(
+        (field, message) => errors[choiceField(i, field)] = message,
+      );
+      if (priceProblems.isNotEmpty) continue;
+      // مبلغ الأستاذ عن هذا التلميذ (من يتحمّل التخفيض): يُفحص هنا قبل إنشاء حساب الوليّ، وإلا ظهر
+      // الخطأ بعد إنشاء الحساب ولا يجد الحقل رسالته.
+      final group = await (db.select(
+        db.groups,
+      )..where((g) => g.id.equals(choice.groupId!))).getSingleOrNull();
+      if (group == null) continue;
+      final rate = await enrolments.groupRate(group);
+      EnrolmentService.bearerErrors(
+        bearer: choice.bearer,
+        customTeacherAmount: choice.customTeacherAmount,
+        teacherAmount: Pricing.teacherAmountFor(
+          choice.bearer,
+          rate: rate,
+          price: price,
+          net: Pricing.netPrice(
+            price: price,
+            discountType: choice.discountType,
+            discountValue: choice.discountValue,
+          ),
+          custom: choice.customTeacherAmount,
+        ),
+        groupRate: rate,
       ).forEach((field, message) => errors[choiceField(i, field)] = message);
     }
     if (r.usesTransport) {
@@ -267,6 +301,8 @@ class RegistrationService {
             monthlyPrice: choice.monthlyPrice,
             discountType: choice.discountType,
             discountValue: choice.discountValue,
+            bearer: choice.bearer,
+            customTeacherAmount: choice.customTeacherAmount,
           );
           groups.add(groupId);
         }

@@ -9,7 +9,6 @@ import 'enums.dart';
 import 'money.dart';
 import 'phone.dart';
 import 'qr_code.dart';
-import 'wage_service.dart';
 
 /// عامل في القائمة.
 class WorkerItem {
@@ -20,18 +19,9 @@ class WorkerItem {
   String get id => worker.id;
   String get name => worker.name;
 
-  /// برنامجه الأسبوعي.
-  WorkerSchedule get schedule => WorkerSchedule.fromJson(worker.weeklySchedule);
-
   /// صلاحياته.
   WorkerPermissions get permissions =>
       WorkerPermissions.decode(worker.permissions);
-
-  /// عدد أيام عمله في الأسبوع (يوم كامل أو نصف).
-  int get workDays => [
-    for (var d = 1; d <= 7; d++)
-      if (schedule.kindOn(d) != WorkDayKind.off) d,
-  ].length;
 }
 
 /// نتيجة إضافة عامل: صفه وبيانات حسابه (تُعرض للمدير مرة واحدة).
@@ -42,8 +32,9 @@ class WorkerCreated {
   final ProvisionedAccount account;
 }
 
-/// العمال: إضافة (مع حسابه ورمز QR ورسالة بياناته)، تعديل أجرَيه وبرنامجه،
-/// ضبط صلاحياته، وحذفه.
+/// العمال: إضافة (مع حسابه ورمز QR ورسالة بياناته)، تعديل أجرَيه،
+/// ضبط صلاحياته، وحذفه. لا أيام عمل محددة للعامل: يُحسب يومه من وقت دخوله وخروجه (انظر
+/// [WageRules]).
 class WorkerService {
   WorkerService(this.db, this.writer, this.accounts);
 
@@ -56,7 +47,6 @@ class WorkerService {
   static const String fieldFullWage = 'full_wage';
   static const String fieldHalfWage = 'half_wage';
   static const String fieldHours = 'hours';
-  static const String fieldSchedule = 'schedule';
 
   /// العمال الأحياء مرتبين بالاسم، ولحظياً.
   Stream<List<WorkerItem>> watchAll() {
@@ -75,7 +65,6 @@ class WorkerService {
     required int halfDayWage,
     required int startMinutes,
     required int endMinutes,
-    required WorkerSchedule schedule,
   }) {
     final errors = <String, String>{};
     if (name.trim().isEmpty) errors[fieldName] = 'أدخل اسم العامل';
@@ -92,13 +81,6 @@ class WorkerService {
         endMinutes <= startMinutes) {
       errors[fieldHours] = 'نهاية العمل تكون بعد بدايته';
     }
-    final workDays = [
-      for (var d = 1; d <= 7; d++)
-        if (schedule.kindOn(d) != WorkDayKind.off) d,
-    ];
-    if (workDays.isEmpty) {
-      errors[fieldSchedule] = 'اختر يوم عمل واحداً على الأقل';
-    }
     return errors;
   }
 
@@ -110,7 +92,6 @@ class WorkerService {
     required String phone,
     required int fullDayWage,
     required int halfDayWage,
-    required WorkerSchedule schedule,
     int startMinutes = 480,
     int endMinutes = 1020,
     WorkerPermissions permissions = WorkerPermissions.none,
@@ -121,7 +102,6 @@ class WorkerService {
       halfDayWage: halfDayWage,
       startMinutes: startMinutes,
       endMinutes: endMinutes,
-      schedule: schedule,
     );
     String email = '';
     try {
@@ -157,7 +137,6 @@ class WorkerService {
         expectedEndMinutes: Value(endMinutes),
         fullDayWage: Value(fullDayWage),
         halfDayWage: Value(halfDayWage),
-        weeklySchedule: Value(schedule.toJson()),
         permissions: Value(permissions.encode()),
         authUserId: Value(account.accountId),
       ),
@@ -169,7 +148,7 @@ class WorkerService {
     return WorkerCreated(worker: row, account: account);
   }
 
-  /// يعدّل بيانات العامل وأجرَيه وبرنامجه. بريد الدخول لا يتغير مع الهاتف.
+  /// يعدّل بيانات العامل وأجرَيه. بريد الدخول لا يتغير مع الهاتف.
   /// يعيد `false` إن لم يوجد.
   Future<bool> update(
     String id, {
@@ -177,7 +156,6 @@ class WorkerService {
     required String phone,
     required int fullDayWage,
     required int halfDayWage,
-    required WorkerSchedule schedule,
     required int startMinutes,
     required int endMinutes,
   }) async {
@@ -187,7 +165,6 @@ class WorkerService {
       halfDayWage: halfDayWage,
       startMinutes: startMinutes,
       endMinutes: endMinutes,
-      schedule: schedule,
     );
     if (!PhoneNumbers.isValid(phone)) {
       errors[fieldPhone] = 'رقم الهاتف يبدأ بـ 05 أو 06 أو 07 ويتبعه 8 أرقام';
@@ -204,7 +181,6 @@ class WorkerService {
           'phone': PhoneNumbers.normalize(phone),
           'full_day_wage': fullDayWage,
           'half_day_wage': halfDayWage,
-          'weekly_schedule': schedule.toJson(),
           'expected_start_minutes': startMinutes,
           'expected_end_minutes': endMinutes,
         },

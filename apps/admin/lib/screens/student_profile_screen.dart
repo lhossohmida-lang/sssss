@@ -682,6 +682,10 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
           groupId: groupId,
           discountType: _draft.discountType,
           discountValue: int.tryParse(_draft.discount.text.trim()) ?? 0,
+          bearer: _draft.discountType == DiscountType.none
+              ? DiscountBearer.school
+              : _draft.bearer,
+          customTeacherAmount: _draft.customTeacherAmount,
         );
       }
       if (mounted) Navigator.of(context).pop();

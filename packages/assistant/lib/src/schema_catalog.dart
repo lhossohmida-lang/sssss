@@ -63,6 +63,8 @@ abstract final class AssistantSchema {
         'uses_transport': '1 إن كان مشتركاً في النقل',
         'transport_price': 'سعر النقل الشهري',
         'parent_account_id': 'ربط بـparents',
+        'single_use':
+            '1 = تلميذ لمرة واحدة (ضيف حصة) مخفي من قائمة التلاميذ العادية',
       },
     ),
     AssistantTable(
@@ -100,12 +102,13 @@ abstract final class AssistantSchema {
     ),
     AssistantTable(
       'workers',
-      'العمال: الاسم والهاتف وأجر اليوم الكامل ونصفه وبرنامجهم الأسبوعي وصلاحياتهم.',
+      'العمال: الاسم والهاتف وأجر اليوم الكامل ونصفه وصلاحياتهم (بلا أيام محددة: يُحسب اليوم من حضورهم).',
       module: PermissionModule.workers,
       notes: {
         'full_day_wage': 'أجر اليوم الكامل',
         'half_day_wage': 'أجر نصف اليوم',
         'permissions': 'JSON: الوحدة ← الأفعال المسموحة',
+        'weekly_schedule': 'قديم غير مستعمل (العمال بلا أيام محددة)',
       },
     ),
     AssistantTable(
@@ -125,6 +128,9 @@ abstract final class AssistantSchema {
         'rate_per_student':
             'ما يأخذه الأستاذ عن كل تلميذ في هذا الفوج (يُعيَّن عند إنشائه)',
         'archived_at': 'NULL = الفوج نشط، وإلا مؤرشف (سنة جديدة)',
+        'waiting_target': 'فوج منتظِر: عدد التلاميذ المطلوب لبدئه (NULL = فوج عادي)؛ لا حصص له حتى يُحدَّد تاريخ أول حصة',
+        'start_alerted_at': 'وقت تنبيه المدير باكتمال الفوج المنتظِر',
+        'is_review': 'حصة مراجعة: فوج من حصة واحدة يحضرها ضيوف يدفعون ثمنها',
       },
     ),
     AssistantTable(
@@ -144,6 +150,27 @@ abstract final class AssistantSchema {
         'discount_value': 'النسبة أو المبلغ بحسب discount_type',
         'left_at': 'NULL = ما زال في الفوج',
         'joined_at_cycle_number': 'الدورة التي التحق فيها',
+        'teacher_amount': 'ما يأخذه الأستاذ عن هذا التلميذ في الدورة (NULL = نصيب الفوج كاملاً، فالتخفيض على المدرسة)',
+      },
+    ),
+    AssistantTable(
+      'session_guests',
+      'ضيوف الحصص: تلميذ لمرة واحدة أو منتسب إلى فوج آخر يحضر حصة واحدة بسعر ومبلغ للأستاذ وتذكرة QR.',
+      module: PermissionModule.attendance,
+      notes: {
+        'price': 'ثمن هذه الحصة لهذا الضيف بالدينار',
+        'teacher_amount': 'ما يأخذه الأستاذ عن هذا الضيف',
+        'ticket_code': 'تذكرة QR لمرة واحدة (G-...)؛ NULL لمنتسب يدخل برمزه',
+        'used_at': 'وقت مسح التذكرة عند الدخول',
+      },
+    ),
+    AssistantTable(
+      'contacts',
+      'دليل الهواتف: أرقام يسجلها المدير منفصلة عن التلاميذ (حصة واحدة أو من تركوا أرقامهم).',
+      module: PermissionModule.students,
+      notes: {
+        'follow_up_date': 'تاريخ التواصل المقرر',
+        'source': 'manual أدخله المدير / one_time تلميذ لمرة واحدة',
       },
     ),
     AssistantTable(
@@ -202,7 +229,7 @@ abstract final class AssistantSchema {
       'الدفعات المسجَّلة مع رقم الوصل. مجموع الدفعات = amount.',
       module: PermissionModule.payments,
       notes: {
-        'type': 'month شهر (دورة) / transport نقل / registration حقوق تسجيل',
+        'type': 'month شهر (دورة) / transport نقل / registration حقوق تسجيل / session حصة واحدة لضيف',
         'receipt_number': 'رقم الوصل المرقّم',
         'cycle_number': 'رقم الدورة عند دفع شهر',
       },

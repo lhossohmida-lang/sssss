@@ -36,6 +36,16 @@ class Groups extends Table with SyncColumns {
 
   /// وقت الأرشفة عند «سنة جديدة»؛ `null` يعني أن المجموعة نشطة.
   IntColumn get archivedAt => integer().nullable()();
+
+  /// فوج منتظِر: له تلاميذ ولا موعد لأول حصة بعد، ينتظر أن يبلغ عدد تلاميذه هذا العدد (يحدده المدير
+  /// عند إنشائه). عند بلوغه يُنبَّه المدير في التطبيق وبرسالة SMS ليحدد تاريخ أول حصة. `null` فوج عادي.
+  IntColumn get waitingTarget => integer().nullable()();
+
+  /// وقت تنبيه المدير باكتمال الفوج المنتظِر (مرة واحدة)؛ `null` لم يُنبَّه بعد.
+  IntColumn get startAlertedAt => integer().nullable()();
+
+  /// حصة مراجعة: فوج من حصة واحدة، يحضرها من يدفع ثمنها وحدها (تلاميذ لمرة واحدة أو تلاميذ فوج آخر).
+  BoolColumn get isReview => boolean().withDefault(const Constant(false))();
 }
 
 /// الجدول الأسبوعي الثابت للمجموعة: خانة لكل يوم تدرس فيه.
@@ -92,6 +102,11 @@ class GroupStudents extends Table with SyncColumns {
 
   /// وقت مغادرة المجموعة؛ `null` يعني أنه ما زال فيها.
   IntColumn get leftAt => integer().nullable()();
+
+  /// ما يأخذه الأستاذ عن هذا التلميذ في الدورة بالدينار، يُعيَّن عند انتسابه. `null` يعني مبلغ
+  /// الفوج كاملاً (فالتخفيض أو الإعفاء على حساب المدرسة). أقل منه يعني أن الأستاذ يتحمل من
+  /// التخفيض، وصفر أن المدرسة تأخذ كل حصة الأستاذ عنه.
+  IntColumn get teacherAmount => integer().nullable()();
 }
 
 /// قائمة انتظار لكل (مادة + مستوى).
@@ -186,6 +201,40 @@ class Attendance extends Table with SyncColumns {
 
   /// `qr` / `manual`.
   TextColumn get method => text()();
+}
+
+/// ضيوف الحصة: تلميذ يحضر حصة واحدة ويدفع ثمنها وحدها، سواء كان «تلميذاً لمرة واحدة» لا ينتسب إلى فوج
+/// أو تلميذاً منتسباً إلى فوج آخر (كحصة مراجعة). لكل ضيف سعر لهذه الحصة ومبلغ للأستاذ عنها، وتذكرة
+/// QR تُستعمل مرة واحدة لتلميذ لمرة واحدة.
+@DataClassName('SessionGuestRow')
+@TableIndex(
+  name: 'idx_session_guests_pair',
+  columns: {#sessionId, #studentId},
+  unique: true,
+)
+@TableIndex(
+  name: 'idx_session_guests_ticket',
+  columns: {#ticketCode},
+  unique: true,
+)
+@TableIndex(name: 'idx_session_guests_student', columns: {#studentId})
+@TableIndex(name: 'idx_session_guests_updated', columns: {#updatedAt})
+class SessionGuests extends Table with SyncColumns {
+  TextColumn get sessionId => text().references(Sessions, #id)();
+
+  TextColumn get studentId => text().references(Students, #id)();
+
+  /// سعر هذه الحصة لهذا الضيف بالدينار.
+  IntColumn get price => integer().withDefault(const Constant(0))();
+
+  /// ما يأخذه الأستاذ عن هذا الضيف بالدينار.
+  IntColumn get teacherAmount => integer().withDefault(const Constant(0))();
+
+  /// رمز تذكرة QR لمرة واحدة (`G-...`)؛ `null` لضيف منتسب يدخل برمزه العادي.
+  TextColumn get ticketCode => text().nullable()();
+
+  /// وقت استعمال التذكرة (مسحها عند الدخول)؛ `null` لم تُستعمل بعد.
+  IntColumn get usedAt => integer().nullable()();
 }
 
 /// حضور الأساتذة. [sessionId] فارغ عند «حضور عام» دون حصة.

@@ -7,7 +7,10 @@ import 'cycle_service.dart';
 import 'dues_service.dart';
 import 'enums.dart';
 import 'group_price.dart';
+import 'money.dart';
+import 'pricing.dart';
 import 'stable_id.dart';
+import 'waiting_group_service.dart';
 import 'waiting_service.dart';
 
 /// مجموعة تُعرض للاختيار عند التسجيل: أستاذها وعدد تلاميذها.
@@ -38,10 +41,15 @@ class EnrolmentService {
   final CycleService cycles;
 
   late final WaitingService _waiting = WaitingService(db, writer);
+  late final WaitingGroupService _waitingGroups = WaitingGroupService(
+    db,
+    writer,
+  );
 
   static const String fieldPrice = 'price';
   static const String fieldDiscount = 'discount';
   static const String fieldGroup = 'group';
+  static const String fieldTeacherAmount = 'teacher_amount';
 
   /// أخطاء السعر والتخفيض: اسم الحقل ← الرسالة. فارغة إن كانا سليمين.
   static Map<String, String> priceErrors({
@@ -111,7 +119,56 @@ class EnrolmentService {
     return [for (final row in rows) db.teachers.map(row.data)];
   }
 
+  /// أخطاء مبلغ الأستاذ لتلميذ: من مضاعفات 10، ولا يزيد عن نصيبه في الفوج [groupRate].
+  static Map<String, String> teacherAmountErrors({
+    required int? teacherAmount,
+    required int groupRate,
+  }) {
+    if (teacherAmount == null) return const {};
+    if (teacherAmount < 0 || teacherAmount % 10 != 0) {
+      return {fieldTeacherAmount: 'مبلغ الأستاذ من مضاعفات 10 دج'};
+    }
+    if (teacherAmount > groupRate) {
+      return {
+        fieldTeacherAmount:
+            'مبلغ الأستاذ لا يزيد عن نصيبه في الفوج (${Money.format(groupRate)})',
+      };
+    }
+    return const {};
+  }
+
+  /// أخطاء مبلغ الأستاذ لتلميذ بتخفيضه: يُطلب المبلغ إن اختار المدير «مبلغاً أحدده»، وإلا يُفحص ما
+  /// يأخذه الأستاذ ([teacherAmountErrors]). تُفحص قبل أي كتابة فلا يُنشأ حساب لاستمارة مرفوضة.
+  static Map<String, String> bearerErrors({
+    required DiscountBearer bearer,
+    required int? customTeacherAmount,
+    required int? teacherAmount,
+    required int groupRate,
+  }) {
+    if (bearer == DiscountBearer.custom && customTeacherAmount == null) {
+      return {fieldTeacherAmount: 'أدخل ما يأخذه الأستاذ عن هذا التلميذ'};
+    }
+    return teacherAmountErrors(
+      teacherAmount: teacherAmount,
+      groupRate: groupRate,
+    );
+  }
+
+  /// نصيب الأستاذ عن كل تلميذ في [group]: مبلغ الفوج الذي عُيِّن عند إنشائه، وإلا مبلغ أستاذه.
+  Future<int> groupRate(GroupRow group) async {
+    final own = group.ratePerStudent;
+    if (own != null) return own;
+    final teacher = await (db.select(
+      db.teachers,
+    )..where((t) => t.id.equals(group.teacherId))).getSingleOrNull();
+    return teacher?.ratePerStudent ?? 0;
+  }
+
   /// ينسب التلميذ إلى المجموعة بسعرها وتخفيضه.
+  ///
+  /// - [bearer] من يتحمل التخفيض أو الإعفاء: **المدرسة** (الأصل): الأستاذ يأخذ نصيبه كاملاً من مالها،
+  ///   أو **الأستاذ**: يُخصم التخفيض من نصيبه (وللإعفاء الكامل لا يأخذ شيئاً، أي تأخذ المدرسة من حقه)،
+  ///   أو **مبلغ** [customTeacherAmount] يحدده المدير. يُعيَّن عند الانتساب فقط ويُحفظ مع التلميذ.
   ///
   /// - السعر هو سعر شهر الفوج الذي عُيِّن عند إنشائه (انظر [GroupPrice])؛ لا تُدخله الشاشات من جديد.
   ///   [monthlyPrice] تجاوز برمجي قديم لا تستعمله الواجهات.
@@ -128,6 +185,8 @@ class EnrolmentService {
     int? monthlyPrice,
     DiscountType discountType = DiscountType.none,
     int discountValue = 0,
+    DiscountBearer bearer = DiscountBearer.school,
+    int? customTeacherAmount,
   }) {
     return db.transaction(() async {
       final group = await (db.select(
@@ -143,6 +202,26 @@ class EnrolmentService {
         price: price,
         discountType: discountType,
         discountValue: discountValue,
+      );
+      final rate = await groupRate(group);
+      final teacherAmount = Pricing.teacherAmountFor(
+        bearer,
+        rate: rate,
+        price: price,
+        net: Pricing.netPrice(
+          price: price,
+          discountType: discountType,
+          discountValue: discountValue,
+        ),
+        custom: customTeacherAmount,
+      );
+      errors.addAll(
+        bearerErrors(
+          bearer: bearer,
+          customTeacherAmount: customTeacherAmount,
+          teacherAmount: teacherAmount,
+          groupRate: rate,
+        ),
       );
       if (errors.isNotEmpty) throw ValidationException(errors);
       final id = StableId.groupStudent(groupId, studentId);
@@ -185,6 +264,7 @@ class EnrolmentService {
                 ? 0
                 : discountValue,
           ),
+          teacherAmount: Value(teacherAmount == rate ? null : teacherAmount),
           leftAt: const Value(null),
           deletedAt: const Value(null),
         ),
@@ -192,6 +272,8 @@ class EnrolmentService {
       );
       await dues.createMidJoinCredit(studentId: studentId, groupId: groupId);
       await _leaveWaiting(studentId, group.subjectId);
+      // فوج منتظِر بلغ عدد تلاميذه المطلوب: يُنبَّه المدير ليحدد تاريخ أول حصة.
+      await _waitingGroups.checkReady(groupId);
       return (db.select(
         db.groupStudents,
       )..where((e) => e.id.equals(id))).getSingle();

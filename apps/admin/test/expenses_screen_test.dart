@@ -123,7 +123,6 @@ void main() {
               email: '0660000000@school.local',
               qrCode: 'W-AAAAAAAAAA',
               fullDayWage: const Value(1000),
-              weeklySchedule: Value('{"${today.weekday}":"full"}'),
             ),
           );
       await runtime.db
@@ -135,7 +134,23 @@ void main() {
               updatedAt: 1,
               workerId: 'w1',
               date: date,
-              checkIn: const Value(100),
+              // دخل الساعة 8 وخرج الساعة 17: أكثر من ثماني ساعات فيُحسب يوماً كاملاً.
+              checkIn: Value(
+                DateTime(
+                  today.year,
+                  today.month,
+                  today.day,
+                  8,
+                ).toUtc().millisecondsSinceEpoch,
+              ),
+              checkOut: Value(
+                DateTime(
+                  today.year,
+                  today.month,
+                  today.day,
+                  17,
+                ).toUtc().millisecondsSinceEpoch,
+              ),
               lateMinutes: const Value(0),
             ),
           );

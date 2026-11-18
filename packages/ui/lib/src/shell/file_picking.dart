@@ -49,3 +49,20 @@ class PlatformFileSource implements FileSource {
 final Provider<FileSource> fileSourceProvider = Provider<FileSource>(
   (ref) => const PlatformFileSource(),
 );
+
+/// مصدر المجلدات: يفتح منتقي المجلدات ويعيد مساره، أو `null` عند الإلغاء. يُستبدل في الاختبارات.
+abstract interface class DirectorySource {
+  Future<String?> pick(BuildContext context, {required String title});
+}
+
+/// منتقي مجلدات النظام (ويندوز وأندرويد).
+class PlatformDirectorySource implements DirectorySource {
+  const PlatformDirectorySource();
+
+  @override
+  Future<String?> pick(BuildContext context, {required String title}) =>
+      FilePicker.getDirectoryPath(dialogTitle: title);
+}
+
+final Provider<DirectorySource> directorySourceProvider =
+    Provider<DirectorySource>((ref) => const PlatformDirectorySource());
