@@ -10,6 +10,7 @@ import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 
 import 'groups_screens_test.dart' hide main;
+import 'support/groups_nav.dart';
 
 /// يفتح شاشة «الحضور السابق» لفوج يدرس في يوم أسبوع الأمس، فتكون حصتاه الماضيتان
 /// أمس وقبله بأسبوع مهما كان تاريخ تشغيل الاختبار. مع [fromLastWeek] يفتحها بتاريخ
@@ -80,8 +81,7 @@ openPast(
     }
     return group.id;
   });
-  await tester.tap(find.text('الفوج 1 · رياضيات'));
-  await tester.pumpAndSettle();
+  await tapGroup(tester);
   final opened = (
     runtime: runtime,
     yesterday: DateKey.of(yesterday),

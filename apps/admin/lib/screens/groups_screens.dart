@@ -41,16 +41,37 @@ Future<bool> _deleteGroup(
   }
 }
 
-/// قائمة المجموعات النشطة: رقمها ومادتها وأستاذها وقاعتها وجدولها وعدد
-/// تلاميذها، مع الأرشفة والحذف.
-class GroupsScreen extends ConsumerWidget {
+/// الأفواج النشطة مقسَّمة بالمادة أولاً ثم السنة (المستوى)، فيُختار اسم المادة، ثم السنة، فتظهر
+/// أفواجها مرقَّمة من 1 (فوج 1، فوج 2...) برقمها في تلك المادة وسنتها، مع الأرشفة والحذف.
+class GroupsScreen extends ConsumerStatefulWidget {
   const GroupsScreen({super.key});
 
-  Future<void> _archive(
-    BuildContext context,
-    WidgetRef ref,
-    GroupItem item,
-  ) async {
+  @override
+  ConsumerState<GroupsScreen> createState() => _GroupsScreenState();
+}
+
+class _GroupsScreenState extends ConsumerState<GroupsScreen> {
+  /// معرّف المادة المختارة (اسمها المقصوص بأحرف صغيرة)، و`null` في قائمة المواد.
+  String? _subject;
+
+  /// السنة المختارة: معرّف المستوى، أو [_noLevel] للمادة العامة، و`null` في قائمة السنوات.
+  String? _level;
+
+  static const String _noLevel = '';
+
+  static String _subjectKey(GroupItem item) =>
+      item.baseSubjectName.trim().toLowerCase();
+
+  /// الصعود درجة: من أفواج السنة إلى سنوات المادة، ومنها إلى المواد.
+  void _up() => setState(() {
+    if (_level != null) {
+      _level = null;
+    } else {
+      _subject = null;
+    }
+  });
+
+  Future<void> _archive(GroupItem item) async {
     final ok = await showClayConfirm(
       context,
       title: 'أرشفة الفوج',
@@ -63,88 +84,249 @@ class GroupsScreen extends ConsumerWidget {
     if (ok) await ref.read(groupServiceProvider).archive(item.id);
   }
 
+  static String _countText(int groups, int students) =>
+      '$groups فوج · $students تلميذ';
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final canAdd = ref.can(PermissionModule.groups, PermissionAction.add);
-    final canEdit = ref.can(PermissionModule.groups, PermissionAction.edit);
-    final canDelete = ref.can(PermissionModule.groups, PermissionAction.delete);
     final state = ref.watch(groupsProvider);
-    return Column(
-      children: [
-        Expanded(
-          child: state.when(
-            loading: () => const ClaySkeletonList(),
-            error: (_, _) => ClayErrorView(
-              message: 'تعذّرت قراءة الأفواج',
-              onRetry: () => ref.invalidate(groupsProvider),
-            ),
-            data: (items) {
-              if (items.isEmpty) {
-                return const ClayEmptyView(
+    final levelOrder = {
+      for (final level in ref.watch(levelsProvider).value ?? const <LevelRow>[])
+        level.id: level.sortOrder,
+    };
+    return PopScope(
+      canPop: _subject == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _up();
+      },
+      child: state.when(
+        loading: () => const ClaySkeletonList(),
+        error: (_, _) => ClayErrorView(
+          message: 'تعذّرت قراءة الأفواج',
+          onRetry: () => ref.invalidate(groupsProvider),
+        ),
+        data: (items) {
+          // مادة أو سنة لم يبقَ فيها فوج (أُرشف أو حُذف آخر أفواجها): نعود إلى ما فوقها.
+          final inSubject = [
+            for (final item in items)
+              if (_subject == null || _subjectKey(item) == _subject) item,
+          ];
+          final inLevel = [
+            for (final item in inSubject)
+              if (_level == null || (item.levelId ?? _noLevel) == _level) item,
+          ];
+          if ((_subject != null && inSubject.isEmpty) ||
+              (_level != null && inLevel.isEmpty)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                if (inSubject.isEmpty) _subject = null;
+                _level = null;
+              });
+            });
+          }
+          final body = items.isEmpty
+              ? const ClayEmptyView(
                   title: 'لا توجد أفواج بعد',
                   message: 'أنشئ فوجاً بجدوله الأسبوعي لتُولَّد حصصه',
                   icon: ClayIcons.groups,
-                );
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: ClaySpacing.screenPadding,
-                  vertical: ClaySpacing.sm,
+                )
+              : _subject == null
+              ? _subjectsView(items)
+              : _level == null
+              ? _levelsView(inSubject, levelOrder)
+              : _groupsView(inLevel);
+          // المادة التي يُنشأ فيها الفوج الجديد: مادة السنة المفتوحة إن فُتحت.
+          final newSubject = _level != null && inLevel.isNotEmpty
+              ? inLevel.first.group.subjectId
+              : null;
+          return Column(
+            children: [
+              if (_subject != null && inSubject.isNotEmpty)
+                _breadcrumb(inSubject.first, inLevel),
+              Expanded(child: body),
+              if (canAdd)
+                Padding(
+                  padding: const EdgeInsets.all(ClaySpacing.screenPadding),
+                  child: ClayButton(
+                    label: 'إنشاء فوج',
+                    icon: ClayIcons.add,
+                    expand: true,
+                    onPressed: () => context.push(
+                      newSubject == null
+                          ? '/groups/new'
+                          : '/groups/new?subject=$newSubject',
+                    ),
+                  ),
                 ),
-                itemCount: items.length,
-                itemExtent: 112,
-                itemBuilder: (context, i) {
-                  final item = items[i];
-                  return ClayListTile(
-                    title: 'الفوج ${item.number} · ${item.subjectName}',
-                    subtitle:
-                        '${item.teacherName} · ${item.roomName ?? 'بلا قاعة'} '
-                        '· ${item.studentCount} تلميذ\n${item.scheduleText}',
-                    subtitleLines: 2,
-                    onTap: () => context.push('/groups/${item.id}'),
-                    trailing: [
-                      if (canEdit)
-                        IconButton(
-                          tooltip: 'تعديل الفوج ${item.number}',
-                          icon: const Icon(ClayIcons.edit),
-                          onPressed: () =>
-                              context.push('/groups/${item.id}/edit'),
-                        ),
-                      if (canEdit)
-                        IconButton(
-                          tooltip: 'أرشفة الفوج ${item.number}',
-                          icon: const Icon(ClayIcons.backup),
-                          onPressed: () => _archive(context, ref, item),
-                        ),
-                      if (canDelete)
-                        IconButton(
-                          tooltip: 'حذف الفوج ${item.number}',
-                          icon: const Icon(ClayIcons.delete),
-                          onPressed: () => _deleteGroup(
-                            context,
-                            ref,
-                            id: item.id,
-                            number: item.number,
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// «الأفواج › المادة › السنة»: كل جزء يعيد إلى مستواه.
+  Widget _breadcrumb(GroupItem subject, List<GroupItem> inLevel) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    Widget crumb(String label, VoidCallback? onTap) => TextButton(
+      onPressed: onTap,
+      child: Text(
+        label,
+        style: text.titleSmall!.copyWith(
+          color: onTap == null ? p.text : p.accent,
         ),
-        if (canAdd)
-          Padding(
-            padding: const EdgeInsets.all(ClaySpacing.screenPadding),
-            child: ClayButton(
-              label: 'إنشاء فوج',
-              icon: ClayIcons.add,
-              expand: true,
-              onPressed: () => context.push('/groups/new'),
-            ),
+      ),
+    );
+    final chevron = Icon(Icons.chevron_left_rounded, color: p.textMuted);
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: ClaySpacing.screenPadding,
+      ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          crumb(
+            'الأفواج',
+            () => setState(() {
+              _subject = null;
+              _level = null;
+            }),
           ),
-      ],
+          chevron,
+          crumb(
+            subject.baseSubjectName,
+            _level == null ? null : () => setState(() => _level = null),
+          ),
+          if (_level != null && inLevel.isNotEmpty) ...[
+            chevron,
+            crumb(inLevel.first.levelName ?? 'كل المستويات', null),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// المواد: كل اسم مادة مرة واحدة مهما تعددت سنواته.
+  Widget _subjectsView(List<GroupItem> items) {
+    final bySubject = <String, List<GroupItem>>{};
+    for (final item in items) {
+      bySubject.putIfAbsent(_subjectKey(item), () => []).add(item);
+    }
+    final keys = bySubject.keys.toList()
+      ..sort(
+        (a, b) => bySubject[a]!.first.baseSubjectName.compareTo(
+          bySubject[b]!.first.baseSubjectName,
+        ),
+      );
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(
+        horizontal: ClaySpacing.screenPadding,
+        vertical: ClaySpacing.sm,
+      ),
+      itemCount: keys.length,
+      itemBuilder: (context, i) {
+        final group = bySubject[keys[i]]!;
+        final years = {for (final item in group) item.levelId ?? _noLevel};
+        final students = group.fold(0, (sum, item) => sum + item.studentCount);
+        return ClayListTile(
+          title: group.first.baseSubjectName,
+          subtitle: [
+            if (years.length > 1 || !years.contains(_noLevel))
+              '${years.length} سنة',
+            _countText(group.length, students),
+          ].join(' · '),
+          trailing: const [Icon(Icons.chevron_left_rounded)],
+          onTap: () => setState(() {
+            _subject = keys[i];
+            _level = null;
+          }),
+        );
+      },
+    );
+  }
+
+  /// سنوات المادة المختارة بترتيب المستويات، والمادة العامة (بلا سنة) آخراً.
+  Widget _levelsView(List<GroupItem> items, Map<String, int> levelOrder) {
+    final byLevel = <String, List<GroupItem>>{};
+    for (final item in items) {
+      byLevel.putIfAbsent(item.levelId ?? _noLevel, () => []).add(item);
+    }
+    final keys = byLevel.keys.toList()
+      ..sort((a, b) {
+        int rank(String key) => levelOrder[key] ?? (1 << 30);
+        final byOrder = rank(a).compareTo(rank(b));
+        return byOrder != 0 ? byOrder : a.compareTo(b);
+      });
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(
+        horizontal: ClaySpacing.screenPadding,
+        vertical: ClaySpacing.sm,
+      ),
+      itemCount: keys.length,
+      itemBuilder: (context, i) {
+        final group = byLevel[keys[i]]!;
+        final students = group.fold(0, (sum, item) => sum + item.studentCount);
+        return ClayListTile(
+          title: group.first.levelName ?? 'كل المستويات',
+          subtitle: _countText(group.length, students),
+          trailing: const [Icon(Icons.chevron_left_rounded)],
+          onTap: () => setState(() => _level = keys[i]),
+        );
+      },
+    );
+  }
+
+  /// أفواج المادة والسنة بأرقامها: فوج 1، فوج 2...
+  Widget _groupsView(List<GroupItem> items) {
+    final canEdit = ref.can(PermissionModule.groups, PermissionAction.edit);
+    final canDelete = ref.can(PermissionModule.groups, PermissionAction.delete);
+    final sorted = [...items]..sort((a, b) => a.number.compareTo(b.number));
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(
+        horizontal: ClaySpacing.screenPadding,
+        vertical: ClaySpacing.sm,
+      ),
+      itemCount: sorted.length,
+      itemExtent: 112,
+      itemBuilder: (context, i) {
+        final item = sorted[i];
+        return ClayListTile(
+          title: 'فوج ${item.number}',
+          subtitle:
+              '${item.teacherName} · ${item.roomName ?? 'بلا قاعة'} '
+              '· ${item.studentCount} تلميذ\n${item.scheduleText}',
+          subtitleLines: 2,
+          onTap: () => context.push('/groups/${item.id}'),
+          trailing: [
+            if (canEdit)
+              IconButton(
+                tooltip: 'تعديل الفوج ${item.number}',
+                icon: const Icon(ClayIcons.edit),
+                onPressed: () => context.push('/groups/${item.id}/edit'),
+              ),
+            if (canEdit)
+              IconButton(
+                tooltip: 'أرشفة الفوج ${item.number}',
+                icon: const Icon(ClayIcons.backup),
+                onPressed: () => _archive(item),
+              ),
+            if (canDelete)
+              IconButton(
+                tooltip: 'حذف الفوج ${item.number}',
+                icon: const Icon(ClayIcons.delete),
+                onPressed: () => _deleteGroup(
+                  context,
+                  ref,
+                  id: item.id,
+                  number: item.number,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

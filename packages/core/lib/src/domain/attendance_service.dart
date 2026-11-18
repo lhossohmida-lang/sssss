@@ -7,6 +7,7 @@ import 'cycle_service.dart';
 import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
+import 'group_sql.dart';
 import 'payout_service.dart';
 import 'settings_service.dart';
 import 'sms_event_service.dart';
@@ -139,7 +140,7 @@ class AttendanceService {
   Future<List<DaySession>> day(String date, {String? teacherId}) async {
     final rows = await db
         .customSelect(
-          'SELECT se.id AS session_id, g.number, sub.name AS subject, '
+          'SELECT se.id AS session_id, g.number, ${GroupSql.subjectLabel} AS subject, '
           't.name AS teacher, r.name AS room, '
           '(SELECT COUNT(*) FROM group_students gs WHERE gs.group_id = g.id '
           'AND gs.deleted_at IS NULL AND gs.left_at IS NULL '
@@ -220,7 +221,7 @@ class AttendanceService {
     if (session == null) return null;
     final info = await db
         .customSelect(
-          'SELECT g.number, sub.name AS subject, t.name AS teacher '
+          'SELECT g.number, ${GroupSql.subjectLabel} AS subject, t.name AS teacher '
           'FROM groups g JOIN subjects sub ON sub.id = g.subject_id '
           'JOIN teachers t ON t.id = g.teacher_id WHERE g.id = ?',
           variables: [Variable<String>(session.groupId)],
@@ -444,7 +445,7 @@ class AttendanceService {
     if (present != null) return;
     final info = await db
         .customSelect(
-          'SELECT t.name AS teacher, g.number, sub.name AS subject '
+          'SELECT t.name AS teacher, g.number, ${GroupSql.subjectLabel} AS subject '
           'FROM groups g JOIN teachers t ON t.id = g.teacher_id '
           'JOIN subjects sub ON sub.id = g.subject_id WHERE g.id = ?',
           variables: [Variable<String>(session.groupId)],

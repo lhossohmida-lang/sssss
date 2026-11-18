@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
 import 'dues_service.dart';
+import 'group_sql.dart';
 
 /// بند مستحق: دورة واحدة في مجموعة بما بقي منها.
 class DueLine {
@@ -162,7 +163,7 @@ class DuesReports {
     final marks = List.filled(ids.length, '?').join(', ');
     final rows = await db
         .customSelect(
-          'SELECT g.id, g.number, sub.name AS subject FROM groups g '
+          'SELECT g.id, g.number, ${GroupSql.subjectLabel} AS subject FROM groups g '
           'JOIN subjects sub ON sub.id = g.subject_id '
           'WHERE g.id IN ($marks) AND g.deleted_at IS NULL',
           variables: [for (final id in ids) Variable<String>(id)],

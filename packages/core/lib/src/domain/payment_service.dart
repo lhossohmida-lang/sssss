@@ -8,6 +8,7 @@ import 'catalog_service.dart';
 import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
+import 'group_sql.dart';
 import 'money.dart';
 import 'payout_service.dart';
 import 'sms_event_service.dart';
@@ -464,7 +465,7 @@ class PaymentService {
     }
     final rows = await db
         .customSelect(
-          'SELECT p.id, s.first_name, s.last_name, g.number, sub.name AS subject '
+          'SELECT p.id, s.first_name, s.last_name, g.number, ${GroupSql.subjectLabel} AS subject '
           'FROM payments p JOIN students s ON s.id = p.student_id '
           'LEFT JOIN groups g ON g.id = p.group_id '
           'LEFT JOIN subjects sub ON sub.id = g.subject_id '
@@ -514,7 +515,7 @@ class PaymentService {
     if (payment == null) return null;
     final row = await db
         .customSelect(
-          'SELECT s.first_name, s.last_name, g.number, sub.name AS subject, '
+          'SELECT s.first_name, s.last_name, g.number, ${GroupSql.subjectLabel} AS subject, '
           'u.display_name, u.email FROM students s '
           'LEFT JOIN groups g ON g.id = ? '
           'LEFT JOIN subjects sub ON sub.id = g.subject_id '
@@ -594,7 +595,7 @@ class PaymentService {
     final marks = List.filled(unique.length, '?').join(', ');
     final rows = await db
         .customSelect(
-          'SELECT g.id, g.number, g.sessions_per_cycle, sub.name AS subject '
+          'SELECT g.id, g.number, g.sessions_per_cycle, ${GroupSql.subjectLabel} AS subject '
           'FROM groups g '
           'JOIN subjects sub ON sub.id = g.subject_id WHERE g.id IN ($marks)',
           variables: [for (final id in unique) Variable<String>(id)],

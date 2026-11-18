@@ -5,6 +5,7 @@ import '../data/local/sync_writer.dart';
 import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
+import 'group_sql.dart';
 import 'money.dart';
 import 'phone.dart';
 import 'setting_keys.dart';
@@ -180,7 +181,7 @@ class SmsEventService {
   Future<int> groupCreated(String groupId) async {
     final group = await db
         .customSelect(
-          'SELECT g.number, g.subject_id, sub.name AS subject '
+          'SELECT g.number, g.subject_id, ${GroupSql.subjectLabel} AS subject '
           'FROM groups g JOIN subjects sub ON sub.id = g.subject_id '
           'WHERE g.id = ?',
           variables: [Variable<String>(groupId)],
@@ -395,7 +396,7 @@ class SmsEventService {
   }) async {
     final group = await db
         .customSelect(
-          'SELECT g.number, sub.name AS subject FROM groups g '
+          'SELECT g.number, ${GroupSql.subjectLabel} AS subject FROM groups g '
           'JOIN subjects sub ON sub.id = g.subject_id WHERE g.id = ?',
           variables: [Variable<String>(groupId)],
           readsFrom: {db.groups, db.subjects},

@@ -4,6 +4,8 @@ import 'package:school_core/school_core.dart';
 
 import '../support/fixtures.dart';
 
+var _created = 0;
+
 void main() {
   late TestEnv env;
   late CycleService cycles;
@@ -647,6 +649,206 @@ void main() {
 
       // بزوال المانع كلها يجوز الحذف.
       expect(await service.delete(g.id), isTrue);
+    });
+  });
+
+  group('الترقيم لكل مادة وسنة', () {
+    Future<void> level(String id, String name, int order) => env.db
+        .into(env.db.levels)
+        .insert(
+          LevelsCompanion.insert(
+            id: id,
+            createdAt: 1,
+            updatedAt: 1,
+            name: name,
+            stage: EducationStage.secondary.code,
+            sortOrder: order,
+          ),
+        );
+
+    Future<void> subject(String id, String name, {String? levelId}) => env.db
+        .into(env.db.subjects)
+        .insert(
+          SubjectsCompanion.insert(
+            id: id,
+            createdAt: 1,
+            updatedAt: 1,
+            name: name,
+            monthlyPrice: const Value(2000),
+            levelId: Value(levelId),
+          ),
+        );
+
+    Future<GroupRow> createFor(String subjectId, {String slotDay = 'sat'}) =>
+        service.create(
+          subjectId: subjectId,
+          teacherId: 't1',
+          roomId: null,
+          // خانة بوقت فريد لكل فوج حتى لا يتعارض الأستاذ مع نفسه.
+          slots: [
+            GroupSlotInput(
+              weekday: saturday,
+              startMinutes: 600 + 120 * _created++,
+              endMinutes: 690 + 120 * (_created - 1),
+            ),
+          ],
+          startDate: start,
+        );
+
+    setUp(() async {
+      _created = 0;
+      await level('l3', '3 ثانوي', 3);
+      await level('l2', '2 ثانوي', 2);
+      await subject('math3', 'رياضيات', levelId: 'l3');
+      await subject('math2', 'رياضيات', levelId: 'l2');
+      await subject('phys3', 'فيزياء', levelId: 'l3');
+      for (final id in ['math3', 'math2', 'phys3']) {
+        await env.db
+            .into(env.db.teacherSubjects)
+            .insert(
+              TeacherSubjectsCompanion.insert(
+                teacherId: 't1',
+                subjectId: id,
+                updatedAt: 1,
+              ),
+            );
+      }
+    });
+
+    test('كل مادة وسنة تبدأ من فوج 1 وتتابع بعدها', () async {
+      expect((await createFor('math3')).number, 1);
+      expect((await createFor('math3')).number, 2);
+      expect((await createFor('math2')).number, 1, reason: 'سنة أخرى');
+      expect((await createFor('phys3')).number, 1, reason: 'مادة أخرى');
+      expect((await createFor('math3')).number, 3);
+    });
+
+    test('مادتان باسم واحد وسنة واحدة مقطع واحد', () async {
+      await subject('math3b', 'رياضيات ', levelId: 'l3');
+      await env.db
+          .into(env.db.teacherSubjects)
+          .insert(
+            TeacherSubjectsCompanion.insert(
+              teacherId: 't1',
+              subjectId: 'math3b',
+              updatedAt: 1,
+            ),
+          );
+      expect((await createFor('math3')).number, 1);
+      expect((await createFor('math3b')).number, 2);
+    });
+
+    test('المؤرشف يُحسب فلا يتكرر رقمه، والمحذوف لا يُحسب', () async {
+      final first = await createFor('math3');
+      await createFor('math3');
+      await service.archive(first.id);
+      final third = await createFor('math3');
+      expect(third.number, 3, reason: 'المؤرشف 1 يُحسب مع 2');
+      expect(await service.delete(third.id), isTrue);
+      expect(
+        (await createFor('math3')).number,
+        3,
+        reason: 'الفوج 3 حُذف فيُعاد رقمه',
+      );
+    });
+
+    test('الأفواج تحمل مستواها: الوسم بالسنة ومفتاح المقطع', () async {
+      await createFor('math3');
+      await createFor('math2');
+      final items = await service.watchAll().first;
+      final math3 = items.singleWhere((i) => i.levelId == 'l3');
+      expect(math3.subjectName, 'رياضيات (3 ثانوي)');
+      expect(math3.baseSubjectName, 'رياضيات');
+      expect(math3.levelName, '3 ثانوي');
+      final math2 = items.singleWhere((i) => i.levelId == 'l2');
+      expect(math2.scope, isNot(math3.scope));
+      expect(math2.scope, GroupService.scopeKey(' رياضيات', 'l2'));
+    });
+
+    test('مادة عامة بلا سنة: اسمها كما هو ومقطعها بلا مستوى', () async {
+      final general = await service.create(
+        subjectId: 'sub',
+        teacherId: 't1',
+        roomId: null,
+        slots: const [slotTue],
+        startDate: start,
+      );
+      expect(general.number, 1);
+      final item = (await service.watchAll().first).single;
+      expect(item.subjectName, 'رياضيات');
+      expect(item.levelId, isNull);
+      expect(item.levelName, isNull);
+    });
+
+    GroupsCompanion raw(String id, int number, String subjectId, int created) =>
+        GroupsCompanion.insert(
+          id: id,
+          createdAt: created,
+          updatedAt: created,
+          number: number,
+          subjectId: subjectId,
+          teacherId: 't1',
+        );
+
+    test('إعادة الترقيم: كل مقطع من 1 بترتيب رقمه الحالي', () async {
+      final db = env.db;
+      // ترقيم عالمي قديم: رياضيات 3: 1،5،9؛ رياضيات 2: 2،7؛ فيزياء 3: 3.
+      for (final (id, number, subject) in [
+        ('a', 1, 'math3'),
+        ('b', 2, 'math2'),
+        ('c', 3, 'phys3'),
+        ('d', 5, 'math3'),
+        ('e', 7, 'math2'),
+        ('f', 9, 'math3'),
+      ]) {
+        await db.into(db.groups).insert(raw(id, number, subject, number));
+      }
+      expect(await service.normalizeNumbers(), 5);
+      Future<List<int>> numbers(String subject) async => [
+        for (final g
+            in await (db.select(db.groups)
+                  ..where((g) => g.subjectId.equals(subject))
+                  ..orderBy([(g) => OrderingTerm(expression: g.createdAt)]))
+                .get())
+          g.number,
+      ];
+      expect(await numbers('math3'), [1, 2, 3]);
+      expect(await numbers('math2'), [1, 2]);
+      expect(await numbers('phys3'), [1]);
+      expect(await service.normalizeNumbers(), 0, reason: 'لا تغيير ثانية');
+    });
+
+    test(
+      'رقم مكرر يُفضّ بترتيب الإنشاء، والفجوة تُسدّ، والمحذوف خارجها',
+      () async {
+        final db = env.db;
+        await db.into(db.groups).insert(raw('x1', 3, 'math3', 10));
+        await db.into(db.groups).insert(raw('x2', 3, 'math3', 20));
+        await db.into(db.groups).insert(raw('x3', 3, 'math3', 30));
+        await db.into(db.groups).insert(raw('gone', 1, 'math3', 5));
+        await db.customStatement(
+          "UPDATE groups SET deleted_at = 9 WHERE id = 'gone'",
+        );
+        expect(await service.normalizeNumbers(), 2);
+        final rows = await (db.select(
+          db.groups,
+        )..where((g) => g.deletedAt.isNull())).get();
+        expect(
+          {for (final g in rows) g.id: g.number},
+          {'x1': 1, 'x2': 2, 'x3': 3},
+        );
+      },
+    );
+
+    test('إعادة الترقيم تدخل طابور المزامنة', () async {
+      final db = env.db;
+      await db.into(db.groups).insert(raw('p', 4, 'math3', 1));
+      await db.delete(db.outbox).go();
+      await service.normalizeNumbers();
+      final pending = await (db.select(
+        db.outbox,
+      )..where((o) => o.targetTable.equals('groups'))).get();
+      expect(pending, hasLength(1));
     });
   });
 }

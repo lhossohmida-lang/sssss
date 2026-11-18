@@ -9,6 +9,8 @@ import 'package:school_core/testing.dart';
 import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 
+import 'support/groups_nav.dart';
+
 const owner = TestAccount(
   id: 'u-owner',
   email: 'owner@school.local',
@@ -187,7 +189,8 @@ void main() {
     expect(find.widgetWithText(ClayButton, 'إضافة تلميذ'), findsOneWidget);
     await finishSetup(tester);
 
-    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+    await openGroupList(tester);
+    expect(find.text('فوج 1'), findsOneWidget);
     expect(find.textContaining('كمال · القاعة 1 · 0 تلميذ'), findsOneWidget);
     expect(find.textContaining('الثلاثاء 10:00–11:30'), findsOneWidget);
     final sessions = await runDb(
@@ -400,7 +403,8 @@ void main() {
 
     await submit(tester);
     await finishSetup(tester);
-    expect(find.text('الفوج 2 · رياضيات'), findsOneWidget);
+    await openGroupList(tester);
+    expect(find.text('فوج 2'), findsOneWidget);
   });
 
   appTest('خانة غير صالحة تُرفض برسالة', (tester) async {
@@ -459,6 +463,7 @@ void main() {
         startDate: '2026-11-07',
       );
     });
+    await openGroupList(tester);
     await tester.tap(find.byTooltip('تعديل الفوج 1'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(420, 3200);
@@ -497,6 +502,7 @@ void main() {
         startDate: '2026-11-07',
       );
     });
+    await openGroupList(tester);
     await tester.tap(find.byTooltip('أرشفة الفوج 1'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'أرشفة'));
@@ -522,9 +528,13 @@ void main() {
         startDate: '2026-11-07',
       );
     });
-    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+    await openGroupList(tester);
+    expect(find.text('فوج 1'), findsOneWidget);
+    await openGroupList(tester);
     expect(find.byTooltip('أرشفة الفوج 1'), findsNothing);
+    await openGroupList(tester);
     expect(find.byTooltip('تعديل الفوج 1'), findsNothing);
+    await openGroupList(tester);
     expect(find.byTooltip('حذف الفوج 1'), findsNothing);
   });
 
@@ -549,14 +559,17 @@ void main() {
   appTest('حذف فوج من القائمة بعد التأكيد، والإلغاء لا يحذف', (tester) async {
     final runtime = await openGroups(tester);
     await seedGroup(tester, runtime);
+    await openGroupList(tester);
     await tester.tap(find.byTooltip('حذف الفوج 1'));
     await tester.pumpAndSettle();
     expect(find.text('حذف الفوج'), findsOneWidget);
     expect(find.textContaining('أرشفه بدل ذلك'), findsOneWidget);
     await tester.tap(find.widgetWithText(ClayButton, 'إلغاء'));
     await tester.pumpAndSettle();
-    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+    await openGroupList(tester);
+    expect(find.text('فوج 1'), findsOneWidget);
 
+    await openGroupList(tester);
     await tester.tap(find.byTooltip('حذف الفوج 1'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'حذف'));
@@ -613,13 +626,15 @@ void main() {
             ),
           );
     });
+    await openGroupList(tester);
     await tester.tap(find.byTooltip('حذف الفوج 1'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'حذف'));
     await tester.pumpAndSettle();
     expect(find.textContaining('لا يمكن حذف الفوج 1'), findsOneWidget);
     expect(find.textContaining('مدفوعات مسجَّلة'), findsOneWidget);
-    expect(find.text('الفوج 1 · رياضيات'), findsOneWidget);
+    await openGroupList(tester);
+    expect(find.text('فوج 1'), findsOneWidget);
     final group = (await runDb(
       tester,
       () => runtime.db.select(runtime.db.groups).get(),
@@ -641,14 +656,18 @@ void main() {
       ),
     );
     await seedGroup(tester, runtime);
+    await openGroupList(tester);
     expect(find.byTooltip('حذف الفوج 1'), findsOneWidget);
+    await openGroupList(tester);
     expect(find.byTooltip('تعديل الفوج 1'), findsNothing);
+    await openGroupList(tester);
     expect(find.byTooltip('أرشفة الفوج 1'), findsNothing);
   });
 
   appTest('حذف الفوج من نموذج التعديل يعيد إلى القائمة', (tester) async {
     final runtime = await openGroups(tester);
     await seedGroup(tester, runtime);
+    await openGroupList(tester);
     await tester.tap(find.byTooltip('تعديل الفوج 1'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(420, 3200);
@@ -665,5 +684,199 @@ void main() {
     await openGroups(tester);
     await openForm(tester);
     expect(find.widgetWithText(ClayButton, 'حذف الفوج'), findsNothing);
+  });
+
+  group('الأفواج بالمادة ثم السنة', () {
+    /// مستويان («2 ثانوي» و«3 ثانوي») وثلاث مواد: رياضيات لكل من السنتين وفيزياء للثالثة، وأفواجها
+    /// بترقيم كل مادة وسنة: رياضيات 3: فوجان، رياضيات 2: فوج، فيزياء 3: فوج.
+    Future<AppRuntime> seedHierarchy(WidgetTester tester) async {
+      final runtime = await openGroups(tester);
+      final db = runtime.db;
+      await runDb(tester, () async {
+        for (final (id, name, order) in [
+          ('l2', '2 ثانوي', 2),
+          ('l3', '3 ثانوي', 3),
+        ]) {
+          await db
+              .into(db.levels)
+              .insert(
+                LevelsCompanion.insert(
+                  id: id,
+                  createdAt: 1,
+                  updatedAt: 1,
+                  name: name,
+                  stage: EducationStage.secondary.code,
+                  sortOrder: order,
+                ),
+              );
+        }
+        for (final (id, name, level) in [
+          ('math3', 'رياضيات', 'l3'),
+          ('math2', 'رياضيات', 'l2'),
+          ('phys3', 'فيزياء', 'l3'),
+        ]) {
+          await db
+              .into(db.subjects)
+              .insert(
+                SubjectsCompanion.insert(
+                  id: id,
+                  createdAt: 1,
+                  updatedAt: 1,
+                  name: name,
+                  monthlyPrice: const Value(2000),
+                  levelId: Value(level),
+                ),
+              );
+          await db
+              .into(db.teacherSubjects)
+              .insert(
+                TeacherSubjectsCompanion.insert(
+                  teacherId: 't1',
+                  subjectId: id,
+                  updatedAt: 1,
+                ),
+              );
+        }
+        final service = GroupService(
+          db,
+          runtime.writer,
+          ScheduleService(db),
+          CycleService(db, runtime.writer),
+        );
+        var hour = 8;
+        for (final subject in ['math3', 'math3', 'math2', 'phys3']) {
+          await service.create(
+            subjectId: subject,
+            teacherId: 't1',
+            roomId: null,
+            slots: [
+              GroupSlotInput(
+                weekday: 6,
+                startMinutes: hour * 60,
+                endMinutes: hour * 60 + 60,
+              ),
+            ],
+            startDate: '2026-11-07',
+          );
+          hour += 2;
+        }
+      });
+      // الشاشة تعرض المواد من البداية.
+      await tester.pumpAndSettle();
+      return runtime;
+    }
+
+    appTest('تُعرض المواد أولاً بأسمائها مرة واحدة مع عدد سنواتها وأفواجها', (
+      tester,
+    ) async {
+      await seedHierarchy(tester);
+      expect(find.text('رياضيات'), findsOneWidget, reason: 'مرة واحدة للسنتين');
+      expect(find.text('فيزياء'), findsOneWidget);
+      expect(find.text('2 سنة · 3 فوج · 0 تلميذ'), findsOneWidget);
+      expect(find.text('1 سنة · 1 فوج · 0 تلميذ'), findsOneWidget);
+      // لا أفواج بعد في هذا المستوى من العرض.
+      expect(find.text('فوج 1'), findsNothing);
+      expect(find.text('أفواج'), findsNothing);
+    });
+
+    appTest('اختيار مادة ثم سنة يُظهر أفواجها مرقَّمة من 1', (tester) async {
+      await seedHierarchy(tester);
+      await tester.tap(find.text('رياضيات'));
+      await tester.pumpAndSettle();
+      // السنوات بترتيب المستويات: الثانية قبل الثالثة.
+      final years = tester
+          .widgetList<ClayListTile>(find.byType(ClayListTile))
+          .map((t) => t.title)
+          .toList();
+      expect(years, ['2 ثانوي', '3 ثانوي']);
+      expect(find.text('2 فوج · 0 تلميذ'), findsOneWidget);
+      expect(find.text('1 فوج · 0 تلميذ'), findsOneWidget);
+
+      await tester.tap(find.text('3 ثانوي'));
+      await tester.pumpAndSettle();
+      expect(find.text('فوج 1'), findsOneWidget);
+      expect(find.text('فوج 2'), findsOneWidget);
+      expect(find.text('فوج 3'), findsNothing);
+      // مسار التنقل: الأفواج › رياضيات › 3 ثانوي.
+      expect(find.widgetWithText(TextButton, 'الأفواج'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'رياضيات'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '3 ثانوي'), findsOneWidget);
+
+      // سنة أخرى لها ترقيمها: فوج 1 وحده.
+      await tester.tap(find.widgetWithText(TextButton, 'رياضيات'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2 ثانوي'));
+      await tester.pumpAndSettle();
+      expect(find.text('فوج 1'), findsOneWidget);
+      expect(find.text('فوج 2'), findsNothing);
+    });
+
+    appTest('مسار التنقل والرجوع يصعدان درجة درجة', (tester) async {
+      await seedHierarchy(tester);
+      await tester.tap(find.text('فيزياء'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('3 ثانوي'));
+      await tester.pumpAndSettle();
+      expect(find.text('فوج 1'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('فوج 1'), findsNothing);
+      expect(find.text('3 ثانوي'), findsOneWidget, reason: 'قائمة السنوات');
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('رياضيات'), findsOneWidget, reason: 'قائمة المواد');
+
+      await tester.tap(find.text('فيزياء'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'الأفواج'));
+      await tester.pumpAndSettle();
+      expect(find.text('رياضيات'), findsOneWidget);
+    });
+
+    appTest('الإنشاء من أفواج سنة يختار مادتها مسبقاً', (tester) async {
+      await seedHierarchy(tester);
+      await tester.tap(find.text('رياضيات'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('3 ثانوي'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'إنشاء فوج'));
+      await tester.pumpAndSettle();
+      expect(find.text('رياضيات (3 ثانوي)'), findsWidgets);
+    });
+
+    appTest('أرشفة آخر فوج في سنة تعيد إلى ما فوقها', (tester) async {
+      await seedHierarchy(tester);
+      await tester.tap(find.text('فيزياء'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('3 ثانوي'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('أرشفة الفوج 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'أرشفة'));
+      await tester.pumpAndSettle();
+      // اختفت الفيزياء كلها: عاد إلى قائمة المواد وفيها رياضيات فقط.
+      expect(find.text('فيزياء'), findsNothing);
+      expect(find.text('رياضيات'), findsOneWidget);
+    });
+
+    appTest('الفوج الجديد في مادة وسنة يأخذ رقمها التالي لا رقماً عالمياً', (
+      tester,
+    ) async {
+      final runtime = await seedHierarchy(tester);
+      final db = runtime.db;
+      final numbers = await runDb(
+        tester,
+        () async => {
+          for (final g in await db.select(db.groups).get())
+            g.subjectId: g.number,
+        },
+      );
+      // آخر فوج لكل مادة وسنة: رياضيات 3 هي 2 (أنشئ فوجان)، والبقية 1.
+      expect(numbers['math3'], 2);
+      expect(numbers['math2'], 1);
+      expect(numbers['phys3'], 1);
+    });
   });
 }

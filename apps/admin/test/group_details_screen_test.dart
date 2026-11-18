@@ -6,6 +6,7 @@ import 'package:school_core/testing.dart';
 import 'package:school_ui/testing.dart';
 
 import 'groups_screens_test.dart' hide main;
+import 'support/groups_nav.dart';
 
 /// ينشئ مجموعة وتلميذين وحضوراً، ثم يفتح تفاصيلها من القائمة.
 Future<AppRuntime> openDetails(
@@ -81,8 +82,7 @@ Future<AppRuntime> openDetails(
     await mark(2, 's1', 'excused');
     await mark(0, 's2', 'present');
   });
-  await tester.tap(find.text('الفوج 1 · رياضيات'));
-  await tester.pumpAndSettle();
+  await tapGroup(tester);
   return runtime;
 }
 

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
 import 'date_key.dart';
+import 'group_sql.dart';
 
 /// حصة قادمة لتلميذ: موعدها الفعلي (بعد أي تغيير وافقت عليه الإدارة).
 class UpcomingSession {
@@ -77,7 +78,7 @@ class ChildScheduleQueries {
     final rows = await db
         .customSelect(
           'SELECT se.id, se.group_id, se.date, se.start_minutes, '
-          'se.end_minutes, se.status, g.number, sub.name AS subject, '
+          'se.end_minutes, se.status, g.number, ${GroupSql.subjectLabel} AS subject, '
           't.name AS teacher, r.name AS room FROM sessions se '
           'JOIN groups g ON g.id = se.group_id '
           'JOIN subjects sub ON sub.id = g.subject_id '

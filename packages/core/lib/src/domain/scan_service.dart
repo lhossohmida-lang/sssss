@@ -6,6 +6,7 @@ import 'cycle_service.dart';
 import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
+import 'group_sql.dart';
 import 'qr_code.dart';
 import 'stable_id.dart';
 
@@ -574,7 +575,7 @@ class ScanService {
   ) async {
     final row = await db
         .customSelect(
-          'SELECT sub.name AS subject_name, g.number, r.name AS room_name '
+          'SELECT ${GroupSql.subjectLabel} AS subject_name, g.number, r.name AS room_name '
           'FROM groups g JOIN subjects sub ON sub.id = g.subject_id '
           'LEFT JOIN rooms r ON r.id = COALESCE(?, g.room_id) '
           'WHERE g.id = ?',

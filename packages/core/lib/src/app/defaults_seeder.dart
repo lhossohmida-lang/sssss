@@ -19,6 +19,7 @@ class DefaultsSeeder {
     required this.levels,
     required this.isLocalMode,
     required this.coordinator,
+    this.maintenance,
   }) {
     _subscription = auth.changes.listen(_onSession);
     _onSession(auth.current);
@@ -30,6 +31,10 @@ class DefaultsSeeder {
 
   /// المنسّق الحالي (يتغير مع الجلسة)؛ `null` دون جلسة أو دون خادم.
   final SyncCoordinator? Function() coordinator;
+
+  /// صيانة بيانات تلحق البذر بعد أول مزامنة (مثل إعادة ترقيم الأفواج المقطعي). فشلها لا يعطّل
+  /// شيئاً وتُعاد عند الدخول التالي.
+  final Future<void> Function()? maintenance;
 
   late final StreamSubscription<AuthSession?> _subscription;
   StreamSubscription<SyncStatus>? _syncWatch;
@@ -60,6 +65,7 @@ class DefaultsSeeder {
   Future<void> _seed() async {
     try {
       await levels.ensureDefaults();
+      await maintenance?.call();
     } on Object {
       // تُعاد المحاولة عند الدخول التالي؛ لا يتعطل التطبيق بسببها.
       _seededFor = null;

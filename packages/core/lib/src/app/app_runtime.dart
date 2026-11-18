@@ -25,6 +25,9 @@ import '../data/remote/sync_coordinator.dart';
 import '../data/remote/sync_engine.dart';
 import '../data/remote/sync_profile.dart';
 import '../data/remote/upload_worker.dart';
+import '../domain/cycle_service.dart';
+import '../domain/group_service.dart';
+import '../domain/schedule_service.dart';
 import '../domain/settings_service.dart';
 import 'app_config.dart';
 import 'defaults_seeder.dart';
@@ -244,6 +247,13 @@ class AppRuntime {
               levels: LevelService(db, writer),
               isLocalMode: local != null,
               coordinator: () => lifecycle?.coordinator,
+              // الأفواج تُرقَّم لكل مادة وسنة: ما رُقّم عالمياً من قبل يُصلح بعد المزامنة.
+              maintenance: () => GroupService(
+                db,
+                writer,
+                ScheduleService(db),
+                CycleService(db, writer),
+              ).normalizeNumbers().then((_) {}),
             )
           : null,
       ownsSupabase: ownsSupabase,

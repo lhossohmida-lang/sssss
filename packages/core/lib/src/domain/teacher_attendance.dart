@@ -4,6 +4,7 @@ import '../data/local/app_database.dart';
 import '../data/local/sync_writer.dart';
 import 'date_key.dart';
 import 'enums.dart';
+import 'group_sql.dart';
 import 'stable_id.dart';
 
 /// حالة حضور الأستاذ لحصة.
@@ -242,7 +243,7 @@ class TeacherAttendanceQueries {
     final rows = await db
         .customSelect(
           'SELECT se.id, se.date, se.start_minutes, se.end_minutes, '
-          'se.closed_at, g.number, sub.name AS subject, t.id AS teacher_id, '
+          'se.closed_at, g.number, ${GroupSql.subjectLabel} AS subject, t.id AS teacher_id, '
           't.name AS teacher, ta.check_in, ta.check_out, ta.late_minutes '
           'FROM sessions se JOIN groups g ON g.id = se.group_id '
           'JOIN teachers t ON t.id = g.teacher_id '

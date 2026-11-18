@@ -220,6 +220,17 @@ class Dataset(unittest.TestCase):
             self.assertEqual(group["current_cycle_number"], rows[-1]["cycle_number"])
             self.assertEqual(group["sessions_per_cycle"], 8)
 
+    def test_groups_are_numbered_per_subject_and_year(self):
+        """كما يفعل التطبيق: فوج 1، فوج 2 ضمن كل مادة وسنة، لا ترقيم عالمي."""
+        subjects = {s["id"]: s for s in self.data["subjects"]}
+        scopes: dict[tuple[str, str], list[int]] = {}
+        for group in self.data["groups"]:
+            subject = subjects[group["subject_id"]]
+            scopes.setdefault((subject["name"].strip().lower(), subject["level_id"]), []).append(group["number"])
+        self.assertTrue(scopes)
+        for scope, numbers in scopes.items():
+            self.assertEqual(sorted(numbers), list(range(1, len(numbers) + 1)), scope)
+
     def test_no_room_or_teacher_double_booking(self):
         groups = {g["id"]: g for g in self.data["groups"]}
         seen_room, seen_teacher = {}, {}

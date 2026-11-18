@@ -212,6 +212,72 @@ void main() {
       await until(() async => await levelCount(runtime.db) == 12);
     });
 
+    test(
+      'الأفواج المرقَّمة عالمياً تُرقَّم لكل مادة بعد دخول المالك',
+      () async {
+        final runtime = await startTestRuntime(localMode: true);
+        addTearDown(runtime.auth.dispose);
+        final db = runtime.db;
+        for (final (id, name) in [('s1', 'رياضيات'), ('s2', 'فيزياء')]) {
+          await db
+              .into(db.subjects)
+              .insert(
+                SubjectsCompanion.insert(
+                  id: id,
+                  createdAt: 1,
+                  updatedAt: 1,
+                  name: name,
+                ),
+              );
+        }
+        await db
+            .into(db.teachers)
+            .insert(
+              TeachersCompanion.insert(
+                id: 't1',
+                createdAt: 1,
+                updatedAt: 1,
+                name: 'كمال',
+                phone: '0660000001',
+                email: 't1@school.local',
+                qrCode: 'T-t1',
+              ),
+            );
+        for (final (id, number, subject) in [
+          ('g1', 1, 's1'),
+          ('g2', 2, 's2'),
+          ('g3', 3, 's1'),
+        ]) {
+          await db
+              .into(db.groups)
+              .insert(
+                GroupsCompanion.insert(
+                  id: id,
+                  createdAt: number,
+                  updatedAt: number,
+                  number: number,
+                  subjectId: subject,
+                  teacherId: 't1',
+                ),
+              );
+        }
+        await runtime.localGateway!.createFirstOwner(
+          email: 'owner@school.com',
+          displayName: 'المدير',
+          password: 'owner-pass-1',
+        );
+        await runtime.auth.signIn(
+          email: 'owner@school.com',
+          password: 'owner-pass-1',
+        );
+        Future<Map<String, int>> numbers() async => {
+          for (final g in await db.select(db.groups).get()) g.id: g.number,
+        };
+        await until(() async => (await numbers())['g3'] == 2);
+        expect(await numbers(), {'g1': 1, 'g2': 1, 'g3': 2});
+      },
+    );
+
     test('مع الخادم: لا إضافة قبل أول مزامنة ناجحة ثم تُضاف', () async {
       final remote = FakeRemote()..offline = true;
       late SyncCoordinator coordinator;

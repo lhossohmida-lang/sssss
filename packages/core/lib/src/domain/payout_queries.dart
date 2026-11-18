@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
+import 'group_sql.dart';
 import 'payout_service.dart';
 
 /// حالة تسليم الخلاص.
@@ -123,7 +124,7 @@ class PayoutQueries {
     }
     final rows = await db
         .customSelect(
-          'SELECT p.id, t.name AS teacher, g.number, sub.name AS subject '
+          'SELECT p.id, t.name AS teacher, g.number, ${GroupSql.subjectLabel} AS subject '
           'FROM teacher_payouts p JOIN teachers t ON t.id = p.teacher_id '
           'JOIN groups g ON g.id = p.group_id '
           'JOIN subjects sub ON sub.id = g.subject_id '

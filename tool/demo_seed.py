@@ -311,13 +311,22 @@ def build_dataset(today: date, owner_id: str, accounts: Optional[dict[str, str]]
         group_sessions[g] = rows
         sessions.extend(rows)
 
+    # الأفواج تُرقَّم لكل مادة وسنة (فوج 1، فوج 2 ضمن «رياضيات 3 ثانوي») كما يفعل التطبيق.
+    scope_counts: dict[tuple[str, str], int] = {}
+    group_numbers: list[int] = []
+    for subject, *_ in GROUPS:
+        name, _price, level = SUBJECTS[subject]
+        scope = (name.strip().lower(), level_id(*level))
+        scope_counts[scope] = scope_counts.get(scope, 0) + 1
+        group_numbers.append(scope_counts[scope])
+
     data["groups"] = [
         {
             "id": f"demo-group-{g + 1}",
             "created_at": ms_at(window_start, 0),
             "updated_at": ms_at(window_start, 0),
             "deleted_at": None,
-            "number": g + 1,
+            "number": group_numbers[g],
             "subject_id": f"demo-subject-{subject + 1}",
             "teacher_id": f"demo-teacher-{teacher + 1}",
             "room_id": f"demo-room-{room + 1}",

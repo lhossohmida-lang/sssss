@@ -5,6 +5,7 @@ import '../data/local/sync_writer.dart';
 import 'catalog_service.dart';
 import 'dues_service.dart';
 import 'enums.dart';
+import 'group_sql.dart';
 import 'pricing.dart';
 
 /// مجموعة ينتسب إليها التلميذ، مع حضوره فيها وما بقي عليه.
@@ -162,7 +163,7 @@ class StudentService {
     // الحضور مجمَّع لكل مجموعة في استعلام واحد.
     final enrolmentRows = await db
         .customSelect(
-          'SELECT gs.*, g.number AS group_number, sub.name AS subject_name, '
+          'SELECT gs.*, g.number AS group_number, ${GroupSql.subjectLabel} AS subject_name, '
           't.name AS teacher_name, '
           "COALESCE(SUM(a.status = 'present'), 0) AS present, "
           "COALESCE(SUM(a.status = 'absent'), 0) AS absent, "

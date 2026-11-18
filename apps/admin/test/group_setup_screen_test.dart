@@ -7,6 +7,8 @@ import 'package:school_core/testing.dart';
 import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 
+import 'support/groups_nav.dart';
+
 const _owner = TestAccount(
   id: 'u-owner',
   email: 'owner@school.local',
@@ -114,8 +116,7 @@ Future<Opened> openDetails(
   });
   await tester.tap(find.text('الأفواج').last);
   await tester.pumpAndSettle();
-  await tester.tap(find.text('الفوج 1 · رياضيات'));
-  await tester.pumpAndSettle();
+  await tapGroup(tester);
   if (openSetup) {
     await tester.tap(find.widgetWithText(ClayButton, _setupButton));
     await tester.pumpAndSettle();

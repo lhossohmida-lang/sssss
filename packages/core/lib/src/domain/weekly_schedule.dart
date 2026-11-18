@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' show Variable;
 import '../data/local/app_database.dart';
 import 'date_key.dart';
 import 'group_service.dart';
+import 'group_sql.dart';
 
 /// خانة في الجدول الأسبوعي: حصة ثابتة لمجموعة في يوم من الأسبوع.
 class ScheduleEntry {
@@ -161,7 +162,7 @@ class WeeklyScheduleQueries {
     final rows = await db
         .customSelect(
           'SELECT gs.weekday, gs.start_minutes, gs.end_minutes, '
-          'g.id AS group_id, g.number, sub.name AS subject, '
+          'g.id AS group_id, g.number, ${GroupSql.subjectLabel} AS subject, '
           't.id AS teacher_id, t.name AS teacher, '
           'r.id AS room_id, r.name AS room '
           'FROM group_slots gs JOIN groups g ON g.id = gs.group_id '

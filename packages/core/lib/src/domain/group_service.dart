@@ -5,6 +5,7 @@ import '../data/local/sync_writer.dart';
 import 'catalog_service.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
+import 'group_sql.dart';
 import 'schedule_service.dart';
 import 'sms_event_service.dart';
 
@@ -46,10 +47,26 @@ class GroupItem {
     required this.studentCount,
     required this.slots,
     this.roomName,
-  });
+    String? baseSubjectName,
+    this.levelId,
+    this.levelName,
+  }) : baseSubjectName = baseSubjectName ?? subjectName;
 
   final GroupRow group;
+
+  /// اسم المادة بمستواها («رياضيات (3 ثانوي)») لوسم الفوج بلا التباس بين المستويات.
   final String subjectName;
+
+  /// اسم المادة وحده («رياضيات»)؛ تتجمع به أفواج المستويات في شاشة الأفواج.
+  final String baseSubjectName;
+
+  /// مستوى المادة (السنة)، أو `null` لمادة عامة لكل المستويات.
+  final String? levelId;
+  final String? levelName;
+
+  /// مفتاح المقطع (المادة والسنة) الذي يُرقَّم فيه الفوج من 1.
+  String get scope => GroupService.scopeKey(baseSubjectName, levelId);
+
   final String teacherName;
   final String? roomName;
   final int studentCount;
@@ -116,11 +133,14 @@ class GroupService {
   Stream<List<GroupItem>> watchAll({bool archived = false}) {
     return db
         .customSelect(
-          'SELECT g.*, sub.name AS subject_name, t.name AS teacher_name, '
+          'SELECT g.*, ${GroupSql.subjectLabel} AS subject_name, '
+          'sub.name AS base_name, sub.level_id AS level_id, '
+          'lvl.name AS level_name, t.name AS teacher_name, '
           'r.name AS room_name, '
           '(SELECT COUNT(*) FROM group_students gs WHERE gs.group_id = g.id '
           'AND gs.deleted_at IS NULL AND gs.left_at IS NULL) AS student_count '
           'FROM groups g JOIN subjects sub ON sub.id = g.subject_id '
+          'LEFT JOIN levels lvl ON lvl.id = sub.level_id '
           'JOIN teachers t ON t.id = g.teacher_id '
           'LEFT JOIN rooms r ON r.id = g.room_id '
           'WHERE g.deleted_at IS NULL AND g.archived_at IS '
@@ -128,6 +148,7 @@ class GroupService {
           readsFrom: {
             db.groups,
             db.subjects,
+            db.levels,
             db.teachers,
             db.rooms,
             db.groupStudents,
@@ -153,6 +174,9 @@ class GroupService {
               GroupItem(
                 group: db.groups.map(row.data),
                 subjectName: row.read<String>('subject_name'),
+                baseSubjectName: row.read<String>('base_name'),
+                levelId: row.read<String?>('level_id'),
+                levelName: row.read<String?>('level_name'),
                 teacherName: row.read<String>('teacher_name'),
                 roomName: row.read<String?>('room_name'),
                 studentCount: row.read<int>('student_count'),
@@ -268,6 +292,82 @@ class GroupService {
     return errors;
   }
 
+  /// مفتاح المقطع الذي يُرقَّم فيه الفوج من 1: اسم المادة (مقصوصاً بأحرف صغيرة) ومعرّف مستواها.
+  /// فمادتان باسم واحد في مستويين مقطعان، وأفواج كل منهما فوج 1، فوج 2...
+  static String scopeKey(String subjectName, String? levelId) =>
+      '${subjectName.trim().toLowerCase()}|${levelId ?? ''}';
+
+  /// رقم الفوج الجديد: التالي لأكبر رقم في مقطع مادته وسنته (المؤرشفة تُحسب فلا يتكرر رقمها).
+  Future<int> _nextNumber(String subjectId) async {
+    final subject = await (db.select(
+      db.subjects,
+    )..where((s) => s.id.equals(subjectId))).getSingle();
+    final top = await db
+        .customSelect(
+          'SELECT COALESCE(MAX(g.number), 0) AS n FROM groups g '
+          'JOIN subjects s ON s.id = g.subject_id '
+          'WHERE g.deleted_at IS NULL AND lower(trim(s.name)) = ? '
+          "AND COALESCE(s.level_id, '') = ?",
+          variables: [
+            Variable<String>(subject.name.trim().toLowerCase()),
+            Variable<String>(subject.levelId ?? ''),
+          ],
+          readsFrom: {db.groups, db.subjects},
+        )
+        .getSingle();
+    return top.read<int>('n') + 1;
+  }
+
+  /// يرقّم أفواج كل مادة وسنة من 1 بالتتابع (بترتيب رقمها الحالي ثم إنشائها ثم معرّفها)، ولا
+  /// يكتب إلا ما تغيّر. يُصلح أفواجاً رُقّمت عالمياً قبل ترقيم المقاطع، ويفضّ رقماً تكرر
+  /// حين أنشأ جهازان فوجين معاً دون اتصال. يعيد عدد الأفواج التي تغيّر رقمها.
+  Future<int> normalizeNumbers() {
+    return db.transaction(() async {
+      final rows = await db
+          .customSelect(
+            'SELECT g.id, g.number, g.created_at, lower(trim(s.name)) AS name, '
+            "COALESCE(s.level_id, '') AS level FROM groups g "
+            'JOIN subjects s ON s.id = g.subject_id WHERE g.deleted_at IS NULL',
+            readsFrom: {db.groups, db.subjects},
+          )
+          .get();
+      final scopes = <String, List<QueryRow>>{};
+      for (final row in rows) {
+        scopes
+            .putIfAbsent(
+              '${row.read<String>('name')}|${row.read<String>('level')}',
+              () => [],
+            )
+            .add(row);
+      }
+      var changed = 0;
+      for (final list in scopes.values) {
+        list.sort((a, b) {
+          final byNumber = a
+              .read<int>('number')
+              .compareTo(b.read<int>('number'));
+          if (byNumber != 0) return byNumber;
+          final byCreated = a
+              .read<int>('created_at')
+              .compareTo(b.read<int>('created_at'));
+          return byCreated != 0
+              ? byCreated
+              : a.read<String>('id').compareTo(b.read<String>('id'));
+        });
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].read<int>('number') == i + 1) continue;
+          await writer.patch(
+            db.groups,
+            key: {'id': list[i].read<String>('id')},
+            values: {'number': i + 1},
+          );
+          changed++;
+        }
+      }
+      return changed;
+    });
+  }
+
   /// ينشئ مجموعة بجدولها ويولّد حصص دورتها الأولى بدءاً من [startDate]
   /// (`YYYY-MM-DD`). يرمي [ValidationException] إن لم تصلح البيانات.
   Future<GroupRow> create({
@@ -290,12 +390,7 @@ class GroupService {
     if (errors.isNotEmpty) throw ValidationException(errors);
 
     return db.transaction(() async {
-      final top = await db
-          .customSelect(
-            'SELECT COALESCE(MAX(number), 0) AS n FROM groups',
-            readsFrom: {db.groups},
-          )
-          .getSingle();
+      final number = await _nextNumber(subjectId);
       final id = writer.newId();
       await writer.save(
         db.groups,
@@ -303,7 +398,7 @@ class GroupService {
           id: id,
           createdAt: 0,
           updatedAt: 0,
-          number: top.read<int>('n') + 1,
+          number: number,
           subjectId: subjectId,
           teacherId: teacherId,
           roomId: Value(roomId),

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
 import 'dues_service.dart';
+import 'group_sql.dart';
 import 'qr_code.dart';
 import 'scan_service.dart';
 
@@ -59,7 +60,7 @@ class RecentScanFeed {
         .customSelect(
           'SELECT a.id, a.scanned_at, s.id AS student_id, s.first_name, '
           's.last_name, s.photo_local_path, s.photo_url, g.id AS group_id, '
-          'g.number, sub.name AS subject, r.name AS room '
+          'g.number, ${GroupSql.subjectLabel} AS subject, r.name AS room '
           'FROM attendance a JOIN students s ON s.id = a.student_id '
           'JOIN sessions se ON se.id = a.session_id '
           'JOIN groups g ON g.id = se.group_id '
@@ -117,7 +118,7 @@ class RecentScanFeed {
         .customSelect(
           'SELECT ta.id, ta.check_in, ta.check_out, ta.late_minutes, '
           't.id AS teacher_id, t.name, t.photo_local_path, t.photo_url, '
-          'g.number, sub.name AS subject, r.name AS room '
+          'g.number, ${GroupSql.subjectLabel} AS subject, r.name AS room '
           'FROM teacher_attendance ta JOIN teachers t ON t.id = ta.teacher_id '
           'LEFT JOIN sessions se ON se.id = ta.session_id '
           'LEFT JOIN groups g ON g.id = se.group_id '

@@ -5,6 +5,7 @@ import '../data/local/sync_writer.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
 import 'enums.dart';
+import 'group_sql.dart';
 import 'schedule_service.dart';
 import 'sms_event_service.dart';
 
@@ -321,7 +322,7 @@ class RequestService {
     }
     final rows = await db
         .customSelect(
-          'SELECT r.id, g.number, sub.name AS subject, se.date, '
+          'SELECT r.id, g.number, ${GroupSql.subjectLabel} AS subject, se.date, '
           'se.start_minutes, t.name AS teacher FROM session_requests r '
           'JOIN groups g ON g.id = r.group_id '
           'JOIN subjects sub ON sub.id = g.subject_id '
