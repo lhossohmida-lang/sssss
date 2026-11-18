@@ -116,8 +116,14 @@ begin
     raise exception 'الكتابة بعد الإعادة بلا مؤشر مزامنة';
   end if;
 end $$;
+-- حساب محذوف لا دور له بعدها (وقراءة المواد مفتوحة لكل مسجَّل فلا تصلح اختباراً).
 select test.login('acc-w1');
-select test.sees($$select 1 from subjects$$, 0, 'عامل محذوف لا يرى شيئاً');
+do $$
+begin
+  if app.role() is not null then
+    raise exception 'عامل محذوف ما زال له دور';
+  end if;
+end $$;
 select test.logout();
 
 -- الإعادة الثانية آمنة (تُكمل ما فاتها) وتبدّل الدورة من جديد.

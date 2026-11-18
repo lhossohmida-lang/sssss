@@ -7,6 +7,7 @@ import 'package:school_ui/testing.dart';
 import 'groups_screens_test.dart' hide main;
 import 'payments_screens_test.dart' hide main;
 import 'support/golden_support.dart';
+import 'support/groups_nav.dart';
 
 /// لقطات golden لشاشات الإدارة الأساسية بمحتوى ثابت (بلا تواريخ اليوم)، على
 /// حجم الهاتف وعلى حجم Windows (قائمة جانبية). تُقارَن بتسامح يعتمد المنصة.
@@ -78,7 +79,8 @@ void main() {
     );
     await tester.tap(find.text('الأفواج').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('الفوج ${group.number} · رياضيات'));
+    await openGroupList(tester);
+    await tester.tap(find.text('فوج ${group.number}'));
     await shoot(tester, 'group_details_windows_light');
   });
 
@@ -94,7 +96,8 @@ void main() {
     );
     await tester.tap(find.text('الأفواج').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('الفوج ${group.number} · رياضيات'));
+    await openGroupList(tester);
+    await tester.tap(find.text('فوج ${group.number}'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('إعداد الفوج: تلاميذ وحضور وتسديد'));
     await shoot(tester, 'group_setup_windows_light');

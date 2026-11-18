@@ -270,6 +270,10 @@ void main() {
       primaryKeys: PostgrestRemoteStore.primaryKeysOf(db),
       client: MockClient((request) async {
         final table = request.url.pathSegments.last;
+        // المحرك يقرأ دورة المدرسة قبل أي دفع: مدرسة لم تُعَد قط.
+        if (table == 'school_epoch') {
+          return http.Response(jsonEncode(''), 200);
+        }
         if (request.method == 'POST') {
           for (final row
               in jsonDecode(utf8.decode(request.bodyBytes)) as List) {
