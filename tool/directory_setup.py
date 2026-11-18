@@ -6,11 +6,14 @@
                                            # ترحيلاته، ويفحصه بمفتاحه العام، ويطبع العنوان والمفتاح (عامّان)
   python3 tool/directory_setup.py public   # (مسار build) يصدّر DIRECTORY_URL وDIRECTORY_KEY إلى GITHUB_ENV
 
-setup يعمل داخل Environment مدرسة فيه SUPABASE_ACCESS_TOKEN (رمز المطوّر الشخصي، يصل إلى كل مشاريع حسابه) وSUPABASE_PROJECT_REF
-(مشروع تلك المدرسة، ومنه تُؤخذ المنظمة والمنطقة ليكون الدليل في المنظمة نفسها وبجوارها). لا يلزم حفظ أي قيمة جديدة في GitHub:
-كلمة سر قاعدة الدليل تُولَّد عشوائياً ولا تُخزَّن (الترحيلات تمرّ بـManagement API لا بالقاعدة مباشرة)، ومفتاحاه يُجلبان بالرمز
-متى لزما. بعد نجاحه يضع المطوّر الناتج العام (`directory-public`) في `directory/public.json`، فيضمّنه `build` في التطبيقات العامة
-(بلا رمز ربط)، وتسجّل مسارات supabase-deploy كل مدرسة فيه.
+setup يعمل داخل Environment مدرسة فيه SUPABASE_ACCESS_TOKEN (رمز المطوّر الشخصي) وSUPABASE_PROJECT_REF (مشروع تلك المدرسة،
+ومنه تُؤخذ المنظمة والمنطقة ليكون الدليل في المنظمة نفسها وبجوارها). **قيد:** الرموز «المحدودة» (Scoped) في Supabase لا تملك
+صلاحية إنشاء المشاريع (Projects (account-wide) للقراءة فقط فيها) ولا تصل إلا إلى المشاريع التي حُدّدت لها؛ فإن وُجد مشروع باسم
+directory ويراه الرمز هيّأه المسار، وإلا يُنشأ المشروع يدوياً من لوحة Supabase ويُنشأ رمز Full access يصل إلى المشروعين (أو
+رمز قديم Legacy بصلاحية الحساب كله، فيُنشئ المسار المشروع بنفسه). لا يلزم حفظ أي قيمة جديدة أخرى في GitHub: كلمة سر قاعدة
+الدليل لا يحتاجها المسار (الترحيلات تمرّ بـManagement API لا بالقاعدة مباشرة)، ومفتاحاه يُجلبان بالرمز متى لزما. بعد نجاحه يضع
+المطوّر الناتج العام (`directory-public`) في `directory/public.json`، فيضمّنه `build` في التطبيقات العامة (بلا رمز ربط)،
+وتسجّل مسارات supabase-deploy كل مدرسة فيه.
 
 لا يُطبع أي سرّ؛ الرسائل فيها الأسباب والقيم العامة فقط.
 """
@@ -55,6 +58,8 @@ class Management:
     def __init__(self, config: "sb.Config"):
         self.base = config.api_base
         self.headers = {"Authorization": f"Bearer {config.token}"}
+        # أسماء المشاريع التي يراها الرمز (من آخر find): تُذكر في رسالة الرفض ليتضح هل يصل الرمز إلى الدليل.
+        self.visible: list[str] = []
 
     def request(self, method: str, path: str, body: Any = None, timeout: float = 60) -> tuple[int, Any]:
         status, payload = sb.call(method, f"{self.base}{path}", self.headers, body, timeout=timeout)
@@ -76,6 +81,7 @@ class Management:
         status, payload = self.request("GET", "/v1/projects")
         if status != 200 or not isinstance(payload, list):
             raise sb.ApiError(f"تعذّرت قراءة قائمة المشاريع ({status}) {sb.reason(payload)}", status)
+        self.visible = sorted(str(p.get("name", "")) for p in payload if isinstance(p, dict))
         found = [p for p in payload if isinstance(p, dict) and p.get("name") == name]
         return found[0] if found else None
 
@@ -96,6 +102,17 @@ class Management:
             timeout=120,
         )
         if status not in (200, 201) or not isinstance(payload, dict) or not payload.get("ref"):
+            if status == 403:
+                # ليس حدّ الخطة: الرمز نفسه لا يملك إنشاء المشاريع (الرموز المحدودة لا تملكه) أو لا يصل إلى الدليل الموجود.
+                seen = "، ".join(self.visible) if self.visible else "لا شيء"
+                raise sb.ApiError(
+                    f"تعذّر إنشاء مشروع الدليل (403) {sb.reason(payload)}. الرمز المحفوظ في SUPABASE_ACCESS_TOKEN لا يملك "
+                    "صلاحية إنشاء المشاريع (الرموز المحدودة بمشروع أو بمنظمة لا تستطيع ذلك)، أو أن مشروع directory موجود "
+                    f"ولا يصل إليه الرمز؛ المشاريع التي يراها الرمز: {seen}. الحل: أنشئ مشروعاً باسم directory من لوحة "
+                    "Supabase يدوياً، ثم أنشئ رمزاً بصلاحية Full access يصل إلى مشروعَي المدرسة والدليل وضعه مكان "
+                    "SUPABASE_ACCESS_TOKEN في Environment المدرسة، وأعد تشغيل المسار",
+                    status,
+                )
             raise sb.ApiError(
                 f"تعذّر إنشاء مشروع الدليل ({status}) {sb.reason(payload)}. الخطة المجانية تسمح بمشروعين "
                 "نشطين فقط: أنشئ مشروعاً باسم directory من لوحة Supabase يدوياً أو أوقف مشروعاً غير مستعمل",

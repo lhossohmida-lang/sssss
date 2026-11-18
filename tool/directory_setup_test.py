@@ -85,7 +85,8 @@ def make_handler(state):
                 if method == "POST" and path == "/v1/projects":
                     state.created.append(payload)
                     if state.create_status not in (200, 201):
-                        return self.reply(state.create_status, {"message": "limit of free projects reached"})
+                        message = "Forbidden" if state.create_status == 403 else "limit of free projects reached"
+                        return self.reply(state.create_status, {"message": message})
                     state.projects.append(
                         {
                             "ref": NEW_REF,
@@ -271,6 +272,20 @@ class DirectorySetupTest(unittest.TestCase):
         self.assertIn("limit of free projects", message)
         self.assertIn("مشروعين", message)
         self.assertIn("يدوياً", message)
+
+    def test_a_token_that_cannot_create_projects_is_told_apart_from_the_plan_limit(self):
+        # 403: رمز محدود لا يملك إنشاء المشاريع (حدث فعلاً)؛ الحلّ غير حلّ حدّ الخطة المجانية.
+        self.state.create_status = 403
+        with self.assertRaises(sb.ApiError) as raised:
+            self.run_setup()
+        message = str(raised.exception)
+        self.assertIn("403", message)
+        self.assertIn("Forbidden", message)
+        self.assertIn("SUPABASE_ACCESS_TOKEN", message)
+        self.assertIn("Full access", message)
+        self.assertIn("directory", message)
+        self.assertIn("school", message, "يذكر المشاريع التي يراها الرمز")
+        self.assertNotIn("مشروعين", message, "ليس حدّ الخطة المجانية")
 
     def test_a_wrong_token_is_reported(self):
         with self.assertRaises(sb.ApiError) as raised:
