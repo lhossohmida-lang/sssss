@@ -15,6 +15,11 @@ on:
         description: اسم Environment مدرسة فيه رمز Supabase الشخصي (الافتراضي demo)
         required: true
         default: demo
+      register:
+        description: سجّل مدرسة هذا الـEnvironment في الدليل بعد تهيئته (يكفيه رمز يصل إلى مشروع الدليل)
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -36,3 +41,22 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
         run: python3 tool/directory_setup.py setup
+
+      # تسجيل المدرسة في الدليل (اختياري، مدخل register): يكفيه رمز يصل إلى مشروع الدليل وحده (يُجلب به مفتاحه السرّي)،
+      # فيدخل صاحب المدرسة برقم هاتفه وتظهر مدرسته في القائمة دون انتظار supabase-deploy. لا يضبط أسرار دوال المدرسة
+      # (يُهمَل مفتاح التسجيل الجديد)، فيبقى تسجيل أرقام العمال الجدد في الدليل لـsupabase-deploy الذي يُعيد التسجيل
+      # ويضع المفتاح بعد أن يصل رمزه إلى مشروع المدرسة أيضاً. القيم نفسها التي يمرّرها supabase-deploy.
+      - name: Register the school in the directory (optional)
+        if: ${{ inputs.register }}
+        env:
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
+          DIRECTORY_SERVICE_KEY: ${{ secrets.DIRECTORY_SERVICE_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SCHOOL_SLUG: ${{ inputs.school || 'demo' }}
+          SCHOOL_NAME: ${{ vars.SCHOOL_NAME }}
+          SCHOOL_LISTED: ${{ vars.SCHOOL_LISTED }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          OWNER_PHONE: ${{ vars.OWNER_PHONE || secrets.OWNER_PHONE }}
+        run: python3 tool/directory_register.py register
