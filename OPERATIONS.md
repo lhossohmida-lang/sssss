@@ -305,7 +305,7 @@ Android قبل النشر (تثبيت وتشغيل بلا انهيار) ومسا
    | Resource access | `Project` ← المنظمة نفسها ← اختر مشروعَي `school` (العرض) و`directory` معاً |
    | Permissions (Preset) | `Full access` |
 
-   ثم «Review access» ← «Generate token» وانسخ الرمز (يظهر مرة واحدة ويبدأ بـ`sbp_`)، وضعه في GitHub بدل القديم:
+   ثم «Review access» ← «Generate token» وانسخ الرمز **بزر Copy فور ظهوره** (يظهر كاملاً مرة واحدة ويبدأ بـ`sbp_`؛ أما المقنَّع بنجوم `sbp_fc86…****…274b` فهو ما تعرضه قائمة الرموز لاحقاً ولصقه يعطي `401` «مرفوض»، وإن لُصق خطأً وُصف شكله في تعليق `directory-setup` بلا ذكر قيمته فأنشئ رمزاً جديداً)، وضعه في GitHub بدل القديم:
    `https://github.com/lhossohmida-lang/sssss/settings/environments` ← `demo` ← «Environment secrets» ←
    `SUPABASE_ACCESS_TOKEN` ← قلم التعديل ← الصق الرمز ← «Update secret». (لا تُرسل الرمز في أي محادثة. ويمكن بعدها حذف
    الرمز القديم `school` من صفحة الرموز.) بدلاً من هذا كله: رمز «قديم» (Legacy) بصلاحية الحساب كله ينشئ المسار به المشروع

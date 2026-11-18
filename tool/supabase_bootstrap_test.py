@@ -274,6 +274,28 @@ class Refusals(FakeServerCase):
         with self.assertRaisesRegex(sb.ApiError, "مرفوض"):
             sb.Bootstrap(bad).verify()
 
+    def test_the_token_hint_describes_the_value_without_revealing_it(self):
+        cases = {
+            "": "فارغ",
+            "sbp_fc868b8a26f0********274b": "نجوم",
+            "wrong": "لا تبدأ بـ sbp_",
+            "sbp_ab cd": "فراغ",
+            "sbp_" + "a" * 40: "شكل القيمة المحفوظة سليم",
+        }
+        for token, expected in cases.items():
+            hint = sb.token_hint(token)
+            self.assertIn(expected, hint, token)
+            if token:
+                self.assertNotIn(token, hint, "لا تُذكر قيمة الرمز في سجل علني")
+
+    def test_a_pasted_token_loses_its_surrounding_whitespace(self):
+        self.assertEqual(sb.Config.from_env({"SUPABASE_ACCESS_TOKEN": "  sbp_abc\n"}).token, "sbp_abc")
+
+    def test_a_bad_token_message_carries_the_hint(self):
+        bad = sb.Config(**{**self.config.__dict__, "token": "sbp_not*real"})
+        with self.assertRaisesRegex(sb.ApiError, "نجوم"):
+            sb.Bootstrap(bad).verify()
+
     def test_masked_secret_key_is_rejected(self):
         self.state.keys = [{"type": "secret", "name": "default", "api_key": "sb_secret_ab••••••"}]
         with self.assertRaisesRegex(sb.ApiError, "مخفي"):

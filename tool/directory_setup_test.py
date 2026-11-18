@@ -297,6 +297,58 @@ class DirectorySetupTest(unittest.TestCase):
                 url_for=lambda ref: self.base,
             )
         self.assertIn("مرفوض", str(raised.exception))
+        self.assertIn("sbp_", str(raised.exception), "يدلّ على أن القيمة ليست رمزاً شخصياً")
+
+    def rejected(self, token):
+        with self.assertRaises(sb.ApiError) as raised:
+            ds.setup(
+                self.environ(SUPABASE_ACCESS_TOKEN=token),
+                sleep=self.slept.append,
+                poll=0,
+                migrations=[("x.sql", SQL)],
+                url_for=lambda ref: self.base,
+            )
+        message = str(raised.exception)
+        self.assertIn("مرفوض", message)
+        self.assertNotIn(token.strip(), message, "السجلات علنية: لا تُذكر قيمة الرمز")
+        return message
+
+    def test_a_masked_token_pasted_from_the_list_is_named(self):
+        # رمز القائمة المقنَّع (نجوم في وسطه) لا الرمز الكامل: خطأ لصق شائع، وكان سبب فشل فعلي.
+        message = self.rejected("sbp_fc868b8a26f0********274b")
+        self.assertIn("نجوم", message)
+        self.assertIn("Copy", message)
+
+    def test_a_well_formed_but_unknown_token_says_so(self):
+        message = self.rejected("sbp_" + "0123456789abcdef" * 2 + "01234567")
+        self.assertIn("شكل القيمة المحفوظة سليم", message)
+        self.assertIn("أنشئ رمزاً جديداً", message)
+
+    def test_a_token_with_a_space_inside_is_named(self):
+        self.assertIn("فراغ", self.rejected("sbp_abc def"))
+
+    def test_an_empty_token_secret_is_named_by_the_missing_input_check(self):
+        with self.assertRaises(sb.ApiError) as raised:
+            ds.setup(
+                self.environ(SUPABASE_ACCESS_TOKEN="  \n"),
+                sleep=self.slept.append,
+                poll=0,
+                migrations=[("x.sql", SQL)],
+                url_for=lambda ref: self.base,
+            )
+        self.assertIn("SUPABASE_ACCESS_TOKEN", str(raised.exception))
+
+    def test_a_token_pasted_with_stray_whitespace_still_works(self):
+        # اللصق يترك غالباً سطراً جديداً أو فراغاً حول الرمز.
+        notes, public = ds.setup(
+            self.environ(SUPABASE_ACCESS_TOKEN=f"  {TOKEN}\n"),
+            sleep=self.slept.append,
+            poll=0.5,
+            timeout=30,
+            migrations=[("0001_directory.sql", SQL)],
+            url_for=lambda ref: self.base,
+        )
+        self.assertEqual(public["anon_key"], PUBLISHABLE)
 
     def test_missing_inputs_are_named(self):
         with self.assertRaises(sb.ApiError) as raised:

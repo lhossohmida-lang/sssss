@@ -59,6 +59,25 @@ def reason(payload: Any) -> str:
     return ""
 
 
+def token_hint(token: str) -> str:
+    """يصف شكل رمز الوصول المحفوظ دون ذكر قيمته، ويُلحق برسالة رفضه ليتضح عيب اللصق (سجلات المستودع علنية)."""
+    if not token:
+        return ": السرّ SUPABASE_ACCESS_TOKEN فارغ"
+    if "*" in token:
+        return (
+            "؛ القيمة المحفوظة فيها نجوم (*)، أي أنها الرمز المقنَّع الظاهر في قائمة الرموز لا الرمز الكامل. "
+            "انسخ الرمز بزر Copy فور إنشائه (يظهر كاملاً مرة واحدة) والصقه وحده"
+        )
+    if not token.startswith("sbp_"):
+        return "؛ القيمة المحفوظة لا تبدأ بـ sbp_ فليست رمز وصول شخصياً من Supabase"
+    if any(ch.isspace() for ch in token):
+        return "؛ في القيمة المحفوظة فراغ أو سطر جديد وسط الرمز: الصق الرمز وحده"
+    return (
+        "؛ شكل القيمة المحفوظة سليم (تبدأ بـ sbp_) لكن Supabase لا يعرفها: حُذف الرمز أو انتهى أو لُصق ناقصاً، "
+        "فأنشئ رمزاً جديداً وأعد لصقه"
+    )
+
+
 def call(
     method: str,
     url: str,
@@ -101,7 +120,8 @@ class Config:
     @staticmethod
     def from_env(environ: dict[str, str]) -> "Config":
         return Config(
-            token=environ.get("SUPABASE_ACCESS_TOKEN", ""),
+            # يُقصّ ما يتركه اللصق من فراغ أو سطر جديد حول الرمز.
+            token=environ.get("SUPABASE_ACCESS_TOKEN", "").strip(),
             ref=environ.get("SUPABASE_PROJECT_REF", ""),
             url=environ.get("SUPABASE_URL", "").rstrip("/"),
             anon_key=environ.get("SUPABASE_ANON_KEY", ""),
@@ -130,7 +150,7 @@ class Bootstrap:
             "GET", f"{self.cfg.api_base}/v1/projects/{self.cfg.ref}", self._management
         )
         if status == 401:
-            raise ApiError("رمز Supabase مرفوض (خاطئ أو منتهٍ)", status)
+            raise ApiError("رمز Supabase مرفوض (خاطئ أو منتهٍ)" + token_hint(self.cfg.token), status)
         if status == 403:
             raise ApiError("رمز Supabase لا يملك صلاحية قراءة المشروع (Project Settings)", status)
         if status == 404:

@@ -58,13 +58,14 @@ class Management:
     def __init__(self, config: "sb.Config"):
         self.base = config.api_base
         self.headers = {"Authorization": f"Bearer {config.token}"}
+        self.token = config.token
         # أسماء المشاريع التي يراها الرمز (من آخر find): تُذكر في رسالة الرفض ليتضح هل يصل الرمز إلى الدليل.
         self.visible: list[str] = []
 
     def request(self, method: str, path: str, body: Any = None, timeout: float = 60) -> tuple[int, Any]:
         status, payload = sb.call(method, f"{self.base}{path}", self.headers, body, timeout=timeout)
         if status == 401:
-            raise sb.ApiError("رمز Supabase مرفوض (خاطئ أو منتهٍ)", status)
+            raise sb.ApiError("رمز Supabase مرفوض (خاطئ أو منتهٍ)" + sb.token_hint(self.token), status)
         return status, payload
 
     def project(self, ref: str) -> dict[str, Any]:
