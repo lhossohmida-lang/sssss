@@ -6,8 +6,10 @@
   python3 tool/directory_register.py verify     # يفحص الدليل بمفتاحه العام (مسار directory-deploy)
 
 المدخلات من البيئة:
-  DIRECTORY_URL (متغيّر عام) وDIRECTORY_SERVICE_KEY (سرّ المطوّر: مفتاح الدليل السرّي). دون
-  DIRECTORY_URL لا يحدث شيء (مدرسة بلا دليل).
+  DIRECTORY_URL وDIRECTORY_ANON_KEY (عنوان الدليل ومفتاحه العام، وهما عامّان): يُؤخذان من البيئة إن وُجدا وإلا من
+  ملف المستودع `directory/public.json` الذي يُنشئه مسار directory-deploy. دون عنوان لا يحدث شيء (مدرسة بلا دليل).
+  DIRECTORY_SERVICE_KEY (مفتاح الدليل السرّي): من البيئة إن وُجد، وإلا يُجلب في أثناء التشغيل بالرمز الشخصي
+  SUPABASE_ACCESS_TOKEN (Management API) فلا يلزم حفظه في أسرار المستودع.
   SCHOOL_SLUG (اسم Environment المدرسة) وSCHOOL_NAME (اسمها الظاهر، وإلا الاسم المختصر) وSCHOOL_LISTED
   (true|false، الافتراضي true)، وSUPABASE_URL وSUPABASE_ANON_KEY (خادم المدرسة ومفتاحه العام)
   وOWNER_PHONE (رقم المالك ليعرف تطبيق الإدارة مدرسته منه).
@@ -19,6 +21,7 @@ DIRECTORY_REGISTER_KEY (بعد إخفائه من السجل) ليضعه المس
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets as randomness
@@ -32,6 +35,53 @@ import supabase_bootstrap as sb  # noqa: E402
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$")
 TITLE = "directory-register"
 
+# ملف العنوان والمفتاح العام للدليل (لا سرّ فيهما: يُضمَّنان في كل تطبيق عام)، يضعه المطوّر بعد directory-deploy.
+PUBLIC_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "directory", "public.json")
+URL_PATTERN = re.compile(r"^https://([a-z]{20})\.supabase\.co$")
+# الاسم الظاهر الافتراضي لمدرسة بلا SCHOOL_NAME في Environment: مدرسة العرض باسم بياناتها الوهمية.
+DEFAULT_NAMES = {"demo": "مدرسة العرض التجريبية"}
+
+
+def public_config(environ: dict[str, str]) -> tuple[str, str]:
+    """(عنوان الدليل، مفتاحه العام): من البيئة إن وُجد أيٌّ منهما، وإلا من directory/public.json.
+
+    يعيد سلسلتين فارغتين إن لم يوجد دليل. الملف غير الصالح يُتجاهل (يبقى البناء بلا دليل).
+    """
+    url = environ.get("DIRECTORY_URL", "").strip().rstrip("/")
+    key = (environ.get("DIRECTORY_ANON_KEY") or environ.get("DIRECTORY_KEY") or "").strip()
+    if url or key:
+        return url, key
+    path = environ.get("DIRECTORY_PUBLIC_FILE") or PUBLIC_FILE
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return "", ""
+    if not isinstance(data, dict):
+        return "", ""
+    file_url = str(data.get("url", "")).strip().rstrip("/")
+    file_key = str(data.get("anon_key", "")).strip()
+    if not URL_PATTERN.fullmatch(file_url) or not file_key.startswith("sb_publishable_"):
+        return "", ""
+    return file_url, file_key
+
+
+def service_key_for(environ: dict[str, str], directory_url: str) -> str:
+    """مفتاح الدليل السرّي: من البيئة، وإلا يُجلب برمز Supabase الشخصي (دون حفظه في أي مكان)."""
+    key = environ.get("DIRECTORY_SERVICE_KEY", "")
+    if key:
+        return key
+    token = environ.get("SUPABASE_ACCESS_TOKEN", "")
+    match = URL_PATTERN.fullmatch(directory_url)
+    if not token or not match:
+        return ""
+    config = sb.Config(
+        token=token,
+        ref=match.group(1),
+        api_base=environ.get("SUPABASE_API_BASE", "https://api.supabase.com").rstrip("/"),
+    )
+    return sb.Bootstrap(config).secret_key()
+
 
 def admin_headers(key: str) -> dict[str, str]:
     """المفتاح الجديد ليس JWT فيُرسل في apikey وحده؛ والقديم JWT يُرسل في الرأسين."""
@@ -43,13 +93,16 @@ def admin_headers(key: str) -> dict[str, str]:
 
 def register(environ: dict[str, str]) -> tuple[Optional[str], list[tuple[str, str]]]:
     """يسجّل المدرسة. يعيد (مفتاح التسجيل أو None، رسائل (مستوى، نص)) ويرمي ApiError."""
-    directory_url = environ.get("DIRECTORY_URL", "").strip().rstrip("/")
+    directory_url, _ = public_config(environ)
     if not directory_url:
         return None, [("notice", "لا دليل مدارس مضبوط (DIRECTORY_URL): لم تُسجَّل المدرسة")]
 
-    service_key = environ.get("DIRECTORY_SERVICE_KEY", "")
+    service_key = service_key_for(environ, directory_url)
     if not service_key:
-        raise sb.ApiError("DIRECTORY_URL مضبوط لكن DIRECTORY_SERVICE_KEY غير موجود في أسرار المستودع")
+        raise sb.ApiError(
+            "DIRECTORY_URL مضبوط لكن DIRECTORY_SERVICE_KEY غير موجود في أسرار المستودع "
+            "(ولا SUPABASE_ACCESS_TOKEN ليُجلب منه)"
+        )
     if service_key.startswith("sb_publishable_"):
         raise sb.ApiError("DIRECTORY_SERVICE_KEY مفتاح عام؛ المطلوب المفتاح السرّي (sb_secret_…) للدليل")
 
@@ -65,7 +118,7 @@ def register(environ: dict[str, str]) -> tuple[Optional[str], list[tuple[str, st
         raise sb.ApiError("SUPABASE_URL وSUPABASE_ANON_KEY مطلوبان لتسجيل المدرسة في الدليل")
 
     notes: list[tuple[str, str]] = []
-    name = environ.get("SCHOOL_NAME", "").strip()
+    name = environ.get("SCHOOL_NAME", "").strip() or DEFAULT_NAMES.get(slug, "")
     if not name:
         name = slug
         notes.append(
@@ -171,8 +224,12 @@ def main(argv: list[str], environ: Optional[dict[str, str]] = None) -> int:
         print(f"::add-mask::{key}")
         path = environ.get("GITHUB_ENV")
         if path:
+            url, anon = public_config(environ)
             with open(path, "a", encoding="utf-8") as f:
                 f.write(f"DIRECTORY_REGISTER_KEY={key}\n")
+                # العنوان والمفتاح العام (لا سرّ فيهما) للخطوات التالية إن لم يكونا في متغيرات المستودع.
+                if url and anon:
+                    f.write(f"DIRECTORY_URL={url}\nDIRECTORY_ANON_KEY={anon}\n")
     for level, text in notes:
         print(f"::{level} title={TITLE}::{sb.escape(text)}")
     return 0

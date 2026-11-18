@@ -18,6 +18,8 @@ import directory_register as dr  # noqa: E402
 SERVICE_KEY = "sb_secret_SENTINEL-DIRECTORY-KEY"
 SCHOOL_KEY = "sb_publishable_school-public-key"
 SERVICE_ROLE_JWT = "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.signature"
+NO_PUBLIC_FILE = os.path.join(tempfile.gettempdir(), "no-such-directory-public.json")
+DIRECTORY_REF = "directorydirectorydi"
 
 
 class State:
@@ -92,6 +94,7 @@ class DirectoryRegisterTest(unittest.TestCase):
             "SUPABASE_ANON_KEY": SCHOOL_KEY,
             "OWNER_PHONE": "0550123456",
             "GITHUB_ENV": self.env_file.name,
+            "DIRECTORY_PUBLIC_FILE": NO_PUBLIC_FILE,
         }
         values.update(overrides)
         return values
@@ -201,6 +204,28 @@ class DirectoryRegisterTest(unittest.TestCase):
         self.assertNotIn(SERVICE_KEY, output)
         self.assertNotIn(key, printed)
 
+    def test_the_demo_school_gets_its_default_name_without_a_warning(self):
+        code, output = self.run_main(self.environ(SCHOOL_SLUG="demo", SCHOOL_NAME=""))
+        self.assertEqual(code, 0, output)
+        self.assertEqual(self.state.requests[0][2]["p_name"], "مدرسة العرض التجريبية")
+        self.assertNotIn("::warning", output)
+
+    def test_an_explicit_school_name_wins_over_the_default(self):
+        self.run_main(self.environ(SCHOOL_SLUG="demo", SCHOOL_NAME="مدرستي"))
+        self.assertEqual(self.state.requests[0][2]["p_name"], "مدرستي")
+
+    def test_public_values_are_exported_for_the_next_steps_when_known(self):
+        self.run_main(self.environ(DIRECTORY_ANON_KEY="sb_publishable_directory-public"))
+        with open(self.env_file.name, encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn(f"DIRECTORY_URL=http://127.0.0.1:{self.server.server_address[1]}", content)
+        self.assertIn("DIRECTORY_ANON_KEY=sb_publishable_directory-public", content)
+
+    def test_public_values_are_not_exported_when_the_key_is_unknown(self):
+        self.run_main(self.environ())
+        with open(self.env_file.name, encoding="utf-8") as f:
+            self.assertNotIn("DIRECTORY_URL=", f.read())
+
     def test_usage(self):
         out = io.StringIO()
         with contextlib.redirect_stderr(out):
@@ -260,6 +285,110 @@ class DirectoryRegisterTest(unittest.TestCase):
             self.assertEqual(code, 1, overrides)
             self.assertIn("::error title=directory-verify::", output)
         self.assertEqual(self.state.requests, [])
+
+
+class PublicConfigTest(unittest.TestCase):
+    def file_with(self, content):
+        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".json", encoding="utf-8") as f:
+            f.write(content)
+        self.addCleanup(os.unlink, f.name)
+        return f.name
+
+    def test_variables_win_over_the_file_and_are_not_mixed(self):
+        good = self.file_with(json.dumps({"url": f"https://{DIRECTORY_REF}.supabase.co", "anon_key": "sb_publishable_file"}))
+        self.assertEqual(
+            dr.public_config({"DIRECTORY_URL": "https://zzzzzzzzzzzzzzzzzzzz.supabase.co/", "DIRECTORY_ANON_KEY": "sb_publishable_var", "DIRECTORY_PUBLIC_FILE": good}),
+            ("https://zzzzzzzzzzzzzzzzzzzz.supabase.co", "sb_publishable_var"),
+        )
+        # متغيّر واحد يكفي ليُعدّ الإعداد من البيئة (دون خلط بالملف).
+        self.assertEqual(
+            dr.public_config({"DIRECTORY_URL": "https://zzzzzzzzzzzzzzzzzzzz.supabase.co", "DIRECTORY_PUBLIC_FILE": good}),
+            ("https://zzzzzzzzzzzzzzzzzzzz.supabase.co", ""),
+        )
+
+    def test_the_build_name_of_the_key_variable_is_accepted(self):
+        self.assertEqual(
+            dr.public_config({"DIRECTORY_URL": "https://zzzzzzzzzzzzzzzzzzzz.supabase.co", "DIRECTORY_KEY": "sb_publishable_build"}),
+            ("https://zzzzzzzzzzzzzzzzzzzz.supabase.co", "sb_publishable_build"),
+        )
+
+    def test_the_file_is_used_without_variables(self):
+        good = self.file_with(json.dumps({"url": f"https://{DIRECTORY_REF}.supabase.co", "anon_key": "sb_publishable_file"}))
+        self.assertEqual(
+            dr.public_config({"DIRECTORY_PUBLIC_FILE": good}),
+            (f"https://{DIRECTORY_REF}.supabase.co", "sb_publishable_file"),
+        )
+
+    def test_no_file_and_no_variables_means_no_directory(self):
+        self.assertEqual(dr.public_config({"DIRECTORY_PUBLIC_FILE": NO_PUBLIC_FILE}), ("", ""))
+
+    def test_the_committed_file_is_valid_when_present(self):
+        if not os.path.exists(dr.PUBLIC_FILE):
+            self.skipTest("directory/public.json لم يُنشأ بعد")
+        url, key = dr.public_config({})
+        self.assertRegex(url, r"^https://[a-z]{20}\.supabase\.co$")
+        self.assertTrue(key.startswith("sb_publishable_"))
+
+
+class ServiceKeyTest(unittest.TestCase):
+    """مفتاح الدليل السرّي يُجلب برمز Supabase الشخصي بدل حفظه في أسرار المستودع."""
+
+    def setUp(self):
+        self.calls = []
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                outer.calls.append((self.path, self.headers.get("Authorization")))
+                keys = outer.keys
+                status = outer.status
+                raw = json.dumps(keys if status == 200 else {"message": "denied"}).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+        self.keys = [
+            {"type": "publishable", "name": "default", "api_key": "sb_publishable_x"},
+            {"type": "secret", "name": "default", "api_key": SERVICE_KEY},
+        ]
+        self.status = 200
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.url = f"https://{DIRECTORY_REF}.supabase.co"
+
+    def environ(self, **overrides):
+        values = {"SUPABASE_ACCESS_TOKEN": "sbp_token", "SUPABASE_API_BASE": self.base}
+        values.update(overrides)
+        return values
+
+    def test_the_key_is_fetched_with_the_token_for_the_directory_project(self):
+        key = dr.service_key_for(self.environ(), self.url)
+        self.assertEqual(key, SERVICE_KEY)
+        path, auth = self.calls[0]
+        self.assertTrue(path.startswith(f"/v1/projects/{DIRECTORY_REF}/api-keys"))
+        self.assertEqual(auth, "Bearer sbp_token")
+
+    def test_a_key_in_the_environment_is_used_without_any_request(self):
+        self.assertEqual(dr.service_key_for(self.environ(DIRECTORY_SERVICE_KEY="sb_secret_env"), self.url), "sb_secret_env")
+        self.assertEqual(self.calls, [])
+
+    def test_without_a_token_or_for_another_kind_of_url_nothing_is_fetched(self):
+        self.assertEqual(dr.service_key_for({}, self.url), "")
+        self.assertEqual(dr.service_key_for(self.environ(), "http://127.0.0.1:9999"), "")
+        self.assertEqual(self.calls, [])
+
+    def test_a_token_without_permission_is_reported(self):
+        self.status = 403
+        with self.assertRaises(dr.sb.ApiError):
+            dr.service_key_for(self.environ(), self.url)
 
 
 if __name__ == "__main__":

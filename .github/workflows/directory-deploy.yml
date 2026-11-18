@@ -1,15 +1,20 @@
 name: directory-deploy
 
-# ينشر دليل المدارس على مشروع Supabase المخصص له: الترحيلات (directory/supabase/migrations) ثم فحص
-# حي بمفتاحه العام للتأكد أن القراءة تعمل وأن التسجيل والجداول مغلقان. يُشغَّل يدوياً (workflow_dispatch)
-# مرة بعد إنشاء المشروع، ثم كلما تغيّرت ترحيلات الدليل. لا يُشغَّل تلقائياً عند الدفع لئلا يفشل قبل
-# إنشاء الـEnvironment.
+# ينشئ دليل المدارس (مشروع Supabase باسم `directory`) إن لم يوجد، ويطبّق ترحيلاته، ويفحصه بمفتاحه العام: القراءة
+# تعمل والتسجيل والجداول مغلقة. يعمل داخل Environment مدرسة (الافتراضي demo) فيه SUPABASE_ACCESS_TOKEN (رمز المطوّر
+# الشخصي) وSUPABASE_PROJECT_REF، ومنهما تُؤخذ المنظمة والمنطقة ليكون الدليل بجوار تلك المدرسة. لا يلزم Environment جديد ولا
+# أي سرّ جديد: كلمة سر قاعدة الدليل تُولَّد عشوائياً ولا تُخزَّن (الترحيلات تمرّ بـManagement API)، ومفتاحاه يُجلبان بالرمز.
 #
-# Environment باسم `directory` فيه: SUPABASE_PROJECT_REF وSUPABASE_URL وSUPABASE_ANON_KEY (متغيّرات)،
-# وSUPABASE_ACCESS_TOKEN وSUPABASE_DB_PASSWORD (أسرار). لا تُطبع أي قيمة سرّية؛ النتائج والأخطاء في
-# تعليقات `directory-*` العامة.
+# يُشغَّل يدوياً (workflow_dispatch) مرة، ثم كلما تغيّرت ترحيلات الدليل. نتيجته تعليق `directory-public` فيه عنوان الدليل
+# ومفتاحه العام (عامّان): يُحفظان في `directory/public.json` فتضمّنهما التطبيقات العامة وقت البناء (بلا رمز ربط)، وتسجّل
+# مسارات supabase-deploy كل مدرسة فيه. لا تُطبع أي قيمة سرّية؛ النتائج والأخطاء في تعليقات `directory-*` العامة.
 on:
   workflow_dispatch:
+    inputs:
+      school:
+        description: اسم Environment مدرسة فيه رمز Supabase الشخصي (الافتراضي demo)
+        required: true
+        default: demo
 
 permissions:
   contents: read
@@ -21,53 +26,13 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: directory
+    timeout-minutes: 30
+    environment: ${{ inputs.school || 'demo' }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify access to the project
+      - name: Create the directory if needed, prepare it and check it
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
-        run: python3 tool/supabase_bootstrap.py verify
-
-      - name: Install the Supabase CLI
-        shell: bash
-        run: |
-          set -e
-          mkdir -p "$HOME/.local/bin"
-          curl -fsSL --retry 3 "https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz" \
-            | tar -xz -C "$HOME/.local/bin" supabase
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          echo "::notice title=directory-cli::$("$HOME/.local/bin/supabase" --version)"
-
-      # مجلد المشروع `directory` (فيه supabase/config.toml وsupabase/migrations) غير مجلد خوادم المدارس.
-      - name: Link the project and apply the migrations
-        shell: bash
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
-          MASK_ENV: SUPABASE_DB_PASSWORD,SUPABASE_ACCESS_TOKEN
-        run: |
-          set +e
-          supabase link --workdir directory --project-ref "$SUPABASE_PROJECT_REF" > supabase-db.log 2>&1
-          status=$?
-          if [ "$status" = "0" ]; then
-            supabase db push --workdir directory --yes --remote >> supabase-db.log 2>&1
-            status=$?
-          fi
-          cat supabase-db.log
-          if [ "$status" != "0" ]; then
-            python3 tool/ci_error.py directory-db-push supabase-db.log 40
-          fi
-          exit "$status"
-
-      # يفحص الدليل كما تراه التطبيقات (بمفتاحه العام): list_schools وresolve_school تعملان،
-      # وregister_school والجداول مغلقة أمام هذا المفتاح.
-      - name: Check the directory API with its public key
-        env:
-          DIRECTORY_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
-          DIRECTORY_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
-        run: python3 tool/directory_register.py verify
+        run: python3 tool/directory_setup.py setup

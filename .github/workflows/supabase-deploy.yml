@@ -106,11 +106,15 @@ jobs:
 
       # دليل المدارس: يسجّل المدرسة (اسمها وخادمها ومفتاحها العام ورقم مالكها) ويصدّر مفتاح تسجيل جديداً لها
       # تضعه الخطوة التالية في أسرار دوال المدرسة فتسجّل دالة إنشاء الحسابات أرقام العمال الجدد في الدليل.
-      # دون DIRECTORY_URL في متغيرات المستودع لا تفعل شيئاً (مدرسة بلا دليل).
+      # عنوان الدليل ومفتاحه العام من متغيرات المستودع إن وُجدت وإلا من الملف directory/public.json (ويُصدَّران للخطوة
+      # التالية)، ومفتاحه السرّي من DIRECTORY_SERVICE_KEY إن وُجد وإلا يُجلب برمز Supabase الشخصي في أثناء التشغيل.
+      # دون دليل لا تفعل شيئاً (مدرسة بلا دليل). وبلا SCHOOL_NAME تأخذ مدرسة demo اسم بياناتها الوهمية.
       - name: Register the school in the directory
         env:
           DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
           DIRECTORY_SERVICE_KEY: ${{ secrets.DIRECTORY_SERVICE_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SCHOOL_SLUG: ${{ inputs.school || 'demo' }}
           SCHOOL_NAME: ${{ vars.SCHOOL_NAME }}
           SCHOOL_LISTED: ${{ vars.SCHOOL_LISTED }}
@@ -129,8 +133,6 @@ jobs:
           LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
           LLM_BASE_URL: ${{ vars.LLM_BASE_URL || secrets.LLM_BASE_URL }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
-          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
           DIRECTORY_SLUG: ${{ inputs.school || 'demo' }}
           MASK_ENV: SUPABASE_ACCESS_TOKEN,LLM_API_KEY,FIREBASE_SERVICE_ACCOUNT,PUSH_SECRET,DIRECTORY_REGISTER_KEY
         run: |

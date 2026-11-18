@@ -75,6 +75,14 @@ jobs:
             printf '%s' "$json" > "apps/${{ matrix.app }}/android/app/google-services.json"
             echo "FIREBASE_PUSH_ENABLED=true" >> "$GITHUB_ENV"
           fi
+      # دليل المدارس: عنوانه ومفتاحه العام من متغيرات المستودع إن وُجدت وإلا من الملف directory/public.json الذي
+      # يضعه المطوّر بعد directory-deploy. القيمتان عامّتان فلا سرّ هنا؛ تُصدَّران إلى الخطوة التالية.
+      - name: Resolve the school directory
+        shell: bash
+        env:
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
+        run: python3 tool/directory_setup.py public
       - name: Build APK
         working-directory: apps/${{ matrix.app }}
         shell: bash
@@ -86,8 +94,6 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
           GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
-          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
-          DIRECTORY_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
           SCHOOL: ${{ inputs.school }}
         run: |
           defines=()
@@ -136,6 +142,15 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
+      # دليل المدارس (انظر خطوة Android): عامّ، من متغيرات المستودع أو الملف directory/public.json.
+      - name: Resolve the school directory
+        shell: bash
+        env:
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
+        run: |
+          py="$(command -v python3 || command -v python)"
+          "$py" tool/directory_setup.py public
       - name: Build Windows
         working-directory: apps/admin
         env:
@@ -144,8 +159,6 @@ jobs:
           GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
           GOOGLE_DRIVE_WINDOWS_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_WINDOWS_CLIENT_ID }}
           GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
-          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
-          DIRECTORY_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
           SCHOOL: ${{ inputs.school }}
         run: |
           $defines = @(
