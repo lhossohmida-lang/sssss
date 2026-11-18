@@ -9,8 +9,8 @@ begin
   select count(*) into n from information_schema.tables
    where table_schema = 'public' and table_type = 'BASE TABLE'
      and table_name <> 'push_installations';
-  if n <> 37 then
-    raise exception 'عدد الجداول % وليس 37', n;
+  if n <> 39 then
+    raise exception 'عدد الجداول % وليس 39', n;
   end if;
 
   -- لكل جدول عمود المزامنة ومشغّله.
