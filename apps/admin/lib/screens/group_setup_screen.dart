@@ -17,7 +17,7 @@ final groupSetupHeldProvider = FutureProvider.autoDispose.family<int, String>(
   (ref, groupId) => ref.watch(groupSetupServiceProvider).heldSessions(groupId),
 );
 
-/// سعر دورة الفوج للتلميذ (سعر مادته).
+/// سعر دورة الفوج للتلميذ: ما عُيِّن عند إنشاء الفوج (لكل فوج سعره بحسب مادته وسنته).
 final groupSetupPriceProvider = FutureProvider.autoDispose.family<int, String>(
   (ref, groupId) => ref.watch(groupSetupServiceProvider).priceOfGroup(groupId),
 );
@@ -86,7 +86,8 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
   }
 
   /// ينسب تلاميذ مسجَّلين من قبل إلى الفوج: يُختارون من قائمة المدرسة ببحث، فيُضافون بسعر
-  /// مادة الفوج (والملتحق في منتصف الدورة يأخذ رصيد ما فاته). التسديد من زر «تسديد» بعدها.
+  /// الفوج الذي عُيِّن عند إنشائه (والملتحق في منتصف الدورة يأخذ رصيد ما فاته). التسديد من
+  /// زر «تسديد» بعدها.
   Future<void> _addExisting() async {
     final inGroup = {
       for (final row
@@ -172,6 +173,10 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
       PermissionAction.use,
     );
     final canPast = ref.can(PermissionModule.attendance, PermissionAction.edit);
+    final canSeePayouts = ref.can(
+      PermissionModule.payouts,
+      PermissionAction.view,
+    );
     final students = rows.value ?? const <GroupSetupRow>[];
 
     Widget card(String title, List<Widget> children) => Padding(
@@ -214,6 +219,21 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
                         '${item.teacherName} · ${item.scheduleText}',
                         style: text.bodyMedium!.copyWith(color: p.textMuted),
                       ),
+                      // السعر ونصيب الأستاذ كما كُتبا عند إنشاء الفوج: بهما يُربط التلاميذ والأستاذ.
+                      if (item.group.monthlyPrice > 0 ||
+                          (canSeePayouts && item.group.ratePerStudent != null))
+                        Text(
+                          [
+                            if (item.group.monthlyPrice > 0)
+                              'سعر الشهر للتلميذ: '
+                                  '${Money.format(item.group.monthlyPrice)}',
+                            if (canSeePayouts &&
+                                item.group.ratePerStudent != null)
+                              'نصيب الأستاذ لكل تلميذ: '
+                                  '${Money.format(item.group.ratePerStudent!)}',
+                          ].join(' · '),
+                          style: text.bodyMedium,
+                        ),
                     ],
                   ),
                 ),

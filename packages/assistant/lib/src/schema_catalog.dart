@@ -77,16 +77,21 @@ abstract final class AssistantSchema {
     ),
     AssistantTable(
       'subjects',
-      'المواد وسعر الشهر الافتراضي لكل مادة.',
+      'المواد وسعر الشهر المقترح لفوج جديد منها (سعر الفوج الفعلي في groups.monthly_price).',
       module: PermissionModule.subjects,
-      notes: {'monthly_price': 'سعر الدورة الافتراضي بالدينار'},
+      notes: {
+        'monthly_price': 'سعر الدورة المقترح عند إنشاء فوج من المادة، بالدينار',
+      },
     ),
     AssistantTable('rooms', 'القاعات وسعتها.', module: PermissionModule.rooms),
     AssistantTable(
       'teachers',
-      'الأساتذة: الاسم والهاتف ونصيبهم الافتراضي لكل تلميذ.',
+      'الأساتذة: الاسم والهاتف (ونصيبهم عن كل تلميذ يُعيَّن لكل فوج في groups.rate_per_student).',
       module: PermissionModule.teachers,
-      notes: {'rate_per_student': 'نصيبه الافتراضي من كل تلميذ في الدورة'},
+      notes: {
+        'rate_per_student':
+            'نصيبه الافتراضي القديم (النصيب الفعلي في groups.rate_per_student)',
+      },
     ),
     AssistantTable(
       'teacher_subjects',
@@ -110,14 +115,15 @@ abstract final class AssistantSchema {
     ),
     AssistantTable(
       'groups',
-      'الأفواج: رقم الفوج ومادته وأستاذه وقاعته وعدد حصص الدورة والدورة الحالية.',
+      'الأفواج: رقم الفوج ومادته وأستاذه وقاعته وعدد حصص الدورة والدورة الحالية وسعر شهره ومبلغ أستاذه.',
       module: PermissionModule.groups,
       notes: {
         'number': 'رقم الفوج',
         'sessions_per_cycle': 'عدد حصص الدورة',
         'current_cycle_number': 'رقم الدورة الحالية',
+        'monthly_price': 'سعر الشهر الذي يدفعه كل تلميذ في هذا الفوج (يُعيَّن عند إنشائه، ويختلف من فوج إلى آخر بحسب المادة والسنة)',
         'rate_per_student':
-            'نصيب الأستاذ لكل تلميذ في هذا الفوج (NULL = الافتراضي)',
+            'ما يأخذه الأستاذ عن كل تلميذ في هذا الفوج (يُعيَّن عند إنشائه)',
         'archived_at': 'NULL = الفوج نشط، وإلا مؤرشف (سنة جديدة)',
       },
     ),

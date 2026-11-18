@@ -161,9 +161,6 @@ class TeacherFormDialog extends ConsumerStatefulWidget {
 class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
   late final _name = TextEditingController(text: widget.initial?.name ?? '');
   late final _phone = TextEditingController(text: widget.initial?.phone ?? '');
-  late final _rate = TextEditingController(
-    text: '${widget.initial?.ratePerStudent ?? 0}',
-  );
   late final Set<String> _subjects = {...?widget.initialSubjectIds};
 
   /// نص البحث في المواد؛ المختارة منها تبقى ظاهرة دائماً.
@@ -176,17 +173,14 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
-    _rate.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (_saving) return;
-    final rate = int.tryParse(_rate.text.trim());
-    if (rate == null) {
-      setState(() => _errors = {TeacherService.fieldRate: 'أدخل المبلغ'});
-      return;
-    }
+    // ما يأخذه الأستاذ عن كل تلميذ يُعيَّن لكل فوج عند إنشائه، فلا يُسأل عنه هنا (القيمة الافتراضية
+    // القديمة في ملفه تبقى كما هي، تقترحها شاشة إنشاء الفوج).
+    final rate = widget.initial?.ratePerStudent ?? 0;
     setState(() {
       _saving = true;
       _errors = const {};
@@ -280,16 +274,6 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
                 ? 'يُبنى منه بريد الدخول وتصله عليه كلمة السر'
                 : 'بريد الدخول لا يتغير بتغيير الهاتف',
             error: _errors[TeacherService.fieldPhone],
-          ),
-          const SizedBox(height: ClaySpacing.md),
-          ClayTextField(
-            controller: _rate,
-            label: 'نصيبه لكل تلميذ في الدورة (${Money.currency})',
-            keyboardType: TextInputType.number,
-            textDirection: TextDirection.ltr,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            helper: 'قيمة افتراضية تُغيَّر لكل فوج',
-            error: _errors[TeacherService.fieldRate],
           ),
           const SizedBox(height: ClaySpacing.md),
           Text('المواد التي يدرّسها', style: text.labelMedium),
@@ -521,10 +505,7 @@ class TeacherProfileScreen extends ConsumerWidget {
                           value: LoginCredentials.displayLogin(t.email),
                           ltr: true,
                         ),
-                        _InfoRow(
-                          label: 'نصيبه لكل تلميذ',
-                          value: Money.format(t.ratePerStudent),
-                        ),
+                        // نصيبه عن كل تلميذ يُعيَّن لكل فوج عند إنشائه (يظهر في تفاصيل الفوج).
                       ],
                     ),
                   ),

@@ -6,6 +6,7 @@ import 'catalog_service.dart';
 import 'cycle_service.dart';
 import 'dues_service.dart';
 import 'enums.dart';
+import 'group_price.dart';
 import 'stable_id.dart';
 import 'waiting_service.dart';
 
@@ -110,8 +111,10 @@ class EnrolmentService {
     return [for (final row in rows) db.teachers.map(row.data)];
   }
 
-  /// ينسب التلميذ إلى المجموعة بسعره وتخفيضه.
+  /// ينسب التلميذ إلى المجموعة بسعرها وتخفيضه.
   ///
+  /// - السعر هو سعر شهر الفوج الذي عُيِّن عند إنشائه (انظر [GroupPrice])؛ لا تُدخله الشاشات من جديد.
+  ///   [monthlyPrice] تجاوز برمجي قديم لا تستعمله الواجهات.
   /// - دورة الالتحاق هي الدورة الحالية، وأول حصة له هي التالية لما انعقد
   ///   منها، فيُنشأ رصيد الحصص الفائتة (إجابة 49) إن التحق في منتصفها.
   /// - من غادر ثم عاد يُعاد انتسابه بنفس السجل.
@@ -122,17 +125,10 @@ class EnrolmentService {
   Future<GroupStudentRow> enrol({
     required String studentId,
     required String groupId,
-    required int monthlyPrice,
+    int? monthlyPrice,
     DiscountType discountType = DiscountType.none,
     int discountValue = 0,
   }) {
-    final errors = priceErrors(
-      price: monthlyPrice,
-      discountType: discountType,
-      discountValue: discountValue,
-    );
-    if (errors.isNotEmpty) throw ValidationException(errors);
-
     return db.transaction(() async {
       final group = await (db.select(
         db.groups,
@@ -142,6 +138,13 @@ class EnrolmentService {
           group.archivedAt != null) {
         throw ValidationException.field(fieldGroup, 'الفوج غير متاح');
       }
+      final price = monthlyPrice ?? await GroupPrice.of(db, group);
+      final errors = priceErrors(
+        price: price,
+        discountType: discountType,
+        discountValue: discountValue,
+      );
+      if (errors.isNotEmpty) throw ValidationException(errors);
       final id = StableId.groupStudent(groupId, studentId);
       final existing = await (db.select(
         db.groupStudents,
@@ -174,7 +177,7 @@ class EnrolmentService {
           joinedAt: stamp,
           joinedAtCycleNumber: Value(group.currentCycleNumber),
           joinedAtSessionNumber: Value(firstSession),
-          monthlyPrice: monthlyPrice,
+          monthlyPrice: price,
           discountType: Value(discountType.code),
           discountValue: Value(
             discountType == DiscountType.none ||

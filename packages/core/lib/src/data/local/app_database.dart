@@ -60,7 +60,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -79,6 +79,21 @@ class AppDatabase extends _$AppDatabase {
         await m.createIndex(idxStaffDebtsStaff);
         await m.createIndex(idxStaffDebtsDate);
         await m.createIndex(idxStaffDebtsUpdated);
+      }
+      // 5: سعر الشهر لكل فوج. الفوج القائم يأخذ سعر مادته ومبلغ أستاذه الحاليين فتصير لكل فوج قيمتاه
+      // (ما يقرؤه الخادم بالترحيل 0010 نفسه، فتتفق الأجهزة دون مزامنة).
+      if (from < 5) {
+        await m.addColumn(groups, groups.monthlyPrice);
+        await customStatement(
+          'UPDATE groups SET monthly_price = COALESCE((SELECT s.monthly_price '
+          'FROM subjects s WHERE s.id = groups.subject_id), 0) '
+          'WHERE monthly_price = 0',
+        );
+        await customStatement(
+          'UPDATE groups SET rate_per_student = (SELECT t.rate_per_student '
+          'FROM teachers t WHERE t.id = groups.teacher_id) '
+          'WHERE rate_per_student IS NULL',
+        );
       }
     },
     beforeOpen: (details) async {

@@ -98,9 +98,9 @@ values ('s1', 1, 1, 'أحمد', 'أ', '0550000001', false, 0, 'S-AAAAAAAAAA', 'p
 
 insert into groups (id, created_at, updated_at, number, subject_id, teacher_id,
                     room_id, sessions_per_cycle, current_cycle_number,
-                    rate_per_student)
-values ('g1', 1, 1, 1, 'sub', 't1', 'r1', 8, 1, 1500),
-       ('g2', 1, 1, 2, 'sub', 't2', 'r1', 8, 1, null);
+                    monthly_price, rate_per_student)
+values ('g1', 1, 1, 1, 'sub', 't1', 'r1', 8, 1, 2000, 1500),
+       ('g2', 1, 1, 2, 'sub', 't2', 'r1', 8, 1, 2500, null);
 
 -- 2026-11-14 يوم سبت (isodow = 6).
 insert into group_slots (id, created_at, updated_at, group_id, weekday,

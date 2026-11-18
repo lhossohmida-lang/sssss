@@ -18,6 +18,10 @@ class GroupDetailsScreen extends ConsumerWidget {
     final item = ref.watch(groupItemProvider(groupId));
     final canEdit = ref.can(PermissionModule.groups, PermissionAction.edit);
     final canPast = ref.can(PermissionModule.attendance, PermissionAction.edit);
+    final canSeePayouts = ref.can(
+      PermissionModule.payouts,
+      PermissionAction.view,
+    );
     final canSetup =
         ref.can(PermissionModule.students, PermissionAction.add) ||
         ref.can(PermissionModule.receiveMoney, PermissionAction.use) ||
@@ -63,6 +67,24 @@ class GroupDetailsScreen extends ConsumerWidget {
                       item.scheduleText,
                       style: text.bodySmall!.copyWith(color: p.textMuted),
                     ),
+                    // سعر الفوج ونصيب أستاذه كما كُتبا عند إنشائه (لا يتغيّران بعد ربط التلاميذ).
+                    if (item.group.monthlyPrice > 0 ||
+                        (canSeePayouts && item.group.ratePerStudent != null))
+                      Padding(
+                        padding: const EdgeInsets.only(top: ClaySpacing.xs),
+                        child: Text(
+                          [
+                            if (item.group.monthlyPrice > 0)
+                              'سعر الشهر للتلميذ: '
+                                  '${Money.format(item.group.monthlyPrice)}',
+                            if (canSeePayouts &&
+                                item.group.ratePerStudent != null)
+                              'نصيب الأستاذ لكل تلميذ: '
+                                  '${Money.format(item.group.ratePerStudent!)}',
+                          ].join(' · '),
+                          style: text.bodyMedium,
+                        ),
+                      ),
                     if (canSetup) ...[
                       const SizedBox(height: ClaySpacing.md),
                       ClayButton(

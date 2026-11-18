@@ -332,7 +332,9 @@ def build_dataset(today: date, owner_id: str, accounts: Optional[dict[str, str]]
             "room_id": f"demo-room-{room + 1}",
             "sessions_per_cycle": SESSIONS_PER_CYCLE,
             "current_cycle_number": group_sessions[g][-1]["cycle_number"] if group_sessions[g] else 1,
-            "rate_per_student": None,
+            # لكل فوج سعره ومبلغ أستاذه (يُعيَّنان عند إنشائه): سعر مادته ومبلغ أستاذه المعتاد في بيانات العرض.
+            "monthly_price": SUBJECTS[subject][1],
+            "rate_per_student": TEACHERS[teacher][1],
             "archived_at": None,
         }
         for g, (subject, teacher, room, _, _) in enumerate(GROUPS)

@@ -25,7 +25,13 @@ class Groups extends Table with SyncColumns {
   IntColumn get currentCycleNumber =>
       integer().withDefault(const Constant(1))();
 
-  /// مبلغ الأستاذ لكل تلميذ في هذه المجموعة؛ `null` يعني قيمة الأستاذ الافتراضية.
+  /// سعر الشهر (الدورة) الذي يدفعه كل تلميذ في هذه المجموعة بالدينار، قبل التخفيض. يُعيَّن عند
+  /// إنشاء الفوج فقط، وبه يُنسب التلاميذ إليه (فسعر مادة المستوى المتوسط غير سعر الابتدائي).
+  /// `0` لفوج أُنشئ قبل هذا الحقل ولم يُملأ بعد: يؤخذ سعر مادته (انظر `EnrolmentService.priceOfGroup`).
+  IntColumn get monthlyPrice => integer().withDefault(const Constant(0))();
+
+  /// مبلغ الأستاذ لكل تلميذ في هذه المجموعة؛ يُعيَّن عند إنشاء الفوج فقط. `null` لفوج قديم يعني
+  /// قيمة الأستاذ الافتراضية.
   IntColumn get ratePerStudent => integer().nullable()();
 
   /// وقت الأرشفة عند «سنة جديدة»؛ `null` يعني أن المجموعة نشطة.

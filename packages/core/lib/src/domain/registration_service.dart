@@ -7,6 +7,7 @@ import 'catalog_service.dart';
 import 'dues_service.dart';
 import 'enrolment_service.dart';
 import 'enums.dart';
+import 'group_price.dart';
 import 'phone.dart';
 import 'qr_code.dart';
 import 'school_settings.dart';
@@ -18,7 +19,7 @@ class SubjectChoice {
     required this.subjectId,
     this.groupId,
     this.preferredTeacherId,
-    this.monthlyPrice = 0,
+    this.monthlyPrice,
     this.discountType = DiscountType.none,
     this.discountValue = 0,
   });
@@ -31,8 +32,9 @@ class SubjectChoice {
   /// الأستاذ المفضّل في قائمة الانتظار (اختياري).
   final String? preferredTeacherId;
 
-  /// سعر الشهر قبل التخفيض (للمجموعة فقط).
-  final int monthlyPrice;
+  /// سعر الشهر قبل التخفيض (للمجموعة فقط). `null` (ما تفعله الواجهات) يعني سعر الفوج الذي عُيِّن
+  /// عند إنشائه؛ وقيمة صريحة تجاوز برمجي قديم.
+  final int? monthlyPrice;
   final DiscountType discountType;
   final int discountValue;
 
@@ -139,8 +141,12 @@ class RegistrationService {
         errors[fieldSubjects] = 'المادة مكررة في الاستمارة';
       }
       if (choice.isWaiting) continue;
+      final price =
+          choice.monthlyPrice ?? await GroupPrice.ofId(db, choice.groupId!);
+      // فوج غير موجود يرفضه الانتساب برسالته.
+      if (price == null) continue;
       EnrolmentService.priceErrors(
-        price: choice.monthlyPrice,
+        price: price,
         discountType: choice.discountType,
         discountValue: choice.discountValue,
       ).forEach((field, message) => errors[choiceField(i, field)] = message);

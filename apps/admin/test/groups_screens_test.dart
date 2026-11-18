@@ -125,6 +125,25 @@ Future<void> pick(WidgetTester tester, String label, String option) async {
   await tester.pumpAndSettle();
 }
 
+/// الحقل النصي ذو التسمية [label] في النموذج.
+Finder fieldOf(String label) => find.descendant(
+  of: find.ancestor(of: find.text(label), matching: find.byType(Column)).first,
+  matching: find.byType(TextField),
+);
+
+/// نص الحقل ذي التسمية [label].
+String textOf(WidgetTester tester, String label) =>
+    tester.widget<TextField>(fieldOf(label)).controller!.text;
+
+/// يكتب [value] في الحقل ذي التسمية [label].
+Future<void> typeIn(WidgetTester tester, String label, String value) async {
+  await tester.enterText(fieldOf(label), value);
+  await tester.pumpAndSettle();
+}
+
+const priceLabel = 'سعر الشهر للتلميذ (دج)';
+const rateLabel = 'نصيب الأستاذ لكل تلميذ (دج)';
+
 Future<void> openForm(WidgetTester tester) async {
   await tester.tap(find.widgetWithText(ClayButton, 'إنشاء فوج'));
   await tester.pumpAndSettle();
@@ -162,24 +181,9 @@ void main() {
     final runtime = await openGroups(tester);
     await openForm(tester);
     await fillBasics(tester);
-    // نصيب الأستاذ الافتراضي من ملفه.
-    expect(
-      tester
-          .widget<TextField>(
-            find.descendant(
-              of: find
-                  .ancestor(
-                    of: find.text('نصيب الأستاذ لكل تلميذ (دج)'),
-                    matching: find.byType(Column),
-                  )
-                  .first,
-              matching: find.byType(TextField),
-            ),
-          )
-          .controller!
-          .text,
-      '800',
-    );
+    // نصيب الأستاذ المقترح من ملفه، وسعر الفوج المقترح من سعر المادة.
+    expect(textOf(tester, rateLabel), '800');
+    expect(textOf(tester, priceLabel), '2000');
     await pick(tester, 'اليوم', 'الثلاثاء');
     await submit(tester);
 
@@ -389,6 +393,8 @@ void main() {
     await openForm(tester);
     await pick(tester, 'المادة', 'رياضيات');
     await pick(tester, 'الأستاذ', 'ياسين');
+    // ياسين بلا نصيب افتراضي في ملفه: يُكتب عند إنشاء الفوج (لازم).
+    await typeIn(tester, rateLabel, '900');
     await pick(tester, 'القاعة الافتراضية', 'القاعة 1 (30)');
     // الخانة الافتراضية: السبت 10:00–11:30 في القاعة 1 = تعارض.
     await tester.pump(const Duration(milliseconds: 400));
@@ -483,6 +489,192 @@ void main() {
     await tester.tap(find.widgetWithText(ClayButton, 'حفظ التعديلات'));
     await tester.pumpAndSettle();
     expect(find.textContaining('ياسين · القاعة 2'), findsOneWidget);
+  });
+
+  appTest('إنشاء فوج بسعره ومبلغ أستاذه: يُحفظان كما كُتبا ويظهران في إعداده', (
+    tester,
+  ) async {
+    final runtime = await openGroups(tester);
+    await openForm(tester);
+    await fillBasics(tester);
+    // سعر الفوج غير سعر مادته (فوج متوسط غير فوج ابتدائي)، ونصيب الأستاذ غير الافتراضي.
+    await typeIn(tester, priceLabel, '3500');
+    await typeIn(tester, rateLabel, '1200');
+    await pick(tester, 'اليوم', 'الثلاثاء');
+    await submit(tester);
+
+    expect(
+      find.textContaining('سعر الشهر للتلميذ: ${Money.format(3500)}'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('نصيب الأستاذ لكل تلميذ: ${Money.format(1200)}'),
+      findsOneWidget,
+    );
+    final groups = await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.groups).get(),
+    );
+    expect(groups.single.monthlyPrice, 3500);
+    expect(groups.single.ratePerStudent, 1200);
+  });
+
+  appTest('السعر ومبلغ الأستاذ لازمان عند إنشاء الفوج', (tester) async {
+    final runtime = await openGroups(tester);
+    await openForm(tester);
+    await fillBasics(tester);
+    await typeIn(tester, priceLabel, '');
+    await typeIn(tester, rateLabel, '');
+    await submit(tester);
+    expect(find.text('أدخل سعر الشهر للتلميذ'), findsOneWidget);
+    expect(find.text('أدخل ما يأخذه الأستاذ عن كل تلميذ'), findsOneWidget);
+    expect(find.text('إنشاء الفوج'), findsWidgets);
+    expect(
+      await runDb(tester, () => runtime.db.select(runtime.db.groups).get()),
+      isEmpty,
+    );
+  });
+
+  appTest('سعر فاسد يظهر عند حقله ولا يُنشأ فوج', (tester) async {
+    final runtime = await openGroups(tester);
+    await openForm(tester);
+    await fillBasics(tester);
+    await typeIn(tester, priceLabel, '2555');
+    await submit(tester);
+    expect(find.text('السعر من مضاعفات 10 دج'), findsOneWidget);
+    expect(
+      await runDb(tester, () => runtime.db.select(runtime.db.groups).get()),
+      isEmpty,
+    );
+  });
+
+  appTest('تغيير المادة يقترح سعرها لا سعر المادة السابقة', (tester) async {
+    final runtime = await openGroups(tester);
+    await runDb(tester, () async {
+      final db = runtime.db;
+      await db
+          .into(db.subjects)
+          .insert(
+            SubjectsCompanion.insert(
+              id: 'physics',
+              createdAt: 1,
+              updatedAt: 1,
+              name: 'فيزياء',
+              monthlyPrice: const Value(3000),
+            ),
+          );
+      await db
+          .into(db.teacherSubjects)
+          .insert(
+            TeacherSubjectsCompanion.insert(
+              teacherId: 't1',
+              subjectId: 'physics',
+              updatedAt: 1,
+            ),
+          );
+    });
+    await openForm(tester);
+    await pick(tester, 'المادة', 'رياضيات');
+    expect(textOf(tester, priceLabel), '2000');
+    await pick(tester, 'المادة', 'فيزياء');
+    expect(textOf(tester, priceLabel), '3000');
+  });
+
+  appTest('تعديل فوج بلا تلاميذ: يُصحَّح سعره ومبلغ أستاذه', (tester) async {
+    final runtime = await openGroups(tester);
+    await runDb(tester, () async {
+      await GroupService(
+        runtime.db,
+        runtime.writer,
+        ScheduleService(runtime.db),
+        CycleService(runtime.db, runtime.writer),
+      ).create(
+        subjectId: 'math',
+        teacherId: 't1',
+        roomId: 'r1',
+        monthlyPrice: 2500,
+        ratePerStudent: 900,
+        slots: const [
+          GroupSlotInput(weekday: 6, startMinutes: 600, endMinutes: 690),
+        ],
+        startDate: '2026-11-07',
+      );
+    });
+    await openGroupList(tester);
+    await tester.tap(find.byTooltip('تعديل الفوج 1'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(420, 3200);
+    await tester.pumpAndSettle();
+    expect(textOf(tester, priceLabel), '2500');
+    expect(textOf(tester, rateLabel), '900');
+    expect(tester.widget<TextField>(fieldOf(priceLabel)).enabled, isTrue);
+    await typeIn(tester, priceLabel, '2600');
+    await tester.tap(find.widgetWithText(ClayButton, 'حفظ التعديلات'));
+    await tester.pumpAndSettle();
+    final group = await runDb(
+      tester,
+      () => runtime.db.select(runtime.db.groups).getSingle(),
+    );
+    expect(group.monthlyPrice, 2600);
+  });
+
+  appTest('تعديل فوج فيه تلاميذ: السعر ومبلغ الأستاذ مقفلان', (tester) async {
+    final runtime = await openGroups(tester);
+    await runDb(tester, () async {
+      final db = runtime.db;
+      final group =
+          await GroupService(
+            db,
+            runtime.writer,
+            ScheduleService(db),
+            CycleService(db, runtime.writer),
+          ).create(
+            subjectId: 'math',
+            teacherId: 't1',
+            roomId: 'r1',
+            monthlyPrice: 2500,
+            ratePerStudent: 900,
+            slots: const [
+              GroupSlotInput(weekday: 6, startMinutes: 600, endMinutes: 690),
+            ],
+            startDate: '2026-11-07',
+          );
+      await db
+          .into(db.students)
+          .insert(
+            StudentsCompanion.insert(
+              id: 's1',
+              createdAt: 1,
+              updatedAt: 1,
+              firstName: 'أحمد',
+              lastName: 'بن علي',
+              parentPhone: '0550123456',
+              qrCode: 'S-s1',
+            ),
+          );
+      await db
+          .into(db.groupStudents)
+          .insert(
+            GroupStudentsCompanion.insert(
+              id: 'gs1',
+              createdAt: 1,
+              updatedAt: 1,
+              groupId: group.id,
+              studentId: 's1',
+              joinedAt: 1,
+              monthlyPrice: 2500,
+            ),
+          );
+    });
+    await openGroupList(tester);
+    await tester.tap(find.byTooltip('تعديل الفوج 1'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(420, 3200);
+    await tester.pumpAndSettle();
+    expect(textOf(tester, priceLabel), '2500');
+    expect(tester.widget<TextField>(fieldOf(priceLabel)).enabled, isFalse);
+    expect(tester.widget<TextField>(fieldOf(rateLabel)).enabled, isFalse);
+    expect(find.text('لا يتغيّر بعد ربط التلاميذ بالفوج'), findsNWidgets(2));
   });
 
   appTest('الأرشفة بعد التأكيد تفرغ القائمة', (tester) async {

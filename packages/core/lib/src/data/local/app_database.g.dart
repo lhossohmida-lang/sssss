@@ -5594,6 +5594,18 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _monthlyPriceMeta = const VerificationMeta(
+    'monthlyPrice',
+  );
+  @override
+  late final GeneratedColumn<int> monthlyPrice = GeneratedColumn<int>(
+    'monthly_price',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _ratePerStudentMeta = const VerificationMeta(
     'ratePerStudent',
   );
@@ -5628,6 +5640,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
     roomId,
     sessionsPerCycle,
     currentCycleNumber,
+    monthlyPrice,
     ratePerStudent,
     archivedAt,
   ];
@@ -5718,6 +5731,15 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
         ),
       );
     }
+    if (data.containsKey('monthly_price')) {
+      context.handle(
+        _monthlyPriceMeta,
+        monthlyPrice.isAcceptableOrUnknown(
+          data['monthly_price']!,
+          _monthlyPriceMeta,
+        ),
+      );
+    }
     if (data.containsKey('rate_per_student')) {
       context.handle(
         _ratePerStudentMeta,
@@ -5782,6 +5804,10 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
         DriftSqlType.int,
         data['${effectivePrefix}current_cycle_number'],
       )!,
+      monthlyPrice: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}monthly_price'],
+      )!,
       ratePerStudent: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}rate_per_student'],
@@ -5816,7 +5842,13 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
   final int sessionsPerCycle;
   final int currentCycleNumber;
 
-  /// مبلغ الأستاذ لكل تلميذ في هذه المجموعة؛ `null` يعني قيمة الأستاذ الافتراضية.
+  /// سعر الشهر (الدورة) الذي يدفعه كل تلميذ في هذه المجموعة بالدينار، قبل التخفيض. يُعيَّن عند
+  /// إنشاء الفوج فقط، وبه يُنسب التلاميذ إليه (فسعر مادة المستوى المتوسط غير سعر الابتدائي).
+  /// `0` لفوج أُنشئ قبل هذا الحقل ولم يُملأ بعد: يؤخذ سعر مادته (انظر `EnrolmentService.priceOfGroup`).
+  final int monthlyPrice;
+
+  /// مبلغ الأستاذ لكل تلميذ في هذه المجموعة؛ يُعيَّن عند إنشاء الفوج فقط. `null` لفوج قديم يعني
+  /// قيمة الأستاذ الافتراضية.
   final int? ratePerStudent;
 
   /// وقت الأرشفة عند «سنة جديدة»؛ `null` يعني أن المجموعة نشطة.
@@ -5832,6 +5864,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     this.roomId,
     required this.sessionsPerCycle,
     required this.currentCycleNumber,
+    required this.monthlyPrice,
     this.ratePerStudent,
     this.archivedAt,
   });
@@ -5852,6 +5885,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     }
     map['sessions_per_cycle'] = Variable<int>(sessionsPerCycle);
     map['current_cycle_number'] = Variable<int>(currentCycleNumber);
+    map['monthly_price'] = Variable<int>(monthlyPrice);
     if (!nullToAbsent || ratePerStudent != null) {
       map['rate_per_student'] = Variable<int>(ratePerStudent);
     }
@@ -5877,6 +5911,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           : Value(roomId),
       sessionsPerCycle: Value(sessionsPerCycle),
       currentCycleNumber: Value(currentCycleNumber),
+      monthlyPrice: Value(monthlyPrice),
       ratePerStudent: ratePerStudent == null && nullToAbsent
           ? const Value.absent()
           : Value(ratePerStudent),
@@ -5902,6 +5937,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       roomId: serializer.fromJson<String?>(json['roomId']),
       sessionsPerCycle: serializer.fromJson<int>(json['sessionsPerCycle']),
       currentCycleNumber: serializer.fromJson<int>(json['currentCycleNumber']),
+      monthlyPrice: serializer.fromJson<int>(json['monthlyPrice']),
       ratePerStudent: serializer.fromJson<int?>(json['ratePerStudent']),
       archivedAt: serializer.fromJson<int?>(json['archivedAt']),
     );
@@ -5920,6 +5956,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       'roomId': serializer.toJson<String?>(roomId),
       'sessionsPerCycle': serializer.toJson<int>(sessionsPerCycle),
       'currentCycleNumber': serializer.toJson<int>(currentCycleNumber),
+      'monthlyPrice': serializer.toJson<int>(monthlyPrice),
       'ratePerStudent': serializer.toJson<int?>(ratePerStudent),
       'archivedAt': serializer.toJson<int?>(archivedAt),
     };
@@ -5936,6 +5973,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     Value<String?> roomId = const Value.absent(),
     int? sessionsPerCycle,
     int? currentCycleNumber,
+    int? monthlyPrice,
     Value<int?> ratePerStudent = const Value.absent(),
     Value<int?> archivedAt = const Value.absent(),
   }) => GroupRow(
@@ -5949,6 +5987,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     roomId: roomId.present ? roomId.value : this.roomId,
     sessionsPerCycle: sessionsPerCycle ?? this.sessionsPerCycle,
     currentCycleNumber: currentCycleNumber ?? this.currentCycleNumber,
+    monthlyPrice: monthlyPrice ?? this.monthlyPrice,
     ratePerStudent: ratePerStudent.present
         ? ratePerStudent.value
         : this.ratePerStudent,
@@ -5970,6 +6009,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       currentCycleNumber: data.currentCycleNumber.present
           ? data.currentCycleNumber.value
           : this.currentCycleNumber,
+      monthlyPrice: data.monthlyPrice.present
+          ? data.monthlyPrice.value
+          : this.monthlyPrice,
       ratePerStudent: data.ratePerStudent.present
           ? data.ratePerStudent.value
           : this.ratePerStudent,
@@ -5992,6 +6034,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           ..write('roomId: $roomId, ')
           ..write('sessionsPerCycle: $sessionsPerCycle, ')
           ..write('currentCycleNumber: $currentCycleNumber, ')
+          ..write('monthlyPrice: $monthlyPrice, ')
           ..write('ratePerStudent: $ratePerStudent, ')
           ..write('archivedAt: $archivedAt')
           ..write(')'))
@@ -6010,6 +6053,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     roomId,
     sessionsPerCycle,
     currentCycleNumber,
+    monthlyPrice,
     ratePerStudent,
     archivedAt,
   );
@@ -6027,6 +6071,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           other.roomId == this.roomId &&
           other.sessionsPerCycle == this.sessionsPerCycle &&
           other.currentCycleNumber == this.currentCycleNumber &&
+          other.monthlyPrice == this.monthlyPrice &&
           other.ratePerStudent == this.ratePerStudent &&
           other.archivedAt == this.archivedAt);
 }
@@ -6042,6 +6087,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
   final Value<String?> roomId;
   final Value<int> sessionsPerCycle;
   final Value<int> currentCycleNumber;
+  final Value<int> monthlyPrice;
   final Value<int?> ratePerStudent;
   final Value<int?> archivedAt;
   final Value<int> rowid;
@@ -6056,6 +6102,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     this.roomId = const Value.absent(),
     this.sessionsPerCycle = const Value.absent(),
     this.currentCycleNumber = const Value.absent(),
+    this.monthlyPrice = const Value.absent(),
     this.ratePerStudent = const Value.absent(),
     this.archivedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -6071,6 +6118,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     this.roomId = const Value.absent(),
     this.sessionsPerCycle = const Value.absent(),
     this.currentCycleNumber = const Value.absent(),
+    this.monthlyPrice = const Value.absent(),
     this.ratePerStudent = const Value.absent(),
     this.archivedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -6091,6 +6139,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     Expression<String>? roomId,
     Expression<int>? sessionsPerCycle,
     Expression<int>? currentCycleNumber,
+    Expression<int>? monthlyPrice,
     Expression<int>? ratePerStudent,
     Expression<int>? archivedAt,
     Expression<int>? rowid,
@@ -6107,6 +6156,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
       if (sessionsPerCycle != null) 'sessions_per_cycle': sessionsPerCycle,
       if (currentCycleNumber != null)
         'current_cycle_number': currentCycleNumber,
+      if (monthlyPrice != null) 'monthly_price': monthlyPrice,
       if (ratePerStudent != null) 'rate_per_student': ratePerStudent,
       if (archivedAt != null) 'archived_at': archivedAt,
       if (rowid != null) 'rowid': rowid,
@@ -6124,6 +6174,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     Value<String?>? roomId,
     Value<int>? sessionsPerCycle,
     Value<int>? currentCycleNumber,
+    Value<int>? monthlyPrice,
     Value<int?>? ratePerStudent,
     Value<int?>? archivedAt,
     Value<int>? rowid,
@@ -6139,6 +6190,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
       roomId: roomId ?? this.roomId,
       sessionsPerCycle: sessionsPerCycle ?? this.sessionsPerCycle,
       currentCycleNumber: currentCycleNumber ?? this.currentCycleNumber,
+      monthlyPrice: monthlyPrice ?? this.monthlyPrice,
       ratePerStudent: ratePerStudent ?? this.ratePerStudent,
       archivedAt: archivedAt ?? this.archivedAt,
       rowid: rowid ?? this.rowid,
@@ -6178,6 +6230,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     if (currentCycleNumber.present) {
       map['current_cycle_number'] = Variable<int>(currentCycleNumber.value);
     }
+    if (monthlyPrice.present) {
+      map['monthly_price'] = Variable<int>(monthlyPrice.value);
+    }
     if (ratePerStudent.present) {
       map['rate_per_student'] = Variable<int>(ratePerStudent.value);
     }
@@ -6203,6 +6258,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
           ..write('roomId: $roomId, ')
           ..write('sessionsPerCycle: $sessionsPerCycle, ')
           ..write('currentCycleNumber: $currentCycleNumber, ')
+          ..write('monthlyPrice: $monthlyPrice, ')
           ..write('ratePerStudent: $ratePerStudent, ')
           ..write('archivedAt: $archivedAt, ')
           ..write('rowid: $rowid')
@@ -32411,6 +32467,7 @@ typedef $$GroupsTableCreateCompanionBuilder = GroupsCompanion Function({
   Value<String?> roomId,
   Value<int> sessionsPerCycle,
   Value<int> currentCycleNumber,
+  Value<int> monthlyPrice,
   Value<int?> ratePerStudent,
   Value<int?> archivedAt,
   Value<int> rowid,
@@ -32426,6 +32483,7 @@ typedef $$GroupsTableUpdateCompanionBuilder = GroupsCompanion Function({
   Value<String?> roomId,
   Value<int> sessionsPerCycle,
   Value<int> currentCycleNumber,
+  Value<int> monthlyPrice,
   Value<int?> ratePerStudent,
   Value<int?> archivedAt,
   Value<int> rowid,
@@ -32711,6 +32769,11 @@ class $$GroupsTableFilterComposer
 
   ColumnFilters<int> get currentCycleNumber => $composableBuilder(
     column: $table.currentCycleNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get monthlyPrice => $composableBuilder(
+    column: $table.monthlyPrice,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -33088,6 +33151,11 @@ class $$GroupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get monthlyPrice => $composableBuilder(
+    column: $table.monthlyPrice,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get ratePerStudent => $composableBuilder(
     column: $table.ratePerStudent,
     builder: (column) => ColumnOrderings(column),
@@ -33199,6 +33267,11 @@ class $$GroupsTableAnnotationComposer
 
   GeneratedColumn<int> get currentCycleNumber => $composableBuilder(
     column: $table.currentCycleNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get monthlyPrice => $composableBuilder(
+    column: $table.monthlyPrice,
     builder: (column) => column,
   );
 
@@ -33584,6 +33657,7 @@ class $$GroupsTableTableManager
                 Value<String?> roomId = const Value.absent(),
                 Value<int> sessionsPerCycle = const Value.absent(),
                 Value<int> currentCycleNumber = const Value.absent(),
+                Value<int> monthlyPrice = const Value.absent(),
                 Value<int?> ratePerStudent = const Value.absent(),
                 Value<int?> archivedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -33598,6 +33672,7 @@ class $$GroupsTableTableManager
                 roomId: roomId,
                 sessionsPerCycle: sessionsPerCycle,
                 currentCycleNumber: currentCycleNumber,
+                monthlyPrice: monthlyPrice,
                 ratePerStudent: ratePerStudent,
                 archivedAt: archivedAt,
                 rowid: rowid,
@@ -33614,6 +33689,7 @@ class $$GroupsTableTableManager
                 Value<String?> roomId = const Value.absent(),
                 Value<int> sessionsPerCycle = const Value.absent(),
                 Value<int> currentCycleNumber = const Value.absent(),
+                Value<int> monthlyPrice = const Value.absent(),
                 Value<int?> ratePerStudent = const Value.absent(),
                 Value<int?> archivedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -33628,6 +33704,7 @@ class $$GroupsTableTableManager
                 roomId: roomId,
                 sessionsPerCycle: sessionsPerCycle,
                 currentCycleNumber: currentCycleNumber,
+                monthlyPrice: monthlyPrice,
                 ratePerStudent: ratePerStudent,
                 archivedAt: archivedAt,
                 rowid: rowid,

@@ -196,11 +196,12 @@ void main() {
     await pick(tester, 'المستوى', '3 متوسط');
     await pickSubject(tester, 'رياضيات');
     await pick(tester, 'الفوج', 'الفوج 1 · كمال (0 تلميذ)');
-    // السعر الافتراضي من المادة.
+    // سعر الفوج يظهر كما عُيِّن عند إنشائه ولا يُدخَل من جديد (فوج قديم بلا سعر يأخذ سعر مادته).
     expect(
-      tester.widget<TextField>(fieldOf('سعر الشهر (دج)')).controller!.text,
-      '2000',
+      find.text('سعر الشهر في هذا الفوج: ${Money.format(2000)}'),
+      findsOneWidget,
     );
+    expect(find.text('سعر الشهر (دج)'), findsNothing);
     expect(find.text('يدفع عن كل دورة: ${Money.format(2000)}'), findsOneWidget);
     await submit(tester);
 
@@ -242,6 +243,85 @@ void main() {
     );
     expect(student.qrCode.startsWith('S-'), isTrue);
     expect(student.levelId, 'lv3');
+  });
+
+  /// فوج ثانٍ لمادة الرياضيات بسعره الخاص (يُعيَّن عند إنشائه).
+  Future<void> addPricedGroup(WidgetTester tester, Opened o) async {
+    final db = o.runtime.db;
+    await runDb(
+      tester,
+      () => db
+          .into(db.groups)
+          .insert(
+            GroupsCompanion.insert(
+              id: 'g2',
+              createdAt: 1,
+              updatedAt: 1,
+              number: 2,
+              subjectId: 'math',
+              teacherId: 't1',
+              monthlyPrice: const Value(3500),
+            ),
+          ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  appTest('سعر الفوج يختلف من فوج إلى آخر وبه يُنسب التلميذ', (tester) async {
+    final o = await openForm(tester);
+    await addPricedGroup(tester, o);
+    await fillPeople(tester);
+    await pickSubject(tester, 'رياضيات');
+    await pick(tester, 'الفوج', 'الفوج 2 · كمال (0 تلميذ)');
+    expect(
+      find.text('سعر الشهر في هذا الفوج: ${Money.format(3500)}'),
+      findsOneWidget,
+    );
+    expect(find.text('يدفع عن كل دورة: ${Money.format(3500)}'), findsOneWidget);
+    // وسعر الفوج الأول غير سعر الثاني.
+    await pick(tester, 'الفوج', 'الفوج 1 · كمال (0 تلميذ)');
+    expect(
+      find.text('سعر الشهر في هذا الفوج: ${Money.format(2000)}'),
+      findsOneWidget,
+    );
+    await pick(tester, 'الفوج', 'الفوج 2 · كمال (0 تلميذ)');
+    await submit(tester);
+    await tester.tap(find.widgetWithText(ClayButton, 'تم'));
+    await tester.pumpAndSettle();
+    final enrolment = await runDb(
+      tester,
+      () => o.runtime.db.select(o.runtime.db.groupStudents).getSingle(),
+    );
+    expect(enrolment.groupId, 'g2');
+    expect(enrolment.monthlyPrice, 3500);
+  });
+
+  appTest('المجموع الشهري: سعر الفوج بعد التخفيض مع النقل إن استعمله', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addPricedGroup(tester, o);
+    await fillPeople(tester);
+    // لا مجموع قبل اختيار فوج.
+    expect(find.text('ما يدفعه التلميذ شهرياً'), findsNothing);
+    await pickSubject(tester, 'رياضيات');
+    await pick(tester, 'الفوج', 'الفوج 2 · كمال (0 تلميذ)');
+    expect(find.text('ما يدفعه التلميذ شهرياً'), findsOneWidget);
+    expect(find.text('الأفواج: ${Money.format(3500)}'), findsOneWidget);
+    expect(find.text('المجموع: ${Money.format(3500)}'), findsOneWidget);
+
+    await pick(tester, 'التخفيض', 'نسبة مئوية');
+    await tester.enterText(fieldOf('النسبة (%)'), '20');
+    await tester.pump();
+    expect(find.text('المجموع: ${Money.format(2800)}'), findsOneWidget);
+
+    await tester.tap(find.byType(ClayToggle));
+    await tester.pumpAndSettle();
+    await tester.enterText(fieldOf('سعر النقل الشهري (دج)'), '600');
+    await tester.pump();
+    expect(find.text('الأفواج: ${Money.format(2800)}'), findsOneWidget);
+    expect(find.text('النقل: ${Money.format(600)}'), findsOneWidget);
+    expect(find.text('المجموع: ${Money.format(3400)}'), findsOneWidget);
   });
 
   appTest('دون اختيار فوج: قائمة الانتظار مع الأستاذ المفضّل', (tester) async {

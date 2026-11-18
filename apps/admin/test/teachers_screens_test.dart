@@ -93,6 +93,8 @@ void main() {
     );
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));
     await tester.pumpAndSettle();
+    // نصيب الأستاذ عن كل تلميذ يُعيَّن لكل فوج عند إنشائه، فلا حقل له هنا.
+    expect(find.textContaining('نصيبه لكل تلميذ'), findsNothing);
     await fillTeacher(tester);
     await tester.tap(find.widgetWithText(ClayChip, 'رياضيات'));
     await tester.pump();
@@ -276,7 +278,9 @@ void main() {
       expect(find.text('ملف الأستاذ'), findsOneWidget);
       expect(find.text('رقم الدخول'), findsOneWidget);
       expect(find.textContaining('@school.local'), findsNothing);
-      expect(find.text('800 دج'), findsOneWidget);
+      // ما يأخذه الأستاذ عن كل تلميذ يُعيَّن لكل فوج عند إنشائه، فلا يُعرض في ملفه.
+      expect(find.text('نصيبه لكل تلميذ'), findsNothing);
+      expect(find.text('800 دج'), findsNothing);
       expect(find.byType(ClayQrCode), findsOneWidget);
       expect(find.text(teacher.qrCode), findsOneWidget);
       expect(teacher.qrCode.startsWith('T-'), isTrue);

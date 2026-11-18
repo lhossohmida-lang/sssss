@@ -82,6 +82,9 @@ class TestEnv {
     String? roomId,
     int sessionsPerCycle = 8,
     int? rate,
+
+    /// سعر شهر الفوج؛ `0` فوج قديم لم يُملأ سعره فيأخذ سعر مادته.
+    int price = 0,
   }) => db
       .into(db.groups)
       .insert(
@@ -94,6 +97,7 @@ class TestEnv {
           teacherId: teacherId,
           roomId: Value(roomId),
           sessionsPerCycle: Value(sessionsPerCycle),
+          monthlyPrice: Value(price),
           ratePerStudent: Value(rate),
         ),
       );

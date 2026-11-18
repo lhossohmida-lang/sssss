@@ -676,10 +676,10 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
           preferredTeacherId: _draft.preferredTeacherId,
         );
       } else {
+        // السعر سعر الفوج الذي عُيِّن عند إنشائه: تأخذه الخدمة منه.
         await service.enrol(
           studentId: widget.student.id,
           groupId: groupId,
-          monthlyPrice: int.tryParse(_draft.price.text.trim()) ?? 0,
           discountType: _draft.discountType,
           discountValue: int.tryParse(_draft.discount.text.trim()) ?? 0,
         );
@@ -725,6 +725,10 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
             errors: _errors,
             onChanged: () => setState(() {}),
             onRemove: null,
+            // يُضاف نقل التلميذ الشهري (إن استعمله) إلى ما يدفعه.
+            transportPrice: widget.student.usesTransport
+                ? widget.student.transportPrice
+                : 0,
           ),
           if (_formError != null)
             Text(

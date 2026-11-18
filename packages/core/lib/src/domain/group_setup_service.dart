@@ -8,6 +8,7 @@ import 'date_key.dart';
 import 'dues_service.dart';
 import 'enrolment_service.dart';
 import 'enums.dart';
+import 'group_price.dart';
 import 'payment_service.dart';
 import 'phone.dart';
 import 'pricing.dart';
@@ -152,13 +153,8 @@ class GroupSetupService {
     return group;
   }
 
-  /// سعر شهر المادة الذي يُسجَّل به التلميذ في الفوج.
-  Future<int> priceOf(GroupRow group) async {
-    final subject = await (db.select(
-      db.subjects,
-    )..where((s) => s.id.equals(group.subjectId))).getSingle();
-    return subject.monthlyPrice;
-  }
+  /// سعر شهر الفوج الذي يُسجَّل به التلميذ فيه: ما عُيِّن عند إنشاء الفوج (انظر [GroupPrice]).
+  Future<int> priceOf(GroupRow group) => GroupPrice.of(db, group);
 
   /// سعر دورة الفوج [groupId] للتلميذ.
   Future<int> priceOfGroup(String groupId) async =>
@@ -175,7 +171,6 @@ class GroupSetupService {
     required SchoolSettings settings,
   }) async {
     final group = await _group(groupId);
-    final price = await priceOf(group);
     final result = await _registration().register(
       RegistrationRequest(
         firstName: input.firstName,
@@ -183,13 +178,8 @@ class GroupSetupService {
         parentName: input.parentName,
         parentPhone: input.parentPhone,
         levelId: input.levelId,
-        choices: [
-          SubjectChoice(
-            subjectId: group.subjectId,
-            groupId: group.id,
-            monthlyPrice: price,
-          ),
-        ],
+        // السعر سعر الفوج الذي عُيِّن عند إنشائه: لا يُمرَّر هنا.
+        choices: [SubjectChoice(subjectId: group.subjectId, groupId: group.id)],
         date: DateKey.of(_clock()),
       ),
       settings: settings,
@@ -210,7 +200,6 @@ class GroupSetupService {
       throw StateError('خدمة الانتساب غير مهيّأة');
     }
     final group = await _group(groupId);
-    final price = await priceOf(group);
     final added = <String>[];
     final skipped = <String, String>{};
     for (final id in studentIds.toSet()) {
@@ -222,11 +211,7 @@ class GroupSetupService {
         continue;
       }
       try {
-        await enrol.enrol(
-          studentId: id,
-          groupId: group.id,
-          monthlyPrice: price,
-        );
+        await enrol.enrol(studentId: id, groupId: group.id);
         added.add(id);
       } on ValidationException catch (e) {
         skipped[id] = e.toString();

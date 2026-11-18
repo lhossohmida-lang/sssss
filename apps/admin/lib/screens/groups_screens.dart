@@ -364,6 +364,7 @@ class GroupFormScreen extends ConsumerStatefulWidget {
 
 class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
   final _cycle = TextEditingController(text: '8');
+  final _price = TextEditingController();
   final _rate = TextEditingController();
   final List<_SlotDraft> _slots = [_SlotDraft()];
 
@@ -402,17 +403,28 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     }
   }
 
+  /// سعر المادة الافتراضي مقترحاً لسعر الفوج (يُكتب غيره إن شاء)، أو فارغ إن لم يُحدَّد لها سعر.
+  String _subjectPriceText(List<SubjectItem> subjects, String? subjectId) {
+    final price = subjects
+        .where((s) => s.id == subjectId)
+        .firstOrNull
+        ?.monthlyPrice;
+    return price == null || price <= 0 ? '' : '$price';
+  }
+
   /// يملأ المادة والأستاذ المقترحين (إن كان الأستاذ يدرّس المادة) ونصيبه
-  /// الافتراضي من ملفه.
+  /// الافتراضي من ملفه، وسعر الفوج من سعر المادة.
   Future<void> _prefill() async {
     final subjectId = widget.initialSubjectId!;
     final teachers = await ref.read(subjectTeachersProvider(subjectId).future);
+    final subjects = await ref.read(subjectsProvider.future);
     if (!mounted) return;
     final teacher = teachers
         .where((t) => t.id == widget.initialTeacherId)
         .firstOrNull;
     setState(() {
       _subjectId = subjectId;
+      _price.text = _subjectPriceText(subjects, subjectId);
       if (teacher != null) {
         _teacherId = teacher.id;
         if (teacher.ratePerStudent > 0) {
@@ -427,6 +439,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
   void dispose() {
     _debounce?.cancel();
     _cycle.dispose();
+    _price.dispose();
     _rate.dispose();
     super.dispose();
   }
@@ -437,6 +450,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       runtime.db.groups,
     )..where((g) => g.id.equals(widget.groupId!))).getSingleOrNull();
     final slots = await ref.read(groupServiceProvider).slotsOf(widget.groupId!);
+    final price = group == null ? 0 : await GroupPrice.of(runtime.db, group);
     if (!mounted) return;
     setState(() {
       _existing = group;
@@ -446,6 +460,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         _teacherId = group.teacherId;
         _roomId = group.roomId;
         _cycle.text = '${group.sessionsPerCycle}';
+        _price.text = price > 0 ? '$price' : '';
         _rate.text = group.ratePerStudent == null
             ? ''
             : '${group.ratePerStudent}';
@@ -478,6 +493,9 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
   int? get _rateValue =>
       _rate.text.trim().isEmpty ? null : int.tryParse(_rate.text.trim());
 
+  int? get _priceValue =>
+      _price.text.trim().isEmpty ? null : int.tryParse(_price.text.trim());
+
   /// يفحص الجدول بعد مهلة قصيرة من آخر تعديل، فتظهر التعارضات لحظياً.
   void _scheduleCheck() {
     _debounce?.cancel();
@@ -497,6 +515,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           roomId: _roomId,
           sessionsPerCycle: int.tryParse(_cycle.text.trim()) ?? 0,
           ratePerStudent: _rateValue,
+          monthlyPrice: _priceValue,
           slots: _inputs(),
           excludeGroupId: widget.groupId,
         );
@@ -599,6 +618,19 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       });
       return;
     }
+    // سعر الفوج ومبلغ أستاذه يُكتبان عند الإنشاء ولا يُتركان فارغين.
+    if (!_editing) {
+      final missing = {
+        if (_priceValue == null)
+          GroupService.fieldPrice: 'أدخل سعر الشهر للتلميذ',
+        if (_rateValue == null)
+          GroupService.fieldRate: 'أدخل ما يأخذه الأستاذ عن كل تلميذ',
+      };
+      if (missing.isNotEmpty) {
+        setState(() => _errors = missing);
+        return;
+      }
+    }
     final now = _dayOf(DateTime.now());
     final dateError = _editing ? null : _firstDateError(now);
     if (dateError != null) {
@@ -621,6 +653,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           widget.groupId!,
           teacherId: teacherId,
           roomId: _roomId,
+          monthlyPrice: _priceValue,
           ratePerStudent: _rateValue,
           slots: _inputs(),
           today: today,
@@ -631,6 +664,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           teacherId: teacherId,
           roomId: _roomId,
           sessionsPerCycle: int.tryParse(_cycle.text.trim()) ?? 0,
+          monthlyPrice: _priceValue,
           ratePerStudent: _rateValue,
           slots: _inputs(),
           startDate: firstIsPast ? today : DateKey.of(_firstDate),
@@ -713,6 +747,10 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         : ref.watch(subjectTeachersProvider(_subjectId!)).value ??
               const <TeacherRow>[];
     const gap = SizedBox(height: ClaySpacing.md);
+    // السعر ومبلغ الأستاذ لا يتغيّران بعد ربط تلميذ بالفوج.
+    final valuesLocked =
+        _editing &&
+        (ref.watch(groupItemProvider(widget.groupId!))?.studentCount ?? 0) > 0;
 
     Widget card(String title, List<Widget> children) => Padding(
       padding: const EdgeInsets.only(bottom: ClaySpacing.lg),
@@ -763,6 +801,8 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                           : (value) => _changed(() {
                               _subjectId = value;
                               _teacherId = null;
+                              // سعر المادة مقترح لسعر الفوج (سنة المادة تحدد سعرها).
+                              _price.text = _subjectPriceText(subjects, value);
                             }),
                     ),
                     gap,
@@ -824,12 +864,31 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                     if (!_editing) ...[gap, _firstDateField(context)],
                     gap,
                     ClayTextField(
-                      controller: _rate,
-                      label: 'نصيب الأستاذ لكل تلميذ (${Money.currency})',
+                      controller: _price,
+                      label: 'سعر الشهر للتلميذ (${Money.currency})',
+                      enabled: !valuesLocked,
                       keyboardType: TextInputType.number,
                       textDirection: TextDirection.ltr,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      helper: 'فارغ يعني قيمة الأستاذ الافتراضية',
+                      helper: valuesLocked
+                          ? 'لا يتغيّر بعد ربط التلاميذ بالفوج'
+                          : 'يدفعه كل تلميذ عن الدورة في هذا الفوج؛ يُعيَّن عند '
+                                'إنشائه فقط، ويظهر كما كُتب عند ربط التلاميذ به',
+                      error: _errors[GroupService.fieldPrice],
+                      onChanged: (_) => _scheduleCheck(),
+                    ),
+                    gap,
+                    ClayTextField(
+                      controller: _rate,
+                      label: 'نصيب الأستاذ لكل تلميذ (${Money.currency})',
+                      enabled: !valuesLocked,
+                      keyboardType: TextInputType.number,
+                      textDirection: TextDirection.ltr,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      helper: valuesLocked
+                          ? 'لا يتغيّر بعد ربط التلاميذ بالفوج'
+                          : 'يأخذه الأستاذ عن كل تلميذ في هذا الفوج؛ يُعيَّن عند '
+                                'إنشائه فقط',
                       error: _errors[GroupService.fieldRate],
                       onChanged: (_) => _scheduleCheck(),
                     ),

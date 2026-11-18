@@ -5,6 +5,7 @@ import '../data/local/sync_writer.dart';
 import 'catalog_service.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
+import 'group_price.dart';
 import 'group_sql.dart';
 import 'schedule_service.dart';
 import 'sms_event_service.dart';
@@ -106,6 +107,9 @@ class GroupService {
   static const String fieldTeacher = 'teacher';
   static const String fieldCycleSize = 'sessions_per_cycle';
   static const String fieldRate = 'rate';
+
+  /// سعر الشهر للتلميذ في الفوج.
+  static const String fieldPrice = 'price';
   static const String fieldSlots = 'slots';
 
   /// أخطاء خانة محددة: `slot:<رقمها من صفر>`.
@@ -211,6 +215,7 @@ class GroupService {
     required String? roomId,
     required int sessionsPerCycle,
     required int? ratePerStudent,
+    int? monthlyPrice,
     required List<GroupSlotInput> slots,
     String? excludeGroupId,
   }) async {
@@ -247,6 +252,13 @@ class GroupService {
         errors[fieldRate] = 'المبلغ لا يكون سالباً';
       } else if (ratePerStudent % 10 != 0) {
         errors[fieldRate] = 'المبلغ من مضاعفات 10 دج';
+      }
+    }
+    if (monthlyPrice != null) {
+      if (monthlyPrice <= 0) {
+        errors[fieldPrice] = 'أدخل سعر الشهر';
+      } else if (monthlyPrice % 10 != 0) {
+        errors[fieldPrice] = 'السعر من مضاعفات 10 دج';
       }
     }
     if (slots.isEmpty) {
@@ -370,11 +382,17 @@ class GroupService {
 
   /// ينشئ مجموعة بجدولها ويولّد حصص دورتها الأولى بدءاً من [startDate]
   /// (`YYYY-MM-DD`). يرمي [ValidationException] إن لم تصلح البيانات.
+  ///
+  /// [monthlyPrice] سعر الشهر الذي يدفعه كل تلميذ في هذا الفوج، و[ratePerStudent] ما يأخذه الأستاذ عن
+  /// كل تلميذ فيه: يُعيَّنان **هنا فقط** (لكل فوج قيمتاه بحسب مادته وسنته)، وبهما يُربط التلاميذ
+  /// والأستاذ. دون قيمة (استعمال برمجي قديم) يأخذ الفوج سعر مادته ومبلغ أستاذه الحاليين، فلا يبقى
+  /// فوج بلا قيمتيه.
   Future<GroupRow> create({
     required String subjectId,
     required String teacherId,
     String? roomId,
     int sessionsPerCycle = 8,
+    int? monthlyPrice,
     int? ratePerStudent,
     required List<GroupSlotInput> slots,
     required String startDate,
@@ -385,12 +403,19 @@ class GroupService {
       roomId: roomId,
       sessionsPerCycle: sessionsPerCycle,
       ratePerStudent: ratePerStudent,
+      monthlyPrice: monthlyPrice,
       slots: slots,
     );
     if (errors.isNotEmpty) throw ValidationException(errors);
 
     return db.transaction(() async {
       final number = await _nextNumber(subjectId);
+      final subject = await (db.select(
+        db.subjects,
+      )..where((s) => s.id.equals(subjectId))).getSingle();
+      final teacher = await (db.select(
+        db.teachers,
+      )..where((t) => t.id.equals(teacherId))).getSingle();
       final id = writer.newId();
       await writer.save(
         db.groups,
@@ -403,7 +428,8 @@ class GroupService {
           teacherId: teacherId,
           roomId: Value(roomId),
           sessionsPerCycle: Value(sessionsPerCycle),
-          ratePerStudent: Value(ratePerStudent),
+          monthlyPrice: Value(monthlyPrice ?? subject.monthlyPrice),
+          ratePerStudent: Value(ratePerStudent ?? teacher.ratePerStudent),
         ),
         key: {'id': id},
       );
@@ -416,8 +442,13 @@ class GroupService {
     });
   }
 
-  /// يعدّل أستاذ المجموعة وقاعتها ومبلغ الأستاذ وجدولها. عدد حصص الدورة لا
-  /// يُعدَّل لأنه أساس المستحقات.
+  /// يعدّل أستاذ المجموعة وقاعتها وجدولها، وسعرها ومبلغ الأستاذ إن لم يُربط بها تلميذ بعد. عدد
+  /// حصص الدورة لا يُعدَّل لأنه أساس المستحقات.
+  ///
+  /// السعر ومبلغ الأستاذ يُعيَّنان عند الإنشاء فقط: [monthlyPrice] و[ratePerStudent] اللذان يخالفان
+  /// قيمتي الفوج الحاليتين يُرفضان ([ValidationException]) متى كان فيه تلاميذ، فلا يتغيّر ما كُتب عند
+  /// إنشائه ولا ما ظهر لمن رُبط به؛ و`null` يعني ترك القيمة كما هي. ويُصحَّح خطأ الكتابة ما دام
+  /// الفوج بلا تلاميذ.
   ///
   /// عند تغيّر الجدول تُحذف حصص الدورة الحالية القادمة التي لم تنعقد ولا
   /// حضور فيها (من [today])، وتُولَّد من جديد من الجدول الجديد؛ وما انعقد
@@ -426,6 +457,7 @@ class GroupService {
     String groupId, {
     required String teacherId,
     String? roomId,
+    int? monthlyPrice,
     int? ratePerStudent,
     required List<GroupSlotInput> slots,
     required String today,
@@ -441,9 +473,27 @@ class GroupService {
       roomId: roomId,
       sessionsPerCycle: group.sessionsPerCycle,
       ratePerStudent: ratePerStudent,
+      monthlyPrice: monthlyPrice,
       slots: slots,
       excludeGroupId: groupId,
     );
+    final currentPrice = await GroupPrice.of(db, group);
+    final currentRate =
+        group.ratePerStudent ??
+        (await (db.select(
+              db.teachers,
+            )..where((t) => t.id.equals(group.teacherId))).getSingleOrNull())
+            ?.ratePerStudent;
+    final priceChanged = monthlyPrice != null && monthlyPrice != currentPrice;
+    final rateChanged = ratePerStudent != null && ratePerStudent != currentRate;
+    if ((priceChanged || rateChanged) && await _hasStudents(groupId)) {
+      if (priceChanged) {
+        errors[fieldPrice] = 'لا يتغيّر سعر الفوج بعد ربط تلاميذه به';
+      }
+      if (rateChanged) {
+        errors[fieldRate] = 'لا يتغيّر مبلغ الأستاذ بعد ربط تلاميذ بالفوج';
+      }
+    }
     if (errors.isNotEmpty) throw ValidationException(errors);
 
     return db.transaction(() async {
@@ -453,7 +503,8 @@ class GroupService {
         values: {
           'teacher_id': teacherId,
           'room_id': roomId,
-          'rate_per_student': ratePerStudent,
+          if (priceChanged) 'monthly_price': monthlyPrice,
+          if (rateChanged) 'rate_per_student': ratePerStudent,
         },
       );
       final current = await slotsOf(groupId);
@@ -482,6 +533,19 @@ class GroupService {
       }
       return true;
     });
+  }
+
+  /// هل في الفوج تلميذ منتسب حالياً؟ (بعدها لا يتغيّر سعره ولا مبلغ أستاذه).
+  Future<bool> _hasStudents(String groupId) async {
+    final row = await db
+        .customSelect(
+          'SELECT COUNT(*) AS c FROM group_students WHERE group_id = ? '
+          'AND deleted_at IS NULL AND left_at IS NULL',
+          variables: [Variable<String>(groupId)],
+          readsFrom: {db.groupStudents},
+        )
+        .getSingle();
+    return row.read<int>('c') > 0;
   }
 
   /// يؤرشف المجموعة: تخرج من القوائم النشطة وتبقى سجلاتها. يعيد `false` إن

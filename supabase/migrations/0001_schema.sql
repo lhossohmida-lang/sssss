@@ -270,6 +270,7 @@ create table if not exists public."groups" (
   "room_id" text,
   "sessions_per_cycle" bigint not null,
   "current_cycle_number" bigint not null,
+  "monthly_price" bigint not null,
   "rate_per_student" bigint,
   "archived_at" bigint,
   "synced_at" bigint not null default 0,

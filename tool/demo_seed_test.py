@@ -220,6 +220,19 @@ class Dataset(unittest.TestCase):
             self.assertEqual(group["current_cycle_number"], rows[-1]["cycle_number"])
             self.assertEqual(group["sessions_per_cycle"], 8)
 
+    def test_every_group_has_its_own_price_and_teacher_amount(self):
+        """السعر ومبلغ الأستاذ لكل فوج (يُعيَّنان عند إنشائه)، والتلميذ يدفع سعر فوجه."""
+        subjects = {s["id"]: s for s in self.data["subjects"]}
+        teachers = {t["id"]: t for t in self.data["teachers"]}
+        groups = {g["id"]: g for g in self.data["groups"]}
+        for group in groups.values():
+            self.assertGreater(group["monthly_price"], 0)
+            self.assertEqual(group["monthly_price"] % 10, 0)
+            self.assertEqual(group["monthly_price"], subjects[group["subject_id"]]["monthly_price"])
+            self.assertEqual(group["rate_per_student"], teachers[group["teacher_id"]]["rate_per_student"])
+        for row in self.data["group_students"]:
+            self.assertEqual(row["monthly_price"], groups[row["group_id"]]["monthly_price"])
+
     def test_groups_are_numbered_per_subject_and_year(self):
         """كما يفعل التطبيق: فوج 1، فوج 2 ضمن كل مادة وسنة، لا ترقيم عالمي."""
         subjects = {s["id"]: s for s in self.data["subjects"]}

@@ -233,6 +233,68 @@ void main() {
     expect(find.text('التلميذ منتسب إلى هذا الفوج'), findsOneWidget);
   });
 
+  appTest(
+    'إضافة مادة بفوج له سعره: يظهر كما عُيِّن عند إنشائه مع النقل إن استعمله',
+    (tester) async {
+      final o = await openProfile(tester);
+      final db = o.runtime.db;
+      await runDb(tester, () async {
+        await db
+            .into(db.groups)
+            .insert(
+              GroupsCompanion.insert(
+                id: 'g2',
+                createdAt: 1,
+                updatedAt: 1,
+                number: 1,
+                subjectId: 'phys',
+                teacherId: 't1',
+                monthlyPrice: const Value(3500),
+              ),
+            );
+        await o.runtime.writer.patch(
+          db.students,
+          key: {'id': o.student.id},
+          values: {'uses_transport': true, 'transport_price': 600},
+        );
+      });
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ClayButton, 'إضافة مادة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('اختر المادة').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('فيزياء').last);
+      await tester.pumpAndSettle();
+      final group = find.descendant(
+        of: find
+            .ancestor(of: find.text('الفوج'), matching: find.byType(Column))
+            .first,
+        matching: find.byWidgetPredicate((w) => w is DropdownButton),
+      );
+      await tester.tap(group);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('الفوج 1 · كمال (0 تلميذ)').last);
+      await tester.pumpAndSettle();
+      // سعر الفوج لا يُدخَل ولا يُعدَّل هنا، ويُضاف إليه نقل التلميذ الشهري.
+      expect(find.text('سعر الشهر (دج)'), findsNothing);
+      expect(
+        find.text('سعر الشهر في هذا الفوج: ${Money.format(3500)}'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'النقل الشهري: ${Money.format(600)} · '
+          'المجموع مع النقل: ${Money.format(4100)}',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(ClayButton, 'إضافة'));
+      await tester.pumpAndSettle();
+      final rows = await runDb(tester, () => db.select(db.groupStudents).get());
+      expect(rows.where((r) => r.groupId == 'g2').single.monthlyPrice, 3500);
+    },
+  );
+
   appTest('مغادرة الفوج بعد التأكيد', (tester) async {
     final o = await openProfile(tester);
     await tester.tap(find.byTooltip('مغادرة فوج رياضيات'));

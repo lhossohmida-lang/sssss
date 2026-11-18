@@ -16,6 +16,8 @@ class ChoiceDraft {
   /// `null` يعني قائمة الانتظار.
   String? groupId;
   String? preferredTeacherId;
+
+  /// سعر شهر الفوج المختار كما عُيِّن عند إنشائه (للعرض وحساب المجموع)؛ لا يُكتب باليد.
   final price = TextEditingController();
   DiscountType discountType = DiscountType.none;
   final discount = TextEditingController();
@@ -80,7 +82,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             subjectId: c.subjectId!,
             groupId: c.groupId,
             preferredTeacherId: c.preferredTeacherId,
-            monthlyPrice: int.tryParse(c.price.text.trim()) ?? 0,
+            // السعر سعر الفوج الذي عُيِّن عند إنشائه: تأخذه الخدمة منه.
             discountType: c.discountType,
             discountValue: int.tryParse(c.discount.text.trim()) ?? 0,
           ),
@@ -164,6 +166,24 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             s.subject.levelId == _levelId)
           s,
     ];
+    // مجموع الدورة بعد التخفيض للأفواج المختارة، وسعر النقل الشهري إن استعمله.
+    var groupCount = 0;
+    var groupsNet = 0;
+    for (final c in _choices) {
+      if (c.subjectId == null || c.groupId == null) continue;
+      final price = int.tryParse(c.price.text.trim()) ?? 0;
+      groupCount++;
+      groupsNet += price < 0
+          ? 0
+          : Pricing.netPrice(
+              price: price,
+              discountType: c.discountType,
+              discountValue: int.tryParse(c.discount.text.trim()) ?? 0,
+            );
+    }
+    final transportMonthly = _transport
+        ? (int.tryParse(_transportPrice.text.trim()) ?? 0)
+        : 0;
 
     Widget section(String title, List<Widget> children) => Padding(
       padding: const EdgeInsets.only(bottom: ClaySpacing.lg),
@@ -294,6 +314,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     textDirection: TextDirection.ltr,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     error: _errors[RegistrationService.fieldTransport],
+                    onChanged: (_) => setState(() {}),
                   ),
                   if (lines.isNotEmpty) ...[
                     gap,
@@ -310,6 +331,25 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                   ],
                 ],
               ]),
+              // ما يدفعه التلميذ في الدورة: أسعار الأفواج كما عُيِّنت عند إنشائها بعد التخفيض، ويُضاف إليها
+              // سعر النقل الشهري إن كان يستعمله.
+              if (groupCount > 0)
+                section('ما يدفعه التلميذ شهرياً', [
+                  Text(
+                    'الأفواج: ${Money.format(groupsNet)}',
+                    style: text.bodyMedium,
+                  ),
+                  if (transportMonthly > 0)
+                    Text(
+                      'النقل: ${Money.format(transportMonthly)}',
+                      style: text.bodyMedium,
+                    ),
+                  const SizedBox(height: ClaySpacing.xs),
+                  Text(
+                    'المجموع: ${Money.format(groupsNet + transportMonthly)}',
+                    style: text.titleSmall!.copyWith(color: p.accent),
+                  ),
+                ]),
               section('حقوق التسجيل', [
                 Text(
                   settings == null || settings.registrationFee == 0
@@ -357,6 +397,7 @@ class SubjectChoiceCard extends ConsumerWidget {
     required this.errors,
     required this.onChanged,
     required this.onRemove,
+    this.transportPrice = 0,
     super.key,
   });
 
@@ -367,14 +408,28 @@ class SubjectChoiceCard extends ConsumerWidget {
   final VoidCallback onChanged;
   final VoidCallback? onRemove;
 
+  /// سعر نقل التلميذ الشهري إن كان يستعمله (في «إضافة مادة» من ملفه)، يُعرض مضافاً إلى ما يدفعه.
+  final int transportPrice;
+
   void _pickSubject(String? id) {
     draft
       ..subjectId = id
       ..groupId = null
       ..preferredTeacherId = null;
-    final price = subjects.where((s) => s.id == id).firstOrNull?.monthlyPrice;
-    draft.price.text = price == null ? '' : '$price';
+    // السعر يأتي من الفوج الذي يُختار لا من المادة.
+    draft.price.clear();
     onChanged();
+  }
+
+  /// سعر شهر الفوج كما عُيِّن عند إنشائه؛ وفوج قديم لم يُملأ سعره يأخذ سعر مادته.
+  int _priceOf(GroupOption option) {
+    final price = option.group.monthlyPrice;
+    if (price > 0) return price;
+    return subjects
+            .where((s) => s.id == option.group.subjectId)
+            .firstOrNull
+            ?.monthlyPrice ??
+        0;
   }
 
   @override
@@ -458,6 +513,10 @@ class SubjectChoiceCard extends ConsumerWidget {
                     : null,
                 onChanged: (value) {
                   draft.groupId = value;
+                  final chosen = groups.where((g) => g.id == value).firstOrNull;
+                  draft.price.text = chosen == null
+                      ? ''
+                      : '${_priceOf(chosen)}';
                   onChanged();
                 },
               ),
@@ -477,19 +536,27 @@ class SubjectChoiceCard extends ConsumerWidget {
                   },
                 )
               else ...[
-                ClayTextField(
-                  controller: draft.price,
-                  label: 'سعر الشهر (${Money.currency})',
-                  keyboardType: TextInputType.number,
-                  textDirection: TextDirection.ltr,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  error:
-                      errors[RegistrationService.choiceField(
-                        index,
-                        EnrolmentService.fieldPrice,
-                      )],
-                  onChanged: (_) => onChanged(),
+                // سعر الفوج كما كُتب عند إنشائه: يظهر هنا ولا يُدخَل من جديد.
+                Text(
+                  'سعر الشهر في هذا الفوج: ${Money.format(price)}',
+                  style: text.titleSmall,
                 ),
+                Text(
+                  'عُيِّن عند إنشاء الفوج',
+                  style: text.bodySmall!.copyWith(color: p.textMuted),
+                ),
+                if (errors[RegistrationService.choiceField(
+                      index,
+                      EnrolmentService.fieldPrice,
+                    )] !=
+                    null)
+                  Text(
+                    errors[RegistrationService.choiceField(
+                      index,
+                      EnrolmentService.fieldPrice,
+                    )]!,
+                    style: text.bodySmall!.copyWith(color: p.status.danger),
+                  ),
                 gap,
                 ClayDropdown<DiscountType>(
                   label: 'التخفيض',
@@ -527,6 +594,15 @@ class SubjectChoiceCard extends ConsumerWidget {
                   'يدفع عن كل دورة: ${Money.format(net)}',
                   style: text.bodyMedium!.copyWith(color: p.accent),
                 ),
+                // تلميذ يستعمل النقل (من ملفه): يُضاف سعر نقله الشهري إلى ما يدفعه.
+                if (transportPrice > 0) ...[
+                  const SizedBox(height: ClaySpacing.xs),
+                  Text(
+                    'النقل الشهري: ${Money.format(transportPrice)} · '
+                    'المجموع مع النقل: ${Money.format(net + transportPrice)}',
+                    style: text.bodyMedium!.copyWith(color: p.accent),
+                  ),
+                ],
               ],
             ],
           ],
