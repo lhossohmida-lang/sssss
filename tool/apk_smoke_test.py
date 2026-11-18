@@ -30,6 +30,26 @@ XML = (
 )
 
 
+def screen(*texts: str) -> str:
+    """شجرة واجهة فيها هذه النصوص بالترتيب."""
+    nodes = "".join(f'<node text="{text}" content-desc="" class="android.view.View"/>' for text in texts)
+    return f"<?xml version='1.0' ?><hierarchy>{nodes}</hierarchy>"
+
+
+# الشاشات الأولى كما ظهرت فعلاً على محاكي Android لبناء preview-10 الذي يضمّن دليل المدارس (قبل أن تُسجَّل فيه مدرسة).
+ADMIN_DIRECTORY_XML = screen(
+    "الإدارة", "تسجيل الدخول", "أدخل رقم هاتفك وكلمة السر. يعرف التطبيق مدرستك من رقمك.", "رقم الهاتف", "كلمة السر"
+)
+TEACHER_DIRECTORY_XML = screen(
+    "الأستاذ",
+    "اختر مدرستك",
+    "اضغط المدرسة التي تنتسب إليها، ثم سجّل الدخول برقم هاتفك وكلمة السر.",
+    "لا توجد مدارس في القائمة بعد. اطلب من مدرستك تفعيل التطبيق.",
+    "تحديث",
+)
+STUDENT_DIRECTORY_XML = screen("وليّ التلميذ", "اختر مدرستك", "لا توجد مدارس في القائمة بعد.", "تحديث")
+
+
 def raw_screen(colors: int, width: int = 40, height: int = 30) -> bytes:
     """لقطة خام: رأس من 4 أعداد صحيحة (واجهة Android 12+) ثم بكسلات تتناوب بين [colors] لوناً."""
     header = struct.pack("<IIII", width, height, 1, 0)
@@ -140,6 +160,18 @@ class PureFunctionsTest(unittest.TestCase):
     def test_escape(self):
         self.assertEqual(smoke.escape("a%b\nc\r"), "a%25b%0Ac%0D")
 
+    def test_first_screens_follow_whether_the_build_embeds_the_directory(self):
+        self.assertEqual(smoke.first_screens("admin", True), ["أدخل رقم هاتفك وكلمة السر"])
+        self.assertEqual(smoke.first_screens("teacher", True), ["اختر مدرستك"])
+        self.assertEqual(smoke.first_screens("student", False), ["ربط التطبيق بمدرستك"])
+        self.assertEqual(smoke.first_screens("student", None), ["ربط التطبيق بمدرستك", "اختر مدرستك"])
+
+    def test_the_directory_switch_comes_from_the_environment(self):
+        self.assertIs(smoke.directory_expectation({"SMOKE_DIRECTORY": "1"}), True)
+        self.assertIs(smoke.directory_expectation({"SMOKE_DIRECTORY": " 0\n"}), False)
+        for unset in ({}, {"SMOKE_DIRECTORY": ""}, {"SMOKE_DIRECTORY": "yes"}):
+            self.assertIsNone(smoke.directory_expectation(unset))
+
 
 class SmokeAppTest(unittest.TestCase):
     def setUp(self):
@@ -148,10 +180,21 @@ class SmokeAppTest(unittest.TestCase):
         self.out = Path(self.tmp.name) / "out"
         self.sleeps = []
 
-    def smoke(self, adb, settle=10):
+    def smoke(self, adb, settle=10, app="admin", directory=None):
         return smoke.smoke_app(
-            adb, "admin", "dz.school.admin", Path("school-admin.apk"), self.out, sleep=self.sleeps.append, settle=settle, poll=5
+            adb,
+            app,
+            f"dz.school.{app}",
+            Path(f"school-{app}.apk"),
+            self.out,
+            sleep=self.sleeps.append,
+            settle=settle,
+            poll=5,
+            directory=directory,
         )
+
+    def smoke_xml(self, xml, app="admin", directory=None):
+        return self.smoke(FakeAdb(xml=xml, dumpsys=DUMPSYS.replace("admin", app)), app=app, directory=directory)
 
     def test_a_healthy_app_passes_and_leaves_a_screenshot(self):
         adb = FakeAdb()
@@ -208,6 +251,35 @@ class SmokeAppTest(unittest.TestCase):
         )
         outcome = self.smoke(FakeAdb(xml=error_screen))
         self.assertTrue(any("الشاشة الأولى" in p and "تعذّر التحميل" in p for p in outcome.problems), outcome.problems)
+
+    def test_a_build_with_the_directory_opens_on_its_own_screens(self):
+        # الإدارة على تسجيل الدخول بالهاتف، والأستاذ والتلميذ على اختيار المدرسة (لا رمز ربط).
+        for app, xml in (
+            ("admin", ADMIN_DIRECTORY_XML),
+            ("teacher", TEACHER_DIRECTORY_XML),
+            ("student", STUDENT_DIRECTORY_XML),
+        ):
+            outcome = self.smoke_xml(xml, app=app, directory=True)
+            self.assertTrue(outcome.ok, (app, outcome.problems))
+
+    def test_the_pairing_screen_fails_a_build_that_embeds_the_directory(self):
+        outcome = self.smoke_xml(XML, directory=True)
+        self.assertTrue(any("الشاشة الأولى" in p and "أدخل رقم هاتفك وكلمة السر" in p for p in outcome.problems), outcome.problems)
+
+    def test_the_directory_screens_fail_a_build_without_the_directory(self):
+        outcome = self.smoke_xml(TEACHER_DIRECTORY_XML, app="teacher", directory=False)
+        self.assertTrue(any("الشاشة الأولى" in p and "ربط التطبيق بمدرستك" in p for p in outcome.problems), outcome.problems)
+        self.assertTrue(self.smoke_xml(XML, directory=False).ok)
+
+    def test_an_unknown_build_accepts_either_first_screen(self):
+        # ملفات منشورة سابقاً (release-smoke): لا يُعرف أضمّنت الدليل أم لا.
+        self.assertTrue(self.smoke_xml(XML).ok)
+        self.assertTrue(self.smoke_xml(ADMIN_DIRECTORY_XML).ok)
+        self.assertFalse(self.smoke_xml(screen("تعذّر التحميل")).ok)
+
+    def test_an_error_screen_still_fails_with_the_directory(self):
+        outcome = self.smoke_xml(screen("تعذّر الاتصال", "إعادة المحاولة"), app="student", directory=True)
+        self.assertTrue(any("اختر مدرستك" in p and "تعذّر الاتصال" in p for p in outcome.problems), outcome.problems)
 
     def test_a_missing_ui_tree_is_not_a_failure(self):
         outcome = self.smoke(FakeAdb(xml="ERROR: null root node returned by UiTestAutomationBridge."))

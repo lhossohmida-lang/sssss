@@ -220,9 +220,25 @@ jobs:
           pattern: apk-*
           path: dist/apks
           merge-multiple: true
+      # هل يضمّن هذا البناء دليل المدارس؟ بالمصدر نفسه الذي قرأته مهمة البناء (متغيرات المستودع أو directory/public.json)؛
+      # فالشاشة الأولى المتوقعة تتبعه: تسجيل الدخول بالهاتف أو اختيار المدرسة معه، و«ربط التطبيق بمدرستك» دونه.
+      - name: Resolve the school directory
+        env:
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
+        run: python3 tool/directory_setup.py public
+      - name: Expect the first screen the build should show
+        id: expect
+        run: |
+          if [ -n "$DIRECTORY_URL" ] && [ -n "$DIRECTORY_KEY" ]; then
+            echo "directory=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "directory=0" >> "$GITHUB_OUTPUT"
+          fi
       - uses: ./.github/actions/apk-smoke
         with:
           apk-dir: dist/apks
+          directory: ${{ steps.expect.outputs.directory }}
 
   # لا يُنشر علناً إلا البناء العام؛ بناء مدرسة خاص يبقى أرتيفاكتاً.
   release:

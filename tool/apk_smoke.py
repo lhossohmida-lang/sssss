@@ -10,6 +10,8 @@
       يقارن بصمة SHA-256 وحجم كل ملف منزَّل بما يعلنه GitHub (GITHUB_REPOSITORY وGITHUB_TOKEN من البيئة).
   python3 tool/apk_smoke.py run <مجلد APK> <مجلد المخرجات>
       يُشغَّل والمحاكي يعمل (adb في المسار): يكتب <المخرجات>/summary.json ولقطة شاشة لكل تطبيق، ويخرج بـ1 إن فشل أي تطبيق.
+      الشاشة الأولى المقبولة تتبع SMOKE_DIRECTORY: 1 = البناء يضمّن دليل المدارس (تسجيل الدخول بالهاتف لدى الإدارة، واختيار
+      المدرسة لدى الأستاذ والتلميذ)، 0 = بلا دليل («ربط التطبيق بمدرستك»)، وغير ذلك يقبل الاثنين.
   python3 tool/apk_smoke.py report <ملخص summary.json>
       يطبع النتيجة تعليقات GitHub (notice/error) يقرأها من لا يملك سجلات المسار، ويخرج بـ1 إن فشل أي تطبيق.
 مجلد APK فيه school-admin.apk وschool-teacher.apk وschool-student.apk.
@@ -41,9 +43,16 @@ APPS = (
 SETTLE_SECONDS = 45  # يشمل الفحص الأول للمحدِّث (بعد 20 ثانية) وتهيئة Firebase
 POLL_SECONDS = 5
 MIN_COLORS = 5  # شاشة سوداء أو بيضاء فارغة لها لون واحد؛ واجهة حقيقية لها أكثر بكثير
-# الشاشة الأولى للبناء العام (لا مدرسة مضمَّنة): ظهر نصها فعلاً في فحص preview-7. إن كشفت واجهة الأندرويد نصوصاً
-# ولم يكن هذا بينها فالتطبيق على شاشة أخرى (خطأ تحميل مثلاً) فيفشل الفحص؛ ولا نصوص مكشوفة = لا حكم.
+# الشاشة الأولى للبناء العام. بلا دليل مدارس مضمَّن: «ربط التطبيق بمدرستك» (ظهر نصها فعلاً في فحص preview-7). ومع الدليل
+# المضمَّن (ظهرت على محاكي في بناء preview-10): الإدارة على تسجيل الدخول بالهاتف، والأستاذ والتلميذ على اختيار المدرسة.
+# إن كشفت واجهة الأندرويد نصوصاً ولم تكن بينها الشاشة المقبولة فالتطبيق على شاشة أخرى (خطأ تحميل مثلاً) فيفشل الفحص؛
+# ولا نصوص مكشوفة = لا حكم.
 FIRST_SCREEN = "ربط التطبيق بمدرستك"
+DIRECTORY_FIRST_SCREENS = {
+    "admin": "أدخل رقم هاتفك وكلمة السر",
+    "teacher": "اختر مدرستك",
+    "student": "اختر مدرستك",
+}
 
 _LOG_PREFIX = re.compile(r"^\d\d-\d\d\s+[\d:.]+\s+\d+\s+\d+\s+[A-Z]\s+[^:]*:\s*")
 _RESUMED = re.compile(r"(?:topResumedActivity|ResumedActivity)[=:]\s*ActivityRecord\{[0-9a-f]+ u\d+ ([\w.]+)/")
@@ -57,6 +66,21 @@ def one_line(text: str, limit: int = 220) -> str:
 def escape(message: str) -> str:
     """ترميز رسالة تعليق GitHub (سطر واحد)."""
     return message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def first_screens(app: str, directory: Optional[bool] = None) -> list[str]:
+    """الشاشات الأولى المقبولة لتطبيق: مع دليل مضمَّن (True) شاشة الدليل، وبلا دليل (False) رمز الربط، ودون علم (None) كلتاهما."""
+    with_directory = DIRECTORY_FIRST_SCREENS[app]
+    if directory is True:
+        return [with_directory]
+    if directory is False:
+        return [FIRST_SCREEN]
+    return [FIRST_SCREEN, with_directory]
+
+
+def directory_expectation(environ: dict[str, str]) -> Optional[bool]:
+    """SMOKE_DIRECTORY=1: البناء يضمّن دليل المدارس، =0: بلا دليل، وغير ذلك: يُقبل الاثنان (إصدار منشور سابق مثلاً)."""
+    return {"1": True, "0": False}.get(environ.get("SMOKE_DIRECTORY", "").strip())
 
 
 def parse_pid(output: str) -> Optional[int]:
@@ -208,6 +232,7 @@ def smoke_app(
     sleep: Callable[[float], None] = time.sleep,
     settle: int = SETTLE_SECONDS,
     poll: int = POLL_SECONDS,
+    directory: Optional[bool] = None,
 ) -> Outcome:
     """يثبّت [apk] ويشغّله ويراقبه [settle] ثانية، ويجمع أي مشكلة في [Outcome.problems]."""
     outcome = Outcome(app, package)
@@ -249,8 +274,10 @@ def smoke_app(
     adb.shell("uiautomator", "dump", "/sdcard/smoke_ui.xml", timeout=60)
     texts = ui_texts(extract_hierarchy(adb.shell("cat", "/sdcard/smoke_ui.xml")))
     outcome.texts = texts[:12]
-    if texts and not any(FIRST_SCREEN in text for text in texts):
-        outcome.problems.append(f"الشاشة الأولى ليست «{FIRST_SCREEN}»: {one_line(' | '.join(texts[:6]))}")
+    expected = first_screens(app, directory)
+    if texts and not any(screen in text for text in texts for screen in expected):
+        names = " أو ".join(f"«{screen}»" for screen in expected)
+        outcome.problems.append(f"الشاشة الأولى ليست {names}: {one_line(' | '.join(texts[:6]))}")
     adb.shell("am", "force-stop", package)
     return outcome
 
@@ -266,6 +293,7 @@ def run(
     adb: Any = None,
     sleep: Callable[[float], None] = time.sleep,
     settle: int = SETTLE_SECONDS,
+    directory: Optional[bool] = None,
 ) -> int:
     adb = adb or Adb()
     outcomes: list[Outcome] = []
@@ -275,7 +303,9 @@ def run(
             outcomes.append(Outcome(app, package, problems=[f"الملف غير موجود: {name}"]))
         else:
             try:
-                outcomes.append(smoke_app(adb, app, package, apk, out_dir, sleep=sleep, settle=settle))
+                outcomes.append(
+                    smoke_app(adb, app, package, apk, out_dir, sleep=sleep, settle=settle, directory=directory)
+                )
             except Exception as error:  # noqa: BLE001 — تعطّل تطبيق لا يوقف فحص البقية
                 outcomes.append(Outcome(app, package, problems=[f"خطأ أثناء الفحص: {one_line(repr(error))}"]))
         last = outcomes[-1]
@@ -355,7 +385,7 @@ def main(argv: list[str]) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     args = argv[1:]
     if len(args) == 3 and args[0] == "run":
-        return run(Path(args[1]), Path(args[2]))
+        return run(Path(args[1]), Path(args[2]), directory=directory_expectation(dict(os.environ)))
     if len(args) == 2 and args[0] == "report":
         return report(Path(args[1]))
     if len(args) == 3 and args[0] == "verify":

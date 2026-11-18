@@ -10,6 +10,11 @@ inputs:
   artifact-name:
     description: اسم أرتيفاكت لقطات الشاشة
     default: apk-smoke
+  directory:
+    description: >-
+      هل يضمّن البناء دليل المدارس؟ 1: تُتوقَّع شاشة تسجيل الدخول بالهاتف (الإدارة) واختيار المدرسة (الأستاذ والتلميذ)،
+      0: تُتوقَّع «ربط التطبيق بمدرستك»، وفارغ: يُقبل الاثنان (ملفات منشورة سابقاً لا يُعرف بناؤها)
+    default: ""
 
 runs:
   using: composite
@@ -29,7 +34,7 @@ runs:
         profile: pixel_6
         disable-animations: true
         # كل سطر من script يُنفَّذ في صدفة مستقلة، فالأمر في سطر واحد.
-        script: python3 tool/apk_smoke.py run ${{ inputs.apk-dir }} dist/smoke
+        script: SMOKE_DIRECTORY=${{ inputs.directory }} python3 tool/apk_smoke.py run ${{ inputs.apk-dir }} dist/smoke
     # تعليقات النتيجة تُقرأ علناً (سجلات المسار تحتاج حساباً)، وتُطبع خارج خطوة المحاكي كما في مسار perf.
     - name: Report
       if: always()
