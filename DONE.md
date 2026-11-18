@@ -32,26 +32,28 @@
   وعرض المبالغ بفاصل آلاف غير منقسم فتظهر `1 500 دج` بصورة طبيعية.
 
 
-## ما أُضيف بعد `preview-9` (يُنشر في `preview-10`)
+## ما أُضيف في `preview-10` (بعد `preview-9`)
 
 - **قاعدة الدورة والخلاص** مثبَّتة بقصة كاملة (ملتحق في منتصف الشهر: يدفع شهراً كاملاً، يأخذ الأستاذ عن المحضور والمدفوع وحده، ويظهر له رصيد 4 حصص في الشهر التالي)، والرصيد يُعرض بالحصص.
 - **تغيير تاريخ حصة قادمة** في «الحصص المقررة»، و**البحث في كل خانة اختيار اسم**، و**إضافة تلاميذ موجودين** عند إعداد الفوج.
 - **الأفواج بالمادة ثم السنة** مرقَّمة «فوج 1، فوج 2…» لكل مادة وسنة، وملصقاتها تحمل السنة.
 - **إعادة تعيين بيانات المصنع** (المدرسة كلها، لصاحبها بكلمة سره وعبارة تأكيد) و«مسح بيانات هذا الجهاز»؛ ودورة مدرسة تمنع أجهزة قديمة من إعادة رفع بيانات محذوفة. تُجرَّب على خادم حقيقي أول مرة على `demo`.
-- **دليل المدارس** لإزالة رمز الربط من تطبيق الإدارة: تهيّئه آلياً `directory-deploy`، لكن مشروعه يُنشأ يدوياً مرة واحدة برمز Full access يصل إلى المشروعين (الرموز المحدودة لا تنشئ مشاريع؛ `OPERATIONS.md` القسم 12).
+- **دليل المدارس مضمَّن في التطبيقات** (لا رمز ربط): مشروعه `directory` أُنشئ يدوياً مرة واحدة (الرموز المحدودة في Supabase لا تنشئ مشاريع؛ `OPERATIONS.md` القسم 12) وهيّأه `directory-deploy` وفحصه كما تراه التطبيقات (القائمة والبحث يعملان والتسجيل والجداول مغلقة). تفتح الإدارة على تسجيل الدخول بالهاتف، والأستاذ والتلميذ على اختيار المدرسة. **لم تُسجَّل مدرسة العرض فيه بعد**، فقائمته فارغة إلى أن يُشغَّل `supabase-deploy` برمز يصل إلى مشروعَي المدرسة والدليل (القسم 12 خطوة 6).
 
 ## 2. روابط التحميل
 
-صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-9`**
-(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-9>):
+صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-10`**
+(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-10>):
 
 | الملف | الرابط المباشر |
 | --- | --- |
-| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-9/school-admin.apk> |
-| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-9/school-teacher.apk> |
-| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-9/school-student.apk> |
-| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-9/school-admin-setup.exe> |
-| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-9/school-admin-windows.zip> |
+| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-admin.apk> |
+| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-teacher.apk> |
+| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-student.apk> |
+| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-admin-setup.exe> |
+| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-admin-windows.zip> |
+
+**`preview-10`** يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء الأربع) ويحمل كل ما في القسم أعلاه «ما أُضيف في `preview-10`». نجحت بوابة المحاكي `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط) و`release-check: ok tag=preview-10 assets=5`. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **تنبيه:** ما دامت مدرسة العرض غير مسجَّلة في الدليل فالدخول الجديد (تثبيت نظيف) لا يجد مدرسته؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
 
 الروابط تتغيّر باسم كل إصدار. **`preview-9`** يحمل الحضور السابق وديون الأساتذة والعمال وبوابة فحص الإصدار والدخول برقم الهاتف وتغيير رقم
 الدخول من «حسابي» والإرسال التلقائي للرسائل وإعداد الفوج من صفحة واحدة ودليل الاستخدام (وهذا كله في `preview-8`)، ويزيد: تمييز أخطاء
@@ -83,7 +85,7 @@
 | --- | --- |
 | تحليل Dart الصارم (`--fatal-infos --fatal-warnings`) | صفر ملاحظات |
 | اختبارات Dart | نحو 1968 اختباراً: النواة 1018، الواجهة المشتركة 366، الإدارة 376، الأستاذ 47، الوليّ 43، الرسائل 53، المحادثة 19، المساعد 46 |
-| اختبارات الأدوات (Python) | 255 |
+| اختبارات الأدوات (Python) | 262 |
 | اختبارات الخادم | مخطط الخادم والصلاحيات لكل دور (RLS) والمزامنة والدفع على PostgreSQL في كل push (`server-sql`)، وعلى الخادم الحقيقي بعد كل نشر |
 | الأداء | قياسات الاستعلامات والماسح وزمن الإطارات في `PERFORMANCE.md` (أرقام حاسوب ومحاكٍ لا هاتف حقيقي) |
 | فحص الإصدار بلا أجهزة | `release-smoke`: التطبيقات الثلاثة المنشورة تُثبَّت على محاكي Android وتبدأ بلا انهيار؛ والمحدِّث التلقائي نفسه يجد الإصدار الحقيقي ويُنزّل مثبّت Windows ويتحقق من بصمته. وبوابة قبل النشر في `build` |
