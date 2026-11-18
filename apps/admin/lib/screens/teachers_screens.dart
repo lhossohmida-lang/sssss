@@ -165,6 +165,9 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
     text: '${widget.initial?.ratePerStudent ?? 0}',
   );
   late final Set<String> _subjects = {...?widget.initialSubjectIds};
+
+  /// نص البحث في المواد؛ المختارة منها تبقى ظاهرة دائماً.
+  String _subjectQuery = '';
   Uint8List? _photo;
   Map<String, String> _errors = const {};
   bool _saving = false;
@@ -296,24 +299,48 @@ class _TeacherFormDialogState extends ConsumerState<TeacherFormDialog> {
               'لا توجد مواد بعد؛ أضفها من «المزيد ← المواد».',
               style: text.bodySmall!.copyWith(color: p.textMuted),
             )
-          else
-            Wrap(
-              spacing: ClaySpacing.sm,
-              children: [
-                for (final subject in subjects)
-                  ClayChip(
-                    label: subject.levelName == null
-                        ? subject.name
-                        : '${subject.name} (${subject.levelName})',
-                    selected: _subjects.contains(subject.id),
-                    onTap: () => setState(() {
-                      if (!_subjects.add(subject.id)) {
-                        _subjects.remove(subject.id);
-                      }
-                    }),
-                  ),
-              ],
+          else ...[
+            ClayTextField(
+              hint: 'ابحث عن مادة',
+              prefixIcon: ClayIcons.search,
+              onChanged: (value) => setState(() => _subjectQuery = value),
             ),
+            const SizedBox(height: ClaySpacing.sm),
+            Builder(
+              builder: (context) {
+                String labelOf(SubjectItem subject) => subject.levelName == null
+                    ? subject.name
+                    : '${subject.name} (${subject.levelName})';
+                final shown = [
+                  for (final subject in subjects)
+                    if (_subjects.contains(subject.id) ||
+                        SearchText.matches(_subjectQuery, [labelOf(subject)]))
+                      subject,
+                ];
+                if (shown.isEmpty) {
+                  return Text(
+                    'لا مادة بهذا الاسم',
+                    style: text.bodySmall!.copyWith(color: p.textMuted),
+                  );
+                }
+                return Wrap(
+                  spacing: ClaySpacing.sm,
+                  children: [
+                    for (final subject in shown)
+                      ClayChip(
+                        label: labelOf(subject),
+                        selected: _subjects.contains(subject.id),
+                        onTap: () => setState(() {
+                          if (!_subjects.add(subject.id)) {
+                            _subjects.remove(subject.id);
+                          }
+                        }),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
           if (_errors['form'] != null)
             Padding(
               padding: const EdgeInsets.only(top: ClaySpacing.md),

@@ -23,7 +23,6 @@ void main() {
   late AttendanceService attendance;
   late EnrolmentService enrolments;
   late PaymentService payments;
-  late PayoutService payouts;
 
   // السبت 14 نوفمبر 2026، ثم السبت والثلاثاء من كل أسبوع.
   const cycleOne = [
@@ -49,7 +48,6 @@ void main() {
       dues,
       DeviceInfoStore(env.db, random: Random(3)),
     );
-    payouts = PayoutService(env.db, env.writer, dues);
     await env.subject(); // سعر الشهر 2000
     await env.teacher(); // نصيبه 1000 لكل تلميذ في الدورة
     await env.group(); // دورة من 8 حصص

@@ -125,6 +125,50 @@ void main() {
     expect(queued.single.message, contains(password));
   });
 
+  appTest('مواد الأستاذ: خانة بحث تصفّي الشرائح وتُبقي المختارة ظاهرة', (
+    tester,
+  ) async {
+    final o = await openTeachers(tester);
+    await runDb(tester, () async {
+      final subjects = SubjectService(o.runtime.db, o.runtime.writer);
+      await subjects.add(name: 'رياضيات', monthlyPrice: 2000);
+      await subjects.add(name: 'فيزياء', monthlyPrice: 2000);
+      await subjects.add(name: 'لغة عربية', monthlyPrice: 2000);
+    });
+    await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));
+    await tester.pumpAndSettle();
+    expect(find.text('ابحث عن مادة'), findsOneWidget);
+    expect(find.byType(ClayChip), findsNWidgets(3));
+
+    // «اللغة العربية» تُوجد بـ«لغه» (الهمزة والتاء المربوطة).
+    await tester.enterText(
+      find.widgetWithText(TextField, 'ابحث عن مادة'),
+      'عربيه',
+    );
+    await tester.pump();
+    expect(find.widgetWithText(ClayChip, 'لغة عربية'), findsOneWidget);
+    expect(find.widgetWithText(ClayChip, 'رياضيات'), findsNothing);
+
+    // المادة المختارة تبقى ظاهرة ولو لم تطابق البحث.
+    await tester.enterText(find.widgetWithText(TextField, 'عربيه'), 'ريا');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ClayChip, 'رياضيات'));
+    await tester.pump();
+    await tester.enterText(find.widgetWithText(TextField, 'ريا'), 'فيز');
+    await tester.pump();
+    expect(find.widgetWithText(ClayChip, 'رياضيات'), findsOneWidget);
+    expect(find.widgetWithText(ClayChip, 'فيزياء'), findsOneWidget);
+    expect(find.widgetWithText(ClayChip, 'لغة عربية'), findsNothing);
+
+    await tester.enterText(find.widgetWithText(TextField, 'فيز'), 'زززز');
+    await tester.pump();
+    expect(
+      find.text('لا مادة بهذا الاسم'),
+      findsNothing,
+      reason: 'المختارة (رياضيات) ما زالت ظاهرة',
+    );
+  });
+
   appTest('أخطاء التحقق في الحقول ولا يُغلق النموذج', (tester) async {
     final o = await openTeachers(tester);
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));

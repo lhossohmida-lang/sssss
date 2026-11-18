@@ -326,6 +326,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       gap(),
                       ClayDropdown<FeePeriod>(
                         label: 'مدتها',
+                        searchable: false,
                         value: _period,
                         options: [
                           for (final period in FeePeriod.values)
@@ -626,6 +627,7 @@ class _LevelDialogState extends State<_LevelDialog> {
           const SizedBox(height: ClaySpacing.md),
           ClayDropdown<EducationStage>(
             label: 'الطور',
+            searchable: false,
             value: _stage,
             options: [
               for (final stage in EducationStage.values)

@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import 'clay_container.dart';
+import 'clay_icons.dart';
+import 'clay_overlays.dart';
+import 'search_text.dart';
 
 /// تسمية الحقل فوقه ورسالة الخطأ تحته، بنفس الشكل في كل الحقول.
 class _FieldFrame extends StatelessWidget {
@@ -189,13 +192,21 @@ class ClayTextField extends StatelessWidget {
 
 /// خيار في [ClayDropdown].
 class ClayOption<T> {
-  const ClayOption({required this.value, required this.label});
+  const ClayOption({required this.value, required this.label, this.subtitle});
 
   final T value;
   final String label;
+
+  /// سطر ثانٍ يميّز الخيارات المتشابهة (مستوى التلميذ، هاتف الوليّ...). يُبحث فيه أيضاً.
+  final String? subtitle;
 }
 
-/// قائمة منسدلة بنفس شكل [ClayTextField].
+/// قائمة اختيار بنفس شكل [ClayTextField].
+///
+/// الافتراضي [searchable]: تفتح بنقرة ورقة سفلية فيها خانة بحث وقائمة تُصفّى أثناء الكتابة
+/// (يُبحث بالاسم وبسطره الثاني، بإهمال التشكيل وصور الألف والتاء المربوطة)، لتخدم كل خانة
+/// تطلب اختيار اسم (تلميذ، أستاذ، مادة، فوج، قاعة...) مهما كثرت خياراتها. وما ليس اسماً
+/// (أيام، أرقام، أنواع قليلة) يُعطَّل فيه البحث فتبقى القائمة المنسدلة العادية.
 class ClayDropdown<T> extends StatelessWidget {
   const ClayDropdown({
     required this.options,
@@ -205,6 +216,7 @@ class ClayDropdown<T> extends StatelessWidget {
     this.hint,
     this.error,
     this.helper,
+    this.searchable = true,
     super.key,
   });
 
@@ -216,12 +228,76 @@ class ClayDropdown<T> extends StatelessWidget {
   final String? error;
   final String? helper;
 
+  /// تفتح الخانة قائمة ببحث بدل القائمة المنسدلة العادية.
+  final bool searchable;
+
+  Future<void> _open(BuildContext context) async {
+    final picked = await showClayBottomSheet<_Picked<T>>(
+      context,
+      title: label ?? hint,
+      builder: (_) => _SearchPicker<T>(options: options, value: value),
+    );
+    if (picked != null) onChanged?.call(picked.value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final text = Theme.of(context).textTheme;
     final hasError = error != null;
     final enabled = onChanged != null && options.isNotEmpty;
+    final canSearch = searchable && enabled;
+    Widget dropdown = DropdownButtonHideUnderline(
+      child: DropdownButton<T>(
+        isExpanded: true,
+        value: options.any((o) => o.value == value) ? value : null,
+        hint: hint == null
+            ? null
+            : Text(hint!, style: text.bodyLarge!.copyWith(color: p.textMuted)),
+        icon: Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: enabled ? p.textMuted : p.outline,
+        ),
+        dropdownColor: p.surface,
+        borderRadius: BorderRadius.circular(ClayRadius.md),
+        style: text.bodyLarge!.copyWith(color: p.text),
+        onChanged: enabled ? onChanged : null,
+        items: [
+          for (final option in options)
+            DropdownMenuItem<T>(
+              value: option.value,
+              child: Text(
+                option.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+      ),
+    );
+    if (canSearch) {
+      // المظهر هو مظهر القائمة المنسدلة نفسه، لكن النقر والتركيز بالمفاتيح يفتحان البحث.
+      dropdown = ExcludeFocus(child: IgnorePointer(child: dropdown));
+    }
+    Widget field = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: ClaySpacing.lg),
+      child: dropdown,
+    );
+    if (canSearch) {
+      final selected = options.where((o) => o.value == value).firstOrNull;
+      field = Semantics(
+        button: true,
+        label: label ?? hint,
+        value: selected?.label,
+        onTap: () => _open(context),
+        excludeSemantics: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(ClayRadius.md),
+          onTap: () => _open(context),
+          child: field,
+        ),
+      );
+    }
     return _FieldFrame(
       label: label,
       error: error,
@@ -241,43 +317,160 @@ class ClayDropdown<T> extends StatelessWidget {
             constraints: const BoxConstraints(
               minHeight: ClaySpacing.minTouchTarget,
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: ClaySpacing.lg),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<T>(
-                  isExpanded: true,
-                  value: options.any((o) => o.value == value) ? value : null,
-                  hint: hint == null
-                      ? null
-                      : Text(
-                          hint!,
-                          style: text.bodyLarge!.copyWith(color: p.textMuted),
-                        ),
-                  icon: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: enabled ? p.textMuted : p.outline,
-                  ),
-                  dropdownColor: p.surface,
-                  borderRadius: BorderRadius.circular(ClayRadius.md),
-                  style: text.bodyLarge!.copyWith(color: p.text),
-                  onChanged: enabled ? onChanged : null,
-                  items: [
-                    for (final option in options)
-                      DropdownMenuItem<T>(
-                        value: option.value,
-                        child: Text(
-                          option.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+            child: field,
           ),
         ),
       ),
+    );
+  }
+}
+
+/// الخيار المختار من ورقة البحث؛ يُغلَّف ليتميّز خيار قيمته `null` من إغلاق الورقة دون اختيار.
+class _Picked<T> {
+  const _Picked(this.value);
+
+  final T value;
+}
+
+/// ورقة اختيار ببحث: خانة بحث وقائمة خيارات تُصفّى أثناء الكتابة.
+class _SearchPicker<T> extends StatefulWidget {
+  const _SearchPicker({required this.options, required this.value});
+
+  final List<ClayOption<T>> options;
+  final T? value;
+
+  @override
+  State<_SearchPicker<T>> createState() => _SearchPickerState<T>();
+}
+
+class _SearchPickerState<T> extends State<_SearchPicker<T>> {
+  final _controller = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<ClayOption<T>> _filter(String query) => [
+    for (final option in widget.options)
+      if (SearchText.matches(query, [option.label, option.subtitle])) option,
+  ];
+
+  void _pick(ClayOption<T> option) =>
+      Navigator.of(context).pop(_Picked<T>(option.value));
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final text = Theme.of(context).textTheme;
+    final matches = _filter(_query);
+    final desktop = const {
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+      TargetPlatform.macOS,
+    }.contains(Theme.of(context).platform);
+    final maxList = (MediaQuery.sizeOf(context).height * 0.45).clamp(
+      200.0,
+      480.0,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClayTextField(
+          controller: _controller,
+          hint: 'ابحث بالاسم',
+          prefixIcon: ClayIcons.search,
+          autofocus: desktop,
+          textInputAction: TextInputAction.search,
+          onChanged: (value) => setState(() => _query = value),
+          // Enter يختار الخيار الوحيد المطابق.
+          onSubmitted: (value) {
+            final found = _filter(value);
+            if (found.length == 1) _pick(found.single);
+          },
+          suffix: _query.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'مسح البحث',
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() => _query = '');
+                  },
+                ),
+        ),
+        const SizedBox(height: ClaySpacing.md),
+        Flexible(
+          child: matches.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(ClaySpacing.xl),
+                  child: Center(
+                    child: Text(
+                      'لا نتائج مطابقة للبحث',
+                      style: text.bodyMedium!.copyWith(color: p.textMuted),
+                    ),
+                  ),
+                )
+              : ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxList),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: matches.length,
+                    itemBuilder: (context, i) {
+                      final option = matches[i];
+                      final selected = option.value == widget.value;
+                      return Semantics(
+                        button: true,
+                        selected: selected,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(ClayRadius.md),
+                          onTap: () => _pick(option),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: ClaySpacing.md,
+                              vertical: ClaySpacing.sm,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        option.label,
+                                        style: text.bodyLarge!.copyWith(
+                                          color: selected ? p.accent : p.text,
+                                          fontWeight: selected
+                                              ? FontWeight.w700
+                                              : null,
+                                        ),
+                                      ),
+                                      if (option.subtitle != null)
+                                        Text(
+                                          option.subtitle!,
+                                          style: text.bodySmall!.copyWith(
+                                            color: p.textMuted,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (selected)
+                                  Icon(Icons.check_rounded, color: p.accent),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

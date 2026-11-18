@@ -393,4 +393,141 @@ void main() {
     expect(find.widgetWithText(ClayButton, _setupButton), findsNothing);
     expect(find.text('الفوج 1'), findsWidgets);
   });
+
+  group('إضافة تلاميذ موجودين', () {
+    /// تلاميذ مسجَّلون من قبل في المدرسة (لا في هذا الفوج).
+    Future<void> seedStudents(WidgetTester tester, AppRuntime runtime) =>
+        runDb(tester, () async {
+          final db = runtime.db;
+          for (final (id, first, last, phone) in [
+            ('s1', 'أحمد', 'بن علي', '0550111111'),
+            ('s2', 'فاطمة', 'الزهراء', '0550222222'),
+            ('s3', 'إيمان', 'بوعلام', '0550333333'),
+          ]) {
+            await db
+                .into(db.students)
+                .insert(
+                  StudentsCompanion.insert(
+                    id: id,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    firstName: first,
+                    lastName: last,
+                    parentPhone: phone,
+                    qrCode: 'S-$id',
+                  ),
+                );
+          }
+        });
+
+    Future<void> openPicker(WidgetTester tester) async {
+      await tester.tap(find.widgetWithText(ClayButton, 'إضافة تلاميذ موجودين'));
+      await tester.pumpAndSettle();
+    }
+
+    /// ينتظر مهلة البحث (250ms) ثم يستقر.
+    Future<void> settleSearch(WidgetTester tester) async {
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+    }
+
+    appTest('يُختارون ببحث ويُنسبون بسعر المادة ويظهرون في الفوج', (
+      tester,
+    ) async {
+      final o = await openDetails(tester);
+      await seedStudents(tester, o.runtime);
+      await openPicker(tester);
+      for (final name in ['أحمد بن علي', 'فاطمة الزهراء', 'إيمان بوعلام']) {
+        expect(find.text(name), findsOneWidget, reason: name);
+      }
+      expect(find.text('الوليّ 0550111111'), findsOneWidget);
+      // زر التأكيد معطّل ما لم يُحدَّد أحد.
+      expect(
+        tester
+            .widget<ClayButton>(find.widgetWithText(ClayButton, 'إضافة'))
+            .onPressed,
+        isNull,
+      );
+
+      // البحث بالاسم ثم تغييره: ما حُدِّد يبقى محدَّداً.
+      await tester.enterText(find.byType(TextField), 'فاطمة');
+      await settleSearch(tester);
+      expect(find.text('أحمد بن علي'), findsNothing);
+      await tester.tap(find.text('فاطمة الزهراء'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'احمد');
+      await settleSearch(tester);
+      await tester.tap(find.text('أحمد بن علي'));
+      await tester.pump();
+      expect(find.text('المحدَّد: 2'), findsOneWidget);
+      await tester.tap(find.widgetWithText(ClayButton, 'إضافة (2)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('أُضيف تلميذان إلى الفوج'), findsOneWidget);
+      expect(find.text('أحمد بن علي'), findsOneWidget);
+      expect(find.text('فاطمة الزهراء'), findsOneWidget);
+      expect(find.text('إيمان بوعلام'), findsNothing);
+      expect(find.text('لا تلاميذ في الفوج بعد.'), findsNothing);
+      expect(find.text('الباقي ${Money.format(2000)}'), findsNWidgets(2));
+      final db = o.runtime.db;
+      final enrolments = await runDb(
+        tester,
+        () => db.select(db.groupStudents).get(),
+      );
+      expect(enrolments.map((e) => e.studentId).toSet(), {'s1', 's2'});
+      expect(enrolments.every((e) => e.monthlyPrice == 2000), isTrue);
+      expect(await runDb(tester, () => db.select(db.payments).get()), isEmpty);
+    });
+
+    appTest('منتسبو الفوج لا يُعرضون للاختيار، وبلا نتائج رسالة', (
+      tester,
+    ) async {
+      final o = await openDetails(tester, openSetup: false);
+      await seedStudents(tester, o.runtime);
+      final db = o.runtime.db;
+      final dues = DuesService(db, o.runtime.writer);
+      final group = await runDb(tester, () => db.select(db.groups).getSingle());
+      await runDb(
+        tester,
+        () => EnrolmentService(
+          db,
+          o.runtime.writer,
+          dues,
+          CycleService(db, o.runtime.writer),
+        ).enrol(studentId: 's1', groupId: group.id, monthlyPrice: 2000),
+      );
+      await tester.tap(find.widgetWithText(ClayButton, _setupButton));
+      await tester.pumpAndSettle();
+      expect(find.text('أحمد بن علي'), findsOneWidget, reason: 'في الفوج');
+      await openPicker(tester);
+      expect(
+        find.descendant(
+          of: find.byType(ClayBottomSheet),
+          matching: find.text('أحمد بن علي'),
+        ),
+        findsNothing,
+        reason: 'منتسب إلى الفوج فلا يُعرض للاختيار',
+      );
+      expect(
+        find.descendant(
+          of: find.byType(ClayBottomSheet),
+          matching: find.text('فاطمة الزهراء'),
+        ),
+        findsOneWidget,
+      );
+      await tester.enterText(find.byType(TextField), 'زززز');
+      await settleSearch(tester);
+      expect(find.text('لا نتائج مطابقة للبحث'), findsOneWidget);
+    });
+
+    appTest('عامل يُضيف تلاميذ يراه، ومن يملك العرض فقط لا يصل إلى الصفحة', (
+      tester,
+    ) async {
+      await openDetails(tester, account: _studentsOnly);
+      expect(
+        find.widgetWithText(ClayButton, 'إضافة تلاميذ موجودين'),
+        findsOneWidget,
+      );
+    });
+  });
 }

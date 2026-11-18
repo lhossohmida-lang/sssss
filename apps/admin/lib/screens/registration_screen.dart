@@ -493,6 +493,7 @@ class SubjectChoiceCard extends ConsumerWidget {
                 gap,
                 ClayDropdown<DiscountType>(
                   label: 'التخفيض',
+                  searchable: false,
                   value: draft.discountType,
                   options: [
                     for (final type in DiscountType.values)

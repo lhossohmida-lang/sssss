@@ -505,7 +505,9 @@ class _PayableTile extends StatelessWidget {
     final parts = [
       'المطلوب ${Money.format(item.total)}',
       if (item.paid > 0) 'دُفع ${Money.format(item.paid)}',
-      if (item.credits > 0) 'بعد خصم رصيد ${Money.format(item.credits)}',
+      if (item.credits > 0)
+        'بعد خصم رصيد ${Money.format(item.credits)}'
+            '${item.creditSessions > 0 ? ' (${SessionCount.label(item.creditSessions)} مدفوعة مسبقاً)' : ''}',
     ];
     return Padding(
       padding: const EdgeInsets.only(bottom: ClaySpacing.sm),

@@ -66,6 +66,7 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
             Expanded(
               child: ClayDropdown<int>(
                 label: 'الساعة',
+                searchable: false,
                 value: _hour,
                 options: [
                   for (var h = 0; h < 24; h++)
@@ -78,6 +79,7 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
             Expanded(
               child: ClayDropdown<int>(
                 label: 'الدقيقة',
+                searchable: false,
                 value: _minute,
                 options: [
                   for (final m in minutes) ClayOption(value: m, label: _two(m)),

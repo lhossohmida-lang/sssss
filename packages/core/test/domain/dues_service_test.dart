@@ -119,6 +119,48 @@ void main() {
       expect(value(1, net: 1000, spc: 3), 330);
       expect(() => value(1, spc: 0), throwsArgumentError);
     });
+
+    test('الرصيد بالحصص: ما دُفع مقدماً من الشهر التالي', () {
+      CycleDue due({int net = 2000, int credits = 0}) => CycleDue(
+        studentId: 's1',
+        groupId: 'g1',
+        cycleNumber: 2,
+        netPrice: net,
+        credits: credits,
+        paid: 0,
+        exempt: false,
+      );
+      expect(
+        due(credits: 1000).creditSessions(8),
+        4,
+        reason: 'التحق في الخامسة',
+      );
+      expect(due(credits: 250).creditSessions(8), 1);
+      expect(due().creditSessions(8), 0);
+      expect(
+        due(credits: 5000).creditSessions(8),
+        8,
+        reason: 'بحدّ حصص الدورة',
+      );
+      expect(due(net: 0, credits: 100).creditSessions(8), 0);
+      expect(due(credits: 1000).creditSessions(0), 0);
+      // سعر الحصة غير صحيح القسمة: الرصيد المقرَّب للعشرة يعود إلى الحصص الصحيحة.
+      final third = Pricing.sessionsValue(
+        netPrice: 2000,
+        sessions: 4,
+        sessionsPerCycle: 12,
+      );
+      expect(due(credits: third).creditSessions(12), 4);
+    });
+
+    test('عدد الحصص بالعربية', () {
+      expect(SessionCount.label(1), 'حصة واحدة');
+      expect(SessionCount.label(2), 'حصتان');
+      expect(SessionCount.label(4), '4 حصص');
+      expect(SessionCount.label(10), '10 حصص');
+      expect(SessionCount.label(11), '11 حصة');
+      expect(SessionCount.label(12), '12 حصة');
+    });
   });
 
   group('مستحقات الدورة', () {

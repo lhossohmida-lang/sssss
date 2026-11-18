@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'student_picker.dart';
+
 /// تلاميذ الفوج ووضع تسديد دورته الحالية (ويُعاد جلبه بعد كل إضافة أو دفعة).
 final groupSetupRowsProvider = FutureProvider.autoDispose
     .family<List<GroupSetupRow>, String>(
@@ -81,6 +83,51 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
         ? ''
         : '. تعذّر تسجيل الدفعة: ${result.paymentError}';
     return 'أُضيف $name $account$payment$failure';
+  }
+
+  /// ينسب تلاميذ مسجَّلين من قبل إلى الفوج: يُختارون من قائمة المدرسة ببحث، فيُضافون بسعر
+  /// مادة الفوج (والملتحق في منتصف الدورة يأخذ رصيد ما فاته). التسديد من زر «تسديد» بعدها.
+  Future<void> _addExisting() async {
+    final inGroup = {
+      for (final row
+          in ref.read(groupSetupRowsProvider(widget.groupId)).value ??
+              const <GroupSetupRow>[])
+        row.studentId,
+    };
+    final picked = await pickExistingStudents(context, exclude: inGroup);
+    if (picked == null || picked.isEmpty || !mounted) return;
+    try {
+      final result = await ref.read(groupSetupServiceProvider).addExisting(
+        widget.groupId,
+        [for (final student in picked) student.id],
+      );
+      if (!mounted) return;
+      _refresh();
+      _note(_existingMessage(result, picked));
+    } on ValidationException catch (e) {
+      if (mounted) _note(e.toString());
+    }
+  }
+
+  static String _existingMessage(
+    ExistingStudentsResult result,
+    List<StudentListItem> picked,
+  ) {
+    final names = {for (final s in picked) s.id: s.fullName};
+    final count = result.added.length;
+    final added = switch (count) {
+      0 => 'لم يُضَف أحد',
+      1 => 'أُضيف ${names[result.added.single]} إلى الفوج',
+      2 => 'أُضيف تلميذان إلى الفوج',
+      <= 10 => 'أُضيف $count تلاميذ إلى الفوج',
+      _ => 'أُضيف $count تلميذاً إلى الفوج',
+    };
+    if (result.skipped.isEmpty) return added;
+    final skipped = [
+      for (final e in result.skipped.entries)
+        '${names[e.key] ?? ''} (${e.value})',
+    ].join('، ');
+    return '$added. تعذّرت إضافة: $skipped';
   }
 
   Future<void> _pay(GroupSetupRow row) async {
@@ -171,8 +218,9 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
                   ),
                 ),
               Text(
-                'أضف تلاميذ الفوج، وسجّل حضورهم السابق إن كانت الدورة بدأت قبل '
-                'استعمال النظام، وحدّد ما سدّدوه، كل ذلك من هذه الصفحة.',
+                'أضف تلاميذ الفوج (جدداً، أو ممن سُجّلوا من قبل باختيارهم ببحث)، '
+                'وسجّل حضورهم السابق إن كانت الدورة بدأت قبل استعمال النظام، '
+                'وحدّد ما سدّدوه، كل ذلك من هذه الصفحة.',
                 style: text.bodyMedium,
               ),
               const SizedBox(height: ClaySpacing.lg),
@@ -236,6 +284,14 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
                     icon: ClayIcons.add,
                     expand: true,
                     onPressed: _addStudent,
+                  ),
+                  const SizedBox(height: ClaySpacing.sm),
+                  ClayButton(
+                    label: 'إضافة تلاميذ موجودين',
+                    icon: ClayIcons.students,
+                    kind: ClayButtonKind.secondary,
+                    expand: true,
+                    onPressed: _addExisting,
                   ),
                 ],
               ]),

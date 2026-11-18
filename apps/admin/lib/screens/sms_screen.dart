@@ -360,6 +360,7 @@ class _SmsBroadcastTabState extends ConsumerState<_SmsBroadcastTab> {
                     const SizedBox(height: ClaySpacing.md),
                     ClayDropdown<SmsBroadcastAudience>(
                       label: 'الجمهور',
+                      searchable: false,
                       value: _audience,
                       options: [
                         for (final audience in SmsBroadcastAudience.values)

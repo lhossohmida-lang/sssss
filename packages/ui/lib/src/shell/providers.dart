@@ -715,6 +715,7 @@ final Provider<GroupSetupService> groupSetupServiceProvider =
         ref.watch(paymentServiceProvider),
         ref.watch(duesServiceProvider),
         CycleService(runtime.db, runtime.writer),
+        enrolments: () => ref.read(enrolmentServiceProvider),
       );
     });
 

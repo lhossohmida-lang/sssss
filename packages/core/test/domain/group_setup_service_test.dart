@@ -39,6 +39,7 @@ void main() {
       payments,
       dues,
       cycles,
+      enrolments: () => EnrolmentService(env.db, env.writer, dues, cycles),
       clock: () => DateTime(2026, 11, 14, 10),
     );
     await env.subject();
@@ -289,6 +290,95 @@ void main() {
       await heldSession(2);
       expect(await service.heldSessions('g1'), 2);
       expect(await service.priceOfGroup('g1'), 2000);
+    });
+  });
+
+  group('إضافة تلاميذ موجودين من قبل', () {
+    setUp(() async {
+      await env.student(id: 's1');
+      await env.student(id: 's2');
+    });
+
+    test('يُنسبون بسعر المادة دون دفعة ولا رسالة', () async {
+      final result = await service.addExisting('g1', ['s1', 's2']);
+      expect(result.added, ['s1', 's2']);
+      expect(result.skipped, isEmpty);
+
+      final enrolments = await env.db.select(env.db.groupStudents).get();
+      expect(enrolments.map((e) => e.studentId), unorderedEquals(['s1', 's2']));
+      expect(enrolments.every((e) => e.monthlyPrice == 2000), isTrue);
+      expect(enrolments.every((e) => e.joinedAtSessionNumber == 1), isTrue);
+      expect(await env.db.select(env.db.payments).get(), isEmpty);
+      expect(await env.db.select(env.db.smsQueue).get(), isEmpty);
+      // يظهرون في الفوج وعليهم الشهر كاملاً.
+      final rows = await service.students('g1');
+      expect(rows.map((r) => r.studentId), ['s1', 's2']);
+      expect(rows.every((r) => r.remaining == 2000), isTrue);
+    });
+
+    test('من التحق في منتصف الدورة له رصيد ما فاته', () async {
+      await heldSession(1);
+      await heldSession(2);
+      await heldSession(3);
+      await service.addExisting('g1', ['s1']);
+      final enrolment = await env.db.select(env.db.groupStudents).getSingle();
+      expect(enrolment.joinedAtSessionNumber, 4);
+      final credit = await env.db.select(env.db.studentCredits).getSingle();
+      expect(credit.amount, 750, reason: '3 حصص من 8 من سعر 2000');
+      expect(credit.targetCycleNumber, 2);
+    });
+
+    test('المنتسب أصلاً وغير الموجود يُتجاوزان ويكتمل الباقي', () async {
+      await service.addExisting('g1', ['s1']);
+      final result = await service.addExisting('g1', ['s1', 'ghost', 's2']);
+      expect(result.added, ['s2']);
+      expect(result.skipped.keys, unorderedEquals(['s1', 'ghost']));
+      expect(result.skipped['s1'], 'التلميذ منتسب إلى هذا الفوج');
+      expect(result.skipped['ghost'], 'التلميذ غير موجود');
+      expect(
+        (await env.db.select(env.db.groupStudents).get()).length,
+        2,
+        reason: 's1 مرة واحدة و s2',
+      );
+    });
+
+    test('التلميذ المحذوف لا يُضاف، والتكرار في القائمة مرة واحدة', () async {
+      await env.db.customStatement(
+        'UPDATE students SET deleted_at = 9 WHERE id = ?',
+        ['s2'],
+      );
+      final result = await service.addExisting('g1', ['s1', 's1', 's2']);
+      expect(result.added, ['s1']);
+      expect(result.skipped, {'s2': 'التلميذ غير موجود'});
+    });
+
+    test('من كان في قائمة انتظار المادة يخرج منها', () async {
+      await EnrolmentService(
+        env.db,
+        env.writer,
+        DuesService(env.db, env.writer),
+        CycleService(env.db, env.writer),
+      ).addToWaiting(studentId: 's1', subjectId: 'sub');
+      expect(await env.db.select(env.db.waitingEntries).get(), hasLength(1));
+      await service.addExisting('g1', ['s1']);
+      final entries = await env.db.select(env.db.waitingEntries).get();
+      expect(entries.where((e) => e.deletedAt == null), isEmpty);
+    });
+
+    test('فوج مؤرشف أو غير موجود: رفض', () async {
+      await expectLater(
+        service.addExisting('nope', ['s1']),
+        throwsA(isA<ValidationException>()),
+      );
+      await env.db.customStatement(
+        'UPDATE groups SET archived_at = 9 WHERE id = ?',
+        ['g1'],
+      );
+      await expectLater(
+        service.addExisting('g1', ['s1']),
+        throwsA(isA<ValidationException>()),
+      );
+      expect(await env.db.select(env.db.groupStudents).get(), isEmpty);
     });
   });
 }

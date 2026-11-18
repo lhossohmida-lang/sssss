@@ -775,6 +775,7 @@ class _SlotCard extends StatelessWidget {
             ),
             ClayDropdown<int>(
               label: 'اليوم',
+              searchable: false,
               value: slot.weekday,
               options: [
                 for (final day in GroupService.displayWeekdays)

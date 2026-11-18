@@ -6,6 +6,7 @@ import 'catalog_service.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
 import 'dues_service.dart';
+import 'enrolment_service.dart';
 import 'enums.dart';
 import 'payment_service.dart';
 import 'phone.dart';
@@ -76,6 +77,17 @@ class GroupSetupResult {
   ProvisionedAccount get parentAccount => registration.parentAccount;
 }
 
+/// نتيجة إضافة تلاميذ موجودين إلى الفوج: من أُضيف، ومن لم يُضَف وسبب ذلك.
+class ExistingStudentsResult {
+  const ExistingStudentsResult({required this.added, required this.skipped});
+
+  /// معرّفات من أُضيفوا إلى الفوج.
+  final List<String> added;
+
+  /// معرّف من لم يُضَف ← السبب (منتسب أصلاً، غير موجود...).
+  final Map<String, String> skipped;
+}
+
 /// تلميذ في الفوج ومعه وضع تسديد دورته الحالية (لصفحة الإعداد).
 class GroupSetupRow {
   const GroupSetupRow({
@@ -111,12 +123,16 @@ class GroupSetupService {
     this.payments,
     this.dues,
     this.cycles, {
+    this.enrolments,
     DateTime Function()? clock,
   }) : _registration = registration,
        _clock = clock ?? DateTime.now;
 
   final AppDatabase db;
   final RegistrationService Function() _registration;
+
+  /// خدمة الانتساب، تُطلب عند إضافة تلاميذ موجودين فقط.
+  final EnrolmentService Function()? enrolments;
   final PaymentService payments;
   final DuesService dues;
   final CycleService cycles;
@@ -179,6 +195,44 @@ class GroupSetupService {
       settings: settings,
     );
     return _pay(group, result, input);
+  }
+
+  /// ينسب تلاميذ موجودين من قبل إلى الفوج بسعر مادته، دون دفعة ولا رسالة (حساب وليّ كل
+  /// منهم قائم). من التحق في منتصف الدورة يُنشأ له رصيد الحصص الفائتة كأي ملتحق. لا يتعطل
+  /// الباقون بتلميذ تعذّرت إضافته: من لم يُضَف يأتي في [ExistingStudentsResult.skipped]
+  /// بسببه (منتسب أصلاً، محذوف...). يرمي [ValidationException] إن لم يكن الفوج متاحاً.
+  Future<ExistingStudentsResult> addExisting(
+    String groupId,
+    Iterable<String> studentIds,
+  ) async {
+    final enrol = enrolments?.call();
+    if (enrol == null) {
+      throw StateError('خدمة الانتساب غير مهيّأة');
+    }
+    final group = await _group(groupId);
+    final price = await priceOf(group);
+    final added = <String>[];
+    final skipped = <String, String>{};
+    for (final id in studentIds.toSet()) {
+      final student = await (db.select(
+        db.students,
+      )..where((s) => s.id.equals(id))).getSingleOrNull();
+      if (student == null || student.deletedAt != null) {
+        skipped[id] = 'التلميذ غير موجود';
+        continue;
+      }
+      try {
+        await enrol.enrol(
+          studentId: id,
+          groupId: group.id,
+          monthlyPrice: price,
+        );
+        added.add(id);
+      } on ValidationException catch (e) {
+        skipped[id] = e.toString();
+      }
+    }
+    return ExistingStudentsResult(added: added, skipped: skipped);
   }
 
   Future<GroupSetupResult> _pay(

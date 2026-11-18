@@ -41,6 +41,15 @@ abstract final class Pricing {
   }
 }
 
+/// عدد الحصص بصياغة عربية صحيحة: «حصة واحدة»، «حصتان»، «4 حصص»، «12 حصة».
+abstract final class SessionCount {
+  static String label(int count) {
+    if (count == 1) return 'حصة واحدة';
+    if (count == 2) return 'حصتان';
+    return count >= 3 && count <= 10 ? '$count حصص' : '$count حصة';
+  }
+}
+
 /// مستحق تلميذ في مجموعة عن دورة واحدة.
 class CycleDue {
   const CycleDue({
