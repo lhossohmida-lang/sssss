@@ -69,6 +69,15 @@ class CycleDue {
   /// هل التلميذ معفى كلياً في هذه المجموعة؟
   final bool exempt;
 
+  /// الأرصدة المخصومة بالحصص: قيمتها مقسومة على سعر الحصة ([netPrice] ÷ [sessionsPerCycle])،
+  /// مقرَّبة لأقرب حصة وبحدّ حصص الدورة. فملتحق في الحصة 5 من 8 دفع الشهر الأول كاملاً
+  /// يظهر له في الشهر الثاني رصيد 4 حصص. صفر إن لم يكن رصيد أو سعر.
+  int creditSessions(int sessionsPerCycle) {
+    if (credits <= 0 || netPrice <= 0 || sessionsPerCycle <= 0) return 0;
+    final sessions = (credits * sessionsPerCycle / netPrice).round();
+    return sessions > sessionsPerCycle ? sessionsPerCycle : sessions;
+  }
+
   /// المطلوب دفعه عن الدورة بعد خصم الأرصدة.
   int get due {
     final value = netPrice - credits;

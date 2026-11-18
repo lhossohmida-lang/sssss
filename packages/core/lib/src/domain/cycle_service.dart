@@ -265,6 +265,56 @@ class CycleService {
     });
   }
 
+  /// ينقل حصة قادمة إلى [toDate] بوقتها وقاعتها نفسيهما، ويعيد الحصة الجديدة.
+  ///
+  /// تُلغى الحصة في موعدها القديم (فيبقى محجوزاً بها ولا يُعاد برمجته من الجدول) وتُضاف في
+  /// الموعد الجديد حصة تعويضية في الدورة نفسها، فيبقى عدد حصص الدورة كما هو ولا تُبرمج
+  /// حصة بديلة. موعد قديم ملغى بالنقل يصلح وجهةً لنقل لاحق. يرمي [StateError] برسالة عربية
+  /// إن كانت الحصة ملغاة أو أُغلقت أو سُجّل حضورها، أو كان [toDate] تاريخها نفسه، أو كان
+  /// للفوج حصة قائمة في الموعد الجديد.
+  Future<SessionRow> moveSession(String sessionId, {required String toDate}) {
+    return db.transaction(() async {
+      final session = await _session(sessionId);
+      if (session.status == SessionStatus.cancelled.code) {
+        throw StateError('لا تُنقل حصة ملغاة');
+      }
+      if (session.closedAt != null || await _hasAttendance(sessionId)) {
+        throw StateError('لا تُنقل حصة انعقدت أو سُجّل حضورها');
+      }
+      if (toDate == session.date) {
+        throw StateError('اختر تاريخاً مختلفاً عن تاريخ الحصة');
+      }
+      if (!await _slotFree(session.groupId, toDate, session.startMinutes)) {
+        throw StateError(
+          'للفوج حصة يوم $toDate على '
+          '${DateKey.formatMinutes(session.startMinutes)} من قبل',
+        );
+      }
+      await _save(
+        session.copyWith(
+          status: SessionStatus.cancelled.code,
+          sessionNumber: const Value(null),
+        ),
+      );
+      final stamp = writer.now();
+      final moved = SessionRow(
+        id: StableId.session(session.groupId, toDate, session.startMinutes),
+        createdAt: stamp,
+        updatedAt: stamp,
+        groupId: session.groupId,
+        cycleNumber: session.cycleNumber,
+        date: toDate,
+        startMinutes: session.startMinutes,
+        endMinutes: session.endMinutes,
+        roomId: session.roomId,
+        status: SessionStatus.makeup.code,
+      );
+      await _save(moved);
+      await renumber(session.groupId, session.cycleNumber);
+      return _session(moved.id);
+    });
+  }
+
   /// هل اكتملت الدورة الحالية للمجموعة؟
   Future<bool> isCurrentCycleComplete(String groupId) async {
     final group = await _group(groupId);
@@ -324,6 +374,36 @@ class CycleService {
         )
         .getSingleOrNull();
     return row != null && !ignore.contains(row.read<String>('id'));
+  }
+
+  /// هل موعد الحصة خالٍ؟ الحصة الملغاة لا تحجز موعدها لحصة جديدة.
+  Future<bool> _slotFree(String groupId, String date, int start) async {
+    final row = await db
+        .customSelect(
+          'SELECT id FROM sessions WHERE group_id = ? AND date = ? '
+          'AND start_minutes = ? AND deleted_at IS NULL '
+          "AND status <> 'cancelled' LIMIT 1",
+          variables: [
+            Variable<String>(groupId),
+            Variable<String>(date),
+            Variable<int>(start),
+          ],
+          readsFrom: {db.sessions},
+        )
+        .getSingleOrNull();
+    return row == null;
+  }
+
+  Future<bool> _hasAttendance(String sessionId) async {
+    final row = await db
+        .customSelect(
+          'SELECT 1 FROM attendance WHERE session_id = ? '
+          'AND deleted_at IS NULL LIMIT 1',
+          variables: [Variable<String>(sessionId)],
+          readsFrom: {db.attendance},
+        )
+        .getSingleOrNull();
+    return row != null;
   }
 
   Future<GroupRow> _group(String id) =>

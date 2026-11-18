@@ -10,6 +10,8 @@ import 'package:school_ui/school_ui.dart';
 /// وبتواريخها من جدول الفوج ابتداءً من تاريخ أول حصة. ما مضى منها يُسجَّل حضوره
 /// (ويُلغى تحديد ما لم ينعقد فعلاً)، وما بقي يُبرمج قادماً. وتغيير تاريخ أول حصة يعيد
 /// بناء الحصص المقررة كلها منه (ومن بعد اليوم تُبرمج الدورة كلها من ذلك التاريخ).
+/// ويمكن تغيير تاريخ أي حصة قادمة (لم تمضِ ولم تنعقد) إلى يوم آخر بوقتها نفسه؛ ويُحفظ
+/// النقل مع الحفظ ولا تعيده إعادة البرمجة اللاحقة إلى موعده الأول.
 class PastSessionsScreen extends ConsumerStatefulWidget {
   const PastSessionsScreen({required this.groupId, this.firstDate, super.key});
 
@@ -25,10 +27,17 @@ class PastSessionsScreen extends ConsumerStatefulWidget {
 enum _RowKind { held, upcoming, past }
 
 class _PlanRow {
-  const _PlanRow(this.session, this.kind);
+  const _PlanRow(this.session, this.kind, {this.movedFrom});
 
   final PlannedSession session;
   final _RowKind kind;
+
+  /// تاريخها المبرمج الأول إن نُقلت في هذه الشاشة ولم يُحفظ النقل بعد.
+  final String? movedFrom;
+
+  /// مفتاح موعدها المبرمج الذي تُنقل منه (الأصلي إن كانت منقولة هنا).
+  String get originalKey =>
+      movedFrom == null ? session.key : '$movedFrom|${session.startMinutes}';
 }
 
 class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
@@ -46,8 +55,11 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
   String? _formError;
   CyclePlan? _plan;
   List<PastRosterStudent> _roster = const [];
-  final List<PlannedSession> _custom = [];
   final Set<String> _chosen = {};
+
+  /// حصص قادمة غُيّر تاريخها ولم يُحفظ بعد: مفتاحها الأصلي (`تاريخ|بداية`) ← التاريخ الجديد،
+  /// بترتيب إجرائها (نقل إلى موعد أخلاه نقل سابق يأتي بعده).
+  final Map<String, String> _moves = {};
 
   /// مفتاح الحصة ← (معرّف التلميذ ← حالته؛ `null` = لا تسجيل).
   final Map<String, Map<String, AttendanceStatus?>> _marks = {};
@@ -127,81 +139,142 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
         now: DateTime.now(),
       );
       if (!mounted) return;
+      final dropped = _moves.isNotEmpty;
       setState(() {
         _formError = null;
         _from = first;
         _plan = plan;
-        // حصة أضافها المدير قبل أول حصة الجديدة لا مكان لها بعد الآن.
-        _custom.removeWhere((s) => s.date.compareTo(plan.from) < 0);
+        // الحصص أُعيد بناؤها من التاريخ الجديد، فلا مكان لتغييرات تواريخ الحصص السابقة.
+        _moves.clear();
         _chosen
           ..clear()
-          ..addAll(plan.past.map((s) => s.key))
-          ..addAll(_custom.map((s) => s.key));
+          ..addAll(plan.past.map((s) => s.key));
       });
+      if (dropped) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'أُعيد بناء الحصص من التاريخ الجديد فأُلغيت تغييرات تواريخ الحصص '
+              'غير المحفوظة',
+            ),
+          ),
+        );
+      }
     } on ValidationException catch (e) {
       if (mounted) setState(() => _formError = e.toString());
     }
   }
 
-  Future<void> _addCustom() async {
-    final date = await showClayDatePicker(
-      context,
-      title: 'تاريخ الحصة',
-      initial: _today.subtract(const Duration(days: 1)),
-    );
-    if (date == null || !mounted) return;
-    if (!date.isBefore(_today)) {
-      setState(() => _formError = 'اختر تاريخاً قبل اليوم');
+  /// الحصص القادمة التي يجوز تغيير تاريخها (لم تمضِ ولم تنعقد).
+  List<_PlanRow> get _movable => [
+    for (final row in _rows)
+      if (row.kind == _RowKind.upcoming) row,
+  ];
+
+  /// يغيّر تاريخ حصة قادمة إلى يوم آخر بوقتها نفسه. [chosen] الحصة المقصودة إن عُرفت (من
+  /// أيقونة صفّها)، وإلا يُسأل عنها. لا يُنقل ما مضى ولا ما انعقد، ولا إلى يوم قبل اليوم.
+  Future<void> _changeDate([_PlanRow? chosen]) async {
+    final movable = _movable;
+    if (movable.isEmpty) {
+      setState(() => _formError = 'لا حصة قادمة لتغيير تاريخها');
       return;
     }
-    if (DateKey.of(date).compareTo(DateKey.of(_from!)) < 0) {
+    final row =
+        chosen ??
+        (movable.length == 1 ? movable.single : await _chooseSession(movable));
+    if (row == null || !mounted) return;
+    final session = row.session;
+    final picked = await showClayDatePicker(
+      context,
+      title: 'التاريخ الجديد للحصة',
+      initial: DateKey.parse(session.date),
+    );
+    if (picked == null || !mounted) return;
+    final date = DateKey.of(picked);
+    if (date == session.date) return;
+    if (picked.isBefore(_today)) {
       setState(
         () => _formError =
-            'اختر تاريخاً من أول حصة في الدورة فصاعداً، أو غيّر تاريخ أول حصة',
+            'اختر اليوم أو تاريخاً بعده: الحصة القادمة لا تُنقل إلى ما مضى',
       );
       return;
     }
-    final start = await showClayTimePicker(context, title: 'وقت البداية');
-    if (start == null || !mounted) return;
-    final end = await showClayTimePicker(
-      context,
-      title: 'وقت النهاية',
-      initial: start + 90,
-    );
-    if (end == null || !mounted) return;
-    if (end <= start) {
-      setState(() => _formError = 'وقت النهاية يجب أن يكون بعد البداية');
+    final now = DateTime.now();
+    if (date == DateKey.of(_today) &&
+        session.endMinutes <= DateKey.minutesOf(now)) {
+      setState(
+        () => _formError = 'انتهى وقت هذه الحصة اليوم؛ اختر يوماً بعد اليوم',
+      );
       return;
     }
-    final session = PlannedSession(
-      date: DateKey.of(date),
-      startMinutes: start,
-      endMinutes: end,
-    );
-    if (_allKeys.contains(session.key)) {
-      setState(() => _formError = 'هذه الحصة مضافة من قبل');
+    final target = '$date|${session.startMinutes}';
+    if (_rows.any((r) => r.session.key == target)) {
+      setState(
+        () => _formError =
+            'للفوج حصة يوم $date على ${DateKey.formatMinutes(session.startMinutes)} '
+            'من قبل؛ اختر تاريخاً آخر',
+      );
       return;
     }
     setState(() {
       _formError = null;
-      _custom.add(session);
-      _chosen.add(session.key);
+      if (date == row.movedFrom) {
+        _moves.remove(row.originalKey);
+      } else {
+        _moves[row.originalKey] = date;
+      }
     });
   }
 
-  /// مفاتيح كل الحصص المعروضة الآن.
-  Set<String> get _allKeys => {
-    for (final row in _rows) row.session.key,
-    for (final s in _custom) s.key,
-  };
-
-  /// الحصص الماضية المعروضة بخانات تحديد: المقترحة ثم المضافة يدوياً.
-  List<PlannedSession> get _pastRows {
-    final byKey = {
-      for (final s in [..._plan!.past, ..._custom]) s.key: s,
-    };
-    return byKey.values.toList()..sort(_byTime);
+  /// يتراجع عن نقل لم يُحفظ بعد، فتعود الحصة إلى موعدها المبرمج.
+  void _undoMove(_PlanRow row) {
+    final original = row.originalKey;
+    // نقل آخر إلى موعدها الأول يمنع عودتها إليه قبل أن يُلغى هو.
+    final blocker = _moves.entries
+        .where(
+          (e) =>
+              e.key != original &&
+              '${e.value}|${row.session.startMinutes}' == original,
+        )
+        .firstOrNull;
+    if (blocker != null) {
+      setState(
+        () => _formError =
+            'حصة أخرى نُقلت إلى موعدها الأول (${blocker.value}): تراجع عن نقلها أولاً',
+      );
+      return;
+    }
+    setState(() {
+      _formError = null;
+      _moves.remove(original);
+    });
   }
+
+  /// يسأل عن الحصة القادمة التي يُغيَّر تاريخها حين يتعدد القادم منها.
+  Future<_PlanRow?> _chooseSession(List<_PlanRow> rows) {
+    return showClayBottomSheet<_PlanRow>(
+      context,
+      title: 'اختر الحصة التي يتغير تاريخها',
+      builder: (sheet) => ListView(
+        shrinkWrap: true,
+        children: [
+          for (final row in rows)
+            ClayListTile(
+              title: '${_dayName(row.session.date)} ${row.session.date}',
+              subtitle: row.movedFrom == null
+                  ? _times(row.session)
+                  : '${_times(row.session)} · كانت ${row.movedFrom}',
+              leading: const Icon(ClayIcons.schedule),
+              onTap: () => Navigator.of(sheet).pop(row),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// الحصص الماضية المعروضة بخانات تحديد. لا ماضية حين لا سعة لتسجيلها.
+  List<PlannedSession> get _pastRows =>
+      _plan!.capacity <= 0 ? const [] : _plan!.past;
 
   List<PlannedSession> get _picked => [
     for (final s in _pastRows)
@@ -210,16 +283,33 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
 
   /// كل صفوف «الحصص المقررة»: الثابتة والماضية والقادمة، بالترتيب الزمني. القادمة بقدر ما
   /// يبقى للدورة بعد الثابتة والماضية المحدَّدة، فيبقى المجموع بعدد حصص الدورة دائماً.
+  /// والحصة القادمة التي غُيّر تاريخها تظهر في تاريخها الجديد.
   List<_PlanRow> get _rows {
     final plan = _plan!;
     final room = plan.cycleSize - plan.fixed.length - _picked.length;
-    return [
+    final rows = [
       for (final s in plan.fixed)
         _PlanRow(s, s.held ? _RowKind.held : _RowKind.upcoming),
       for (final s in _pastRows) _PlanRow(s, _RowKind.past),
       for (final s in plan.upcoming.take(room < 0 ? 0 : room))
         _PlanRow(s, _RowKind.upcoming),
-    ]..sort((a, b) => _byTime(a.session, b.session));
+    ];
+    return [for (final row in rows) _moved(row)]
+      ..sort((a, b) => _byTime(a.session, b.session));
+  }
+
+  _PlanRow _moved(_PlanRow row) {
+    final to = row.kind == _RowKind.upcoming ? _moves[row.session.key] : null;
+    if (to == null) return row;
+    return _PlanRow(
+      PlannedSession(
+        date: to,
+        startMinutes: row.session.startMinutes,
+        endMinutes: row.session.endMinutes,
+      ),
+      _RowKind.upcoming,
+      movedFrom: row.session.date,
+    );
   }
 
   static int _byTime(PlannedSession a, PlannedSession b) {
@@ -264,17 +354,22 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     final plan = _plan!;
     final first = DateKey.of(_from!);
     final replanOnly = picked.isEmpty;
+    final movesNote = _moves.isEmpty
+        ? ''
+        : ' وتُنقل ${_moves.length} '
+              '${_moves.length == 1 ? 'حصة قادمة' : 'حصص قادمة'} إلى '
+              'التواريخ التي اخترتها (تُلغى في موعدها وتحلّ محلها حصة تعويضية).';
     final ok = await showClayConfirm(
       context,
       title: replanOnly ? 'برمجة حصص الدورة' : 'تسجيل الحضور السابق',
       message: replanOnly
           ? 'ستُعاد برمجة حصص الدورة الحالية (${plan.cycleSize} حصة) من جدول '
                 'الفوج ابتداءً من $first، وتُحذف الحصص المبرمجة غير المنعقدة '
-                'لتحلّ محلها الجديدة.'
+                'لتحلّ محلها الجديدة.$movesNote'
           : 'ستُسجَّل ${picked.length} حصة سابقة في الدورة الحالية بحضور '
                 'تلاميذها، وتُبرمج الحصص القادمة من جدول الفوج لتبقى الدورة '
-                '${plan.cycleSize} حصة. لا تُرسل رسائل لأولياء التلاميذ، '
-                'ويمكن تعديل أي خانة لاحقاً من شاشة الحضور.',
+                '${plan.cycleSize} حصة.$movesNote لا تُرسل رسائل لأولياء '
+                'التلاميذ، ويمكن تعديل أي خانة لاحقاً من شاشة الحضور.',
       confirmLabel: replanOnly ? 'برمجة' : 'تسجيل',
     );
     if (!ok || !mounted) return;
@@ -300,13 +395,23 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
         now: DateTime.now(),
         canExcuse: excuse,
         firstDate: first,
+        moves: [
+          for (final e in _moves.entries)
+            SessionMove(
+              fromDate: e.key.split('|').first,
+              startMinutes: int.parse(e.key.split('|').last),
+              toDate: e.value,
+            ),
+        ],
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             replanOnly
-                ? 'أُعيدت برمجة حصص الدورة من $first'
+                ? (_moves.isEmpty
+                      ? 'أُعيدت برمجة حصص الدورة من $first'
+                      : 'حُفظت الحصص المقررة وغُيّر تاريخ ${_moves.length} منها')
                 : 'سُجِّلت ${result.sessions} حصة سابقة و${result.marks} خانة حضور',
           ),
         ),
@@ -382,13 +487,15 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
     final overCapacity = picked.length > plan.capacity;
     final first = DateKey.of(_from!);
     final needsStudents = picked.isNotEmpty && _roster.isEmpty;
-    final dirty = picked.isNotEmpty || first != _initialFrom;
+    final dirty =
+        picked.isNotEmpty || first != _initialFrom || _moves.isNotEmpty;
+    // حين لا سعة لتسجيل ماضٍ يبقى حفظ تغيير التواريخ وحده ممكناً.
     final canSave =
         !_saving &&
         dirty &&
         !overCapacity &&
         !needsStudents &&
-        plan.capacity > 0;
+        (plan.capacity > 0 || _moves.isNotEmpty);
     return [
       ClayCard(
         child: Column(
@@ -406,15 +513,30 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
         ),
       ),
       const SizedBox(height: ClaySpacing.lg),
-      if (plan.capacity <= 0)
+      if (plan.capacity <= 0) ...[
         const ClayEmptyView(
           title: 'لا يمكن تسجيل حصص سابقة الآن',
           message:
               'الدورة الحالية على وشك أن تكتمل، فتبقى حصصها لتُسجَّل بالطريقة '
-              'العادية من شاشة الحضور.',
+              'العادية من شاشة الحضور. ويمكنك تغيير تاريخ أي حصة قادمة منها.',
           icon: ClayIcons.schedule,
-        )
-      else ...[
+        ),
+        _sessionsCard(context, plan),
+        if (_formError != null) ...[
+          const SizedBox(height: ClaySpacing.md),
+          Text(_formError!, style: TextStyle(color: p.status.danger)),
+        ],
+        if (_moves.isNotEmpty) ...[
+          const SizedBox(height: ClaySpacing.lg),
+          ClayButton(
+            label: 'حفظ الحصص المقررة',
+            icon: ClayIcons.check,
+            expand: true,
+            loading: _saving,
+            onPressed: canSave ? () => _save(excuse: excuse) : null,
+          ),
+        ],
+      ] else ...[
         ClayCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -442,9 +564,9 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
               const SizedBox(height: ClaySpacing.xs),
               Text(
                 'تُنشأ حصص الدورة (${plan.cycleSize}) دائماً من هذا التاريخ '
-                'بحسب جدول الفوج. ألغِ تحديد ما مضى ولم ينعقد فعلاً، وأضف ما '
-                'انعقد في وقت آخر. وإن كان التاريخ بعد اليوم بُرمجت الدورة '
-                'كلها منه.',
+                'بحسب جدول الفوج. ألغِ تحديد ما مضى ولم ينعقد فعلاً. وإن كان '
+                'التاريخ بعد اليوم بُرمجت الدورة كلها منه، ويمكنك تغيير تاريخ '
+                'أي حصة قادمة منها.',
                 style: text.bodySmall!.copyWith(color: p.textMuted),
               ),
             ],
@@ -520,10 +642,10 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: ClayButton(
-              label: 'إضافة حصة بتاريخ آخر',
-              icon: ClayIcons.add,
+              label: 'تغيير تاريخ حصة',
+              icon: ClayIcons.schedule,
               kind: ClayButtonKind.secondary,
-              onPressed: _saving ? null : _addCustom,
+              onPressed: _saving || _movable.isEmpty ? null : _changeDate,
             ),
           ),
         ],
@@ -553,9 +675,19 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
         dimension: ClayCheckbox.size,
         child: Icon(ClayIcons.check, color: p.status.success),
       ),
+      // أيقونة التقويم تغيّر تاريخ هذه الحصة القادمة.
       _RowKind.upcoming => SizedBox.square(
         dimension: ClayCheckbox.size,
-        child: Icon(ClayIcons.schedule, color: p.textMuted),
+        child: IconButton(
+          tooltip: 'تغيير تاريخ حصة ${s.date}',
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            ClayIcons.schedule,
+            color: row.movedFrom == null ? p.textMuted : p.accent,
+          ),
+          onPressed: _saving ? null : () => _changeDate(row),
+        ),
       ),
     };
     final badge = switch (row.kind) {
@@ -563,6 +695,10 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
       _RowKind.held => const ClayBadge(
         label: 'سُجِّلت',
         tone: ClayTone.success,
+      ),
+      _RowKind.upcoming when row.movedFrom != null => const ClayBadge(
+        label: 'منقولة',
+        tone: ClayTone.warning,
       ),
       _RowKind.upcoming => const ClayBadge(label: 'قادمة'),
     };
@@ -584,9 +720,23 @@ class _PastSessionsScreenState extends ConsumerState<PastSessionsScreen> {
                   child: Text(s.date, style: text.bodyMedium),
                 ),
                 ?badge,
+                if (row.movedFrom != null)
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      'كانت ${row.movedFrom}',
+                      style: text.bodySmall!.copyWith(color: p.textMuted),
+                    ),
+                  ),
               ],
             ),
           ),
+          if (row.movedFrom != null)
+            IconButton(
+              tooltip: 'التراجع عن نقل حصة ${s.date}',
+              icon: const Icon(Icons.undo_rounded),
+              onPressed: _saving ? null : () => _undoMove(row),
+            ),
           Directionality(
             textDirection: TextDirection.ltr,
             child: Text(

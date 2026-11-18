@@ -7,6 +7,27 @@ import 'catalog_service.dart';
 import 'cycle_service.dart';
 import 'date_key.dart';
 import 'enums.dart';
+import 'schedule_service.dart';
+
+/// نقل حصة قادمة إلى تاريخ آخر بوقتها نفسه ([PastSessionsService.record]).
+class SessionMove {
+  const SessionMove({
+    required this.fromDate,
+    required this.startMinutes,
+    required this.toDate,
+  });
+
+  /// تاريخ الحصة المبرمجة `YYYY-MM-DD`.
+  final String fromDate;
+
+  /// بداية الحصة؛ يبقى وقتها كما هو.
+  final int startMinutes;
+
+  /// التاريخ الجديد `YYYY-MM-DD`: اليوم أو بعده.
+  final String toDate;
+
+  String get fromKey => '$fromDate|$startMinutes';
+}
 
 /// حصة في «الحصص المقررة» للدورة الحالية: تاريخها ووقتها.
 class PlannedSession {
@@ -148,8 +169,13 @@ class _CycleState {
 /// - لا تُسجَّل إلا حصص قبل اليوم (حصص اليوم تُغلق وتُسجَّل من شاشة الحضور).
 /// - تبقى حصة واحدة على الأقل في الدورة لتُغلق تلقائياً، فلا تكتمل الدورة هنا
 ///   (اكتمالها يُنشئ خلاص الأستاذ ويرسل رسائل لأولياء التلاميذ).
-/// - الحصص المنعقدة المغلقة وما فيه حضور والتعويضية والمضافة لا تُحذف ولا تُنقل.
+/// - الحصص المنعقدة المغلقة وما فيه حضور والتعويضية والمضافة لا تُحذف عند إعادة البرمجة.
 /// - لا رسائل غياب ولا تنبيهات: هذه حصص مضت.
+///
+/// تغيير تاريخ حصة قادمة ([SessionMove]): تُنقل بوقتها إلى اليوم أو ما بعده بعد فحص تعارضها
+/// مع أستاذها وقاعتها وحصص الفوج. تُلغى في موعدها وتحلّ محلها حصة تعويضية في الموعد
+/// الجديد ([CycleService.moveSession])، فلا تُعيد إعادةُ البرمجة اللاحقة الحصةَ إلى موعدها
+/// الأصلي، ولا ما مضى أو انعقد يُنقل.
 class PastSessionsService {
   PastSessionsService(this.db, this.writer, this.cycles, this.attendance);
 
@@ -157,6 +183,11 @@ class PastSessionsService {
   final SyncWriter writer;
   final CycleService cycles;
   final AttendanceService attendance;
+
+  late final ScheduleService _schedule = ScheduleService(db);
+
+  /// حقل أخطاء نقل الحصص.
+  static const String fieldMoves = 'moves';
 
   /// أقصى عدد أيام يُبحث فيها عن حصص ماضية من الجدول.
   static const int _maxDays = 200;
@@ -284,6 +315,9 @@ class PastSessionsService {
   /// وإن كان بعد اليوم بُرمجت الدورة كلها منه. بدونه تُبرمج القادمة من اليوم. ومع
   /// [firstDate] تجوز قائمة [sessions] فارغة (إعادة برمجة فقط).
   ///
+  /// [moves] حصص قادمة تُنقل بعد إعادة البرمجة إلى تواريخ أخرى بوقتها (انظر [SessionMove])،
+  /// بترتيبها: ما يُنقل إلى موعد أخلاه نقلٌ سابق يأتي بعده.
+  ///
   /// [canExcuse] إذن تسجيل «غائب برخصة» (للمدير أو العامل المخوَّل فقط، قرار 44).
   Future<PastSessionsResult> record(
     String groupId,
@@ -291,12 +325,14 @@ class PastSessionsService {
     required DateTime now,
     bool canExcuse = false,
     String? firstDate,
+    List<SessionMove> moves = const [],
   }) async {
-    if (sessions.isEmpty && firstDate == null) {
+    if (sessions.isEmpty && firstDate == null && moves.isEmpty) {
       throw ValidationException.field('sessions', 'اختر حصة واحدة على الأقل');
     }
     final today = DateKey.of(now);
     if (firstDate != null) _checkDate(firstDate, field: 'first_date');
+    _checkMoves(moves, today: today);
     final seen = <String>{};
     for (final input in sessions) {
       _checkDate(input.date);
@@ -441,6 +477,7 @@ class PastSessionsService {
             : today,
         continueAfterLast: false,
       );
+      await _applyMoves(group, moves, now: now);
       final removed = deletedUpcoming - created.length;
       return PastSessionsResult(
         sessions: sessions.length,
@@ -449,6 +486,109 @@ class PastSessionsService {
       );
     });
   }
+
+  /// فحص النقل قبل أي كتابة: تواريخ صالحة، والوجهة اليوم أو بعده، ولا تكرار.
+  static void _checkMoves(List<SessionMove> moves, {required String today}) {
+    final from = <String>{};
+    final to = <String>{};
+    for (final move in moves) {
+      _checkDate(move.fromDate, field: fieldMoves);
+      _checkDate(move.toDate, field: fieldMoves);
+      if (move.startMinutes < 0 || move.startMinutes >= 24 * 60) {
+        throw ValidationException.field(fieldMoves, 'وقت الحصة غير صالح');
+      }
+      if (move.fromDate.compareTo(today) < 0) {
+        throw ValidationException.field(
+          fieldMoves,
+          'حصة ${move.fromDate} مضى موعدها فلا تُنقل',
+        );
+      }
+      if (move.toDate.compareTo(today) < 0) {
+        throw ValidationException.field(
+          fieldMoves,
+          'تُنقل الحصة إلى اليوم أو ما بعده، لا إلى تاريخ مضى (${move.toDate})',
+        );
+      }
+      if (move.toDate == move.fromDate) {
+        throw ValidationException.field(
+          fieldMoves,
+          'اختر تاريخاً مختلفاً عن تاريخ الحصة (${move.fromDate})',
+        );
+      }
+      if (!from.add(move.fromKey)) {
+        throw ValidationException.field(
+          fieldMoves,
+          'حصة ${move.fromDate} مذكورة في أكثر من نقل',
+        );
+      }
+      if (!to.add('${move.toDate}|${move.startMinutes}')) {
+        throw ValidationException.field(
+          fieldMoves,
+          'حصتان تُنقلان إلى الموعد نفسه: ${move.toDate}',
+        );
+      }
+    }
+  }
+
+  /// ينقل الحصص القادمة بترتيبها، وأي رفض يُلغي العملية كلها (داخل معاملة [record]).
+  Future<void> _applyMoves(
+    GroupRow group,
+    List<SessionMove> moves, {
+    required DateTime now,
+  }) async {
+    final today = DateKey.of(now);
+    final minutes = DateKey.minutesOf(now);
+    for (final move in moves) {
+      final session = await _liveSession(
+        group.id,
+        move.fromDate,
+        move.startMinutes,
+      );
+      if (session == null ||
+          session.status == SessionStatus.cancelled.code ||
+          session.cycleNumber != group.currentCycleNumber) {
+        throw ValidationException.field(
+          fieldMoves,
+          'لا حصة قادمة للفوج يوم ${move.fromDate} لنقلها',
+        );
+      }
+      if (move.toDate == today && session.endMinutes <= minutes) {
+        throw ValidationException.field(
+          fieldMoves,
+          'انتهى وقت هذه الحصة اليوم؛ اختر يوماً بعد اليوم',
+        );
+      }
+      final conflicts = await _schedule.dateConflicts(
+        date: move.toDate,
+        startMinutes: session.startMinutes,
+        endMinutes: session.endMinutes,
+        teacherId: group.teacherId,
+        roomId: session.roomId ?? group.roomId,
+        excludeSessionId: session.id,
+      );
+      if (conflicts.isNotEmpty) {
+        throw ValidationException.field(
+          fieldMoves,
+          'تعارض في ${move.toDate}: ${conflicts.map((c) => c.message).join('، ')}',
+        );
+      }
+      try {
+        await cycles.moveSession(session.id, toDate: move.toDate);
+      } on StateError catch (e) {
+        throw ValidationException.field(fieldMoves, e.message);
+      }
+    }
+  }
+
+  Future<SessionRow?> _liveSession(String groupId, String date, int start) =>
+      (db.select(db.sessions)..where(
+            (s) =>
+                s.groupId.equals(groupId) &
+                s.date.equals(date) &
+                s.startMinutes.equals(start) &
+                s.deletedAt.isNull(),
+          ))
+          .getSingleOrNull();
 
   /// حصص الدورة الحالية مصنّفة: ثابتة (لا تُمَسّ) أو قابلة لإعادة البرمجة.
   Future<_CycleState> _cycleState(GroupRow group) async {

@@ -61,6 +61,7 @@ class PayableItem {
     this.cycleNumber,
     this.periodKey,
     this.credits = 0,
+    this.creditSessions = 0,
   });
 
   final PaymentType type;
@@ -74,6 +75,10 @@ class PayableItem {
 
   /// أرصدة (غياب برخصة أو التحاق في المنتصف) خُصمت من الشهر.
   final int credits;
+
+  /// الرصيد بالحصص: كم حصة من الشهر دُفعت مقدماً (مثل 4 لتلميذ التحق في الحصة 5 من 8 فدفع
+  /// الشهر الأول كاملاً). مقرَّباً لأقرب حصة، وصفر إن لم يكن رصيد.
+  final int creditSessions;
 
   final String? groupId;
   final int? cycleNumber;
@@ -208,6 +213,7 @@ class PaymentService {
             total: due.due,
             paid: due.paid,
             credits: due.credits,
+            creditSessions: due.creditSessions(g?.sessionsPerCycle ?? 0),
             groupId: due.groupId,
             cycleNumber: due.cycleNumber,
           ),
@@ -582,14 +588,14 @@ class PaymentService {
     );
   }
 
-  Future<Map<String, ({String subject, int number})>> _groupInfos(
-    List<String> ids,
-  ) async {
+  Future<Map<String, ({String subject, int number, int sessionsPerCycle})>>
+  _groupInfos(List<String> ids) async {
     final unique = ids.toSet().toList();
     final marks = List.filled(unique.length, '?').join(', ');
     final rows = await db
         .customSelect(
-          'SELECT g.id, g.number, sub.name AS subject FROM groups g '
+          'SELECT g.id, g.number, g.sessions_per_cycle, sub.name AS subject '
+          'FROM groups g '
           'JOIN subjects sub ON sub.id = g.subject_id WHERE g.id IN ($marks)',
           variables: [for (final id in unique) Variable<String>(id)],
           readsFrom: {db.groups, db.subjects},
@@ -600,6 +606,7 @@ class PaymentService {
         row.read<String>('id'): (
           subject: row.read<String>('subject'),
           number: row.read<int>('number'),
+          sessionsPerCycle: row.read<int>('sessions_per_cycle'),
         ),
     };
   }

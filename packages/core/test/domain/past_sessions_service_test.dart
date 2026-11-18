@@ -594,4 +594,219 @@ void main() {
       expect((await cycleSessions()).map((s) => s.id), before);
     });
   });
+
+  group('تغيير تاريخ حصة قادمة', () {
+    // بعد setUp: الحصص القادمة من اليوم (الأربعاء 18): السبت 21، الثلاثاء 24، السبت 28،
+    // الثلاثاء 1 ديسمبر، كلها 10:00–11:30.
+    const sat21 = '2026-11-21';
+    const tue24 = '2026-11-24';
+    const sat28 = '2026-11-28';
+    const dec1 = '2026-12-01';
+
+    SessionMove move(String from, String to, {int start = 600}) =>
+        SessionMove(fromDate: from, startMinutes: start, toDate: to);
+
+    Future<List<String>> shape() async => [
+      for (final s in await cycleSessions())
+        '${s.date}:${s.status}${s.closedAt == null ? '' : ':closed'}',
+    ];
+
+    Future<PastSessionsResult> replan(
+      List<SessionMove> moves, {
+      DateTime? at,
+    }) => past.record(
+      'g1',
+      const [],
+      now: at ?? now,
+      firstDate: '2026-11-18',
+      moves: moves,
+    );
+
+    test(
+      'تُنقل إلى تاريخ آخر بوقتها: تُلغى في موعدها وتُضاف تعويضية',
+      () async {
+        await replan([move(tue24, '2026-11-26')]);
+        expect(await shape(), [
+          '$sat21:normal',
+          '$tue24:cancelled',
+          '2026-11-26:makeup',
+          '$sat28:normal',
+          '$dec1:normal',
+        ]);
+        final counted = (await cycleSessions()).where(
+          (s) => s.status != 'cancelled',
+        );
+        expect(counted, hasLength(4), reason: 'تبقى الدورة بأربع حصص');
+        expect([for (final s in counted) s.sessionNumber], [1, 2, 3, 4]);
+        final moved = counted.singleWhere((s) => s.date == '2026-11-26');
+        expect([moved.startMinutes, moved.endMinutes], [600, 690]);
+      },
+    );
+
+    test(
+      'تبقى الحصة المنقولة بعد إعادة برمجة لاحقة ولا يعود موعدها القديم',
+      () async {
+        await replan([move(tue24, '2026-11-26')]);
+        await replan(const []);
+        expect(await shape(), [
+          '$sat21:normal',
+          '$tue24:cancelled',
+          '2026-11-26:makeup',
+          '$sat28:normal',
+          '$dec1:normal',
+        ]);
+        // والمخطط يعرضها كما هي: المنقولة ثابتة والباقي من الجدول دون الموعد القديم.
+        final shown = await plan('2026-11-18');
+        expect(shown.fixed.map((s) => s.date), ['2026-11-26']);
+        expect(shown.upcoming.map((s) => s.date), [sat21, sat28, dec1]);
+      },
+    );
+
+    test('تُنقل حصة منقولة مرة ثانية', () async {
+      await replan([move(tue24, '2026-11-26')]);
+      await replan([move('2026-11-26', '2026-11-27')]);
+      expect(await shape(), [
+        '$sat21:normal',
+        '$tue24:cancelled',
+        '2026-11-26:cancelled',
+        '2026-11-27:makeup',
+        '$sat28:normal',
+        '$dec1:normal',
+      ]);
+    });
+
+    test('نقلان متتاليان: الثاني إلى موعد أخلاه الأول', () async {
+      await replan([move(tue24, '2026-11-26'), move(sat21, tue24)]);
+      final live = (await cycleSessions()).where(
+        (s) => s.status != 'cancelled',
+      );
+      expect(live.map((s) => s.date), [tue24, '2026-11-26', sat28, dec1]);
+      expect(live.where((s) => s.status == 'makeup'), hasLength(2));
+    });
+
+    test('مع تسجيل حصة سابقة معاً في عملية واحدة', () async {
+      final result = await past.record(
+        'g1',
+        [input(tuesday)],
+        now: now,
+        firstDate: '2026-11-14',
+        moves: [move(tue24, '2026-11-27')],
+      );
+      expect(result.sessions, 1);
+      expect(await shape(), [
+        '$tuesday:normal:closed',
+        '$sat21:normal',
+        '$tue24:cancelled',
+        '2026-11-27:makeup',
+        '$sat28:normal',
+      ]);
+    });
+
+    test('لا تُنقل إلى تاريخ مضى ولا من تاريخ مضى ولا إلى نفسها', () async {
+      for (final bad in [
+        move(tue24, tuesday),
+        move(tuesday, '2026-11-26'),
+        move(tue24, tue24),
+        move(tue24, 'غير تاريخ'),
+      ]) {
+        await expectLater(
+          replan([bad]),
+          throwsA(isA<ValidationException>()),
+          reason: '${bad.fromDate} → ${bad.toDate}',
+        );
+      }
+      expect(await shape(), [
+        '$sat21:normal',
+        '$tue24:normal',
+        '$sat28:normal',
+        '$dec1:normal',
+      ], reason: 'لم يتغير شيء');
+    });
+
+    test('تكرار الحصة المنقولة أو الوجهة يُرفض', () async {
+      await expectLater(
+        replan([move(tue24, '2026-11-26'), move(tue24, '2026-11-27')]),
+        throwsA(isA<ValidationException>()),
+      );
+      await expectLater(
+        replan([move(tue24, '2026-11-26'), move(sat28, '2026-11-26')]),
+        throwsA(isA<ValidationException>()),
+      );
+    });
+
+    test('حصة لا وجود لها أو منقولة إلى موعد فيه حصة للفوج', () async {
+      await expectLater(
+        replan([move('2026-11-25', '2026-11-26')]),
+        throwsA(
+          isA<ValidationException>().having(
+            (e) => e.toString(),
+            'الرسالة',
+            contains('لا حصة قادمة'),
+          ),
+        ),
+      );
+      await expectLater(
+        replan([move(tue24, sat28)]),
+        throwsA(isA<ValidationException>()),
+      );
+      expect((await shape()).where((s) => s.contains('makeup')), isEmpty);
+    });
+
+    test('حصة سُجّل حضورها لا تُنقل', () async {
+      final marked = (await cycleSessions()).firstWhere((s) => s.date == sat21);
+      await env.db
+          .into(env.db.attendance)
+          .insert(
+            AttendanceCompanion.insert(
+              id: 'att-1',
+              createdAt: 1,
+              updatedAt: 1,
+              sessionId: marked.id,
+              studentId: 's1',
+              status: 'present',
+              method: 'manual',
+            ),
+          );
+      await expectLater(
+        replan([move(sat21, '2026-11-22')]),
+        throwsA(
+          isA<ValidationException>().having(
+            (e) => e.toString(),
+            'الرسالة',
+            contains('سُجّل حضورها'),
+          ),
+        ),
+      );
+      expect((await shape()).first, '$sat21:normal');
+    });
+
+    test('تعارض الأستاذ في الموعد الجديد يمنع النقل ويُبقي كل شيء', () async {
+      // فوج آخر للأستاذ نفسه يدرس الخميس 10:00 فيتعارض مع نقل الحصة إلى خميس 26.
+      await env.group(id: 'g2', number: 2);
+      await env.slot(id: 'sl-g2', groupId: 'g2', weekday: 4);
+      await cycles.topUp('g2', fromDate: '2026-11-18');
+      final before = await shape();
+      await expectLater(
+        replan([move(tue24, '2026-11-26')]),
+        throwsA(
+          isA<ValidationException>().having(
+            (e) => e.toString(),
+            'الرسالة',
+            contains('تعارض'),
+          ),
+        ),
+      );
+      expect(await shape(), before);
+    });
+
+    test('إلى اليوم نفسه: مسموح قبل نهاية الحصة ومرفوض بعدها', () async {
+      await replan([move(tue24, '2026-11-18')]);
+      expect((await shape()).contains('2026-11-18:makeup'), isTrue);
+      await expectLater(
+        replan([move(sat28, '2026-11-18')], at: DateTime(2026, 11, 18, 12)),
+        throwsA(isA<ValidationException>()),
+        reason: 'انتهى وقت الحصة (11:30) قبل الثانية عشرة',
+      );
+    });
+  });
 }

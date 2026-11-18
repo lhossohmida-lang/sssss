@@ -261,6 +261,124 @@ void main() {
     expect(() => cycles.cancelSession(first.id), throwsStateError);
   });
 
+  group('نقل حصة قادمة إلى تاريخ آخر', () {
+    // الحصص بعد البرمجة من السبت 14: 14 (سبت)، 17 (ثلاثاء 15:00)، 21 (سبت)، 24 (ثلاثاء).
+    setUp(() => cycles.topUp('g1', fromDate: saturday));
+
+    Future<SessionRow> on(String date) async => (await cycles.cycleSessions(
+      'g1',
+      1,
+    )).firstWhere((s) => s.date == date && s.status != 'cancelled');
+
+    test('تُلغى في موعدها وتُضاف تعويضية بوقتها دون برمجة بديلة', () async {
+      final tuesday = (await cycles.cycleSessions('g1', 1))[1];
+      expect(tuesday.date, '2026-11-17');
+      final moved = await cycles.moveSession(tuesday.id, toDate: '2026-11-19');
+
+      expect(moved.date, '2026-11-19');
+      expect(moved.startMinutes, 900);
+      expect(moved.endMinutes, 990);
+      expect(moved.status, 'makeup');
+      expect(moved.cycleNumber, 1);
+      expect(moved.roomId, tuesday.roomId);
+      expect(await describe(1), [
+        '2026-11-14#1:normal',
+        '2026-11-17#-:cancelled',
+        '2026-11-19#2:makeup',
+        '2026-11-21#3:normal',
+        '2026-11-24#4:normal',
+      ]);
+      expect(
+        await cycles.countedSessions('g1', 1),
+        4,
+        reason: 'عدد حصص الدورة لا يتغير ولا تُبرمج بديلة',
+      );
+      // الموعد القديم يبقى محجوزاً بحصته الملغاة فلا يُعاد برمجته.
+      expect(await cycles.topUp('g1', fromDate: saturday), isEmpty);
+    });
+
+    test('لا تُنقل حصة أُغلقت أو سُجّل حضورها أو أُلغيت', () async {
+      final first = await on('2026-11-14');
+      await env.student();
+      await env.enroll(id: 'e1', studentId: 's1');
+      await env.db
+          .into(env.db.attendance)
+          .insert(
+            AttendanceCompanion.insert(
+              id: 'a1',
+              createdAt: 1,
+              updatedAt: 1,
+              sessionId: first.id,
+              studentId: 's1',
+              status: 'present',
+              method: 'manual',
+            ),
+          );
+      expect(
+        () => cycles.moveSession(first.id, toDate: '2026-11-20'),
+        throwsA(isA<StateError>()),
+        reason: 'سُجّل فيها حضور',
+      );
+
+      final second = await on('2026-11-17');
+      await cycles.closeSession(second.id);
+      expect(
+        () => cycles.moveSession(second.id, toDate: '2026-11-20'),
+        throwsA(isA<StateError>()),
+        reason: 'أُغلقت',
+      );
+
+      final third = await on('2026-11-21');
+      await cycles.cancelSession(third.id);
+      expect(
+        () => cycles.moveSession(third.id, toDate: '2026-11-22'),
+        throwsA(isA<StateError>()),
+        reason: 'ملغاة',
+      );
+    });
+
+    test('لا تُنقل إلى تاريخها نفسه ولا إلى موعد فيه حصة للفوج', () async {
+      final tuesday = await on('2026-11-17');
+      expect(
+        () => cycles.moveSession(tuesday.id, toDate: '2026-11-17'),
+        throwsA(isA<StateError>()),
+      );
+      // الحصة الثانية (سبت 21) بوقت 10:00 لا تُنقل إلى يوم فيه حصة بالوقت نفسه.
+      final saturday21 = await on('2026-11-21');
+      expect(
+        () => cycles.moveSession(saturday21.id, toDate: '2026-11-14'),
+        throwsA(isA<StateError>()),
+      );
+      expect(await describe(1), hasLength(4), reason: 'لم يتغير شيء');
+    });
+
+    test('الموعد الملغى بالنقل يصلح وجهةً: العودة إلى الموعد الأول', () async {
+      final tuesday = await on('2026-11-17');
+      final moved = await cycles.moveSession(tuesday.id, toDate: '2026-11-19');
+      final back = await cycles.moveSession(moved.id, toDate: '2026-11-17');
+      expect(back.id, tuesday.id, reason: 'المعرّف الثابت لموعدها الأول');
+      expect(back.status, 'makeup');
+      expect(await describe(1), [
+        '2026-11-14#1:normal',
+        '2026-11-17#2:makeup',
+        '2026-11-19#-:cancelled',
+        '2026-11-21#3:normal',
+        '2026-11-24#4:normal',
+      ]);
+      expect(await cycles.countedSessions('g1', 1), 4);
+    });
+
+    test('النقل يدخل طابور المزامنة', () async {
+      final tuesday = await on('2026-11-17');
+      await env.db.delete(env.db.outbox).go();
+      await cycles.moveSession(tuesday.id, toDate: '2026-11-19');
+      final pending = await (env.db.select(
+        env.db.outbox,
+      )..where((o) => o.targetTable.equals('sessions'))).get();
+      expect(pending, isNotEmpty);
+    });
+  });
+
   test('فوج بلا جدول أسبوعي لا تُبرمج لها حصص', () async {
     await env.group(id: 'g2');
     expect(await cycles.topUp('g2', fromDate: saturday), isEmpty);
