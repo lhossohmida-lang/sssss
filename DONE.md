@@ -41,7 +41,7 @@
 - **دليل المدارس مضمَّن في التطبيقات** (لا رمز ربط): مشروعه `directory` أُنشئ يدوياً مرة واحدة (الرموز المحدودة في Supabase لا تنشئ مشاريع؛ `OPERATIONS.md` القسم 12) وهيّأه `directory-deploy` وفحصه كما تراه التطبيقات (القائمة والبحث يعملان والتسجيل والجداول مغلقة). تفتح الإدارة على تسجيل الدخول بالهاتف، والأستاذ والتلميذ على اختيار المدرسة. **سُجّلت مدرسة العرض فيه** (`directory-deploy` بالمدخل `register`) فيجدها الدخول بالهاتف وتظهر في قائمة الأستاذ والولي؛ ويبقى ضبط أسرار دوال المدرسة (تسجيل أرقام العمال الجدد في الدليل) بتشغيل `supabase-deploy` برمز يصل إلى مشروعَي المدرسة والدليل (القسم 12 خطوة 6). لم يُجرَّب الدخول بعد التسجيل على جهاز.
 
 
-## ما أُضيف بعد `preview-10` (يُنشر في `preview-11`)
+## ما أُضيف في `preview-11` (بعد `preview-10`)
 
 - **سعر الشهر للتلميذ ومبلغ الأستاذ لكل فوج:** يختلفان من فوج إلى آخر (بحسب المادة والسنة: المتوسط غير الابتدائي) ويُكتبان **عند إنشاء الفوج فقط**؛ تظهر قيمتهما كما كُتبتا عند ربط التلاميذ والأستاذ بالفوج (التسجيل، «إضافة مادة»، «إعداد الفوج»، «إضافة تلاميذ موجودين») دون إعادة إدخال، ويبقى للتلميذ التخفيض. يُقفلان بعد ربط تلميذ بالفوج. استمارة الأستاذ بلا «نصيبه لكل تلميذ».
 - **حقوق النقل** تُضاف إلى ما يدفعه التلميذ في العرض: «ما يدفعه التلميذ شهرياً» عند التسجيل (الأفواج بعد التخفيض + النقل)، والنقل مضافاً في «إضافة مادة».
@@ -59,18 +59,18 @@
 
 ## 2. روابط التحميل
 
-صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-10`**
-(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-10>):
+صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-11`**
+(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-11>):
 
 | الملف | الرابط المباشر |
 | --- | --- |
-| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-admin.apk> |
-| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-teacher.apk> |
-| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-student.apk> |
-| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-admin-setup.exe> |
-| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-10/school-admin-windows.zip> |
+| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-admin.apk> |
+| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-teacher.apk> |
+| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-student.apk> |
+| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-admin-setup.exe> |
+| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-admin-windows.zip> |
 
-**`preview-10`** يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء الأربع) ويحمل كل ما في القسم أعلاه «ما أُضيف في `preview-10`». نجحت بوابة المحاكي `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط) و`release-check: ok tag=preview-10 assets=5`. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
+**`preview-11`** يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء الأربع) ويحمل كل ما في القسمين أعلاه «ما أُضيف في `preview-11`» و«ما أُضيف في `preview-10`». نجحت بوابة المحاكي `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط) و`release-check: ok tag=preview-11 assets=5`؛ وتحتاج خادم المدرسة بالترحيلين `0010` و`0011` (طُبّقا على demo). **`preview-10`** سبقه بالدليل المضمَّن. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
 
 الروابط تتغيّر باسم كل إصدار. **`preview-9`** يحمل الحضور السابق وديون الأساتذة والعمال وبوابة فحص الإصدار والدخول برقم الهاتف وتغيير رقم
 الدخول من «حسابي» والإرسال التلقائي للرسائل وإعداد الفوج من صفحة واحدة ودليل الاستخدام (وهذا كله في `preview-8`)، ويزيد: تمييز أخطاء
