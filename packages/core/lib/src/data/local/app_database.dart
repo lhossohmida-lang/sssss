@@ -62,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -114,6 +114,11 @@ class AppDatabase extends _$AppDatabase {
         await m.createIndex(idxContactsPhone);
         await m.createIndex(idxContactsName);
         await m.createIndex(idxContactsUpdated);
+      }
+      // 7: السنة الدراسية لرقم في دليل الهواتف (الترحيل 0012 على الخادم). لمن كان على 6 فقط: من كان على
+      // أقدم أُنشئ له جدول `contacts` أعلاه بتعريفه الحالي وفيه العمود أصلاً.
+      if (from == 6) {
+        await m.addColumn(contacts, contacts.levelId);
       }
     },
     beforeOpen: (details) async {

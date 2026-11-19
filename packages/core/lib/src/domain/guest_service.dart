@@ -130,6 +130,28 @@ class GuestService {
     ];
   }
 
+  /// حصص الفوج التي يمكن إضافة ضيف إليها: غير الملغاة ولا المغلقة، من [today] (`YYYY-MM-DD`) فصاعداً،
+  /// بترتيبها الزمني. فيضيف المدير تلميذ حصة واحدة إلى أي حصة قادمة في أي وقت من عمر الفوج، ولو بعد
+  /// بدء دورته.
+  Future<List<SessionRow>> openSessions(
+    String groupId, {
+    required String today,
+  }) =>
+      (db.select(db.sessions)
+            ..where(
+              (s) =>
+                  s.groupId.equals(groupId) &
+                  s.deletedAt.isNull() &
+                  s.closedAt.isNull() &
+                  s.status.equals(SessionStatus.cancelled.code).not() &
+                  s.date.isBiggerOrEqualValue(today),
+            )
+            ..orderBy([
+              (s) => OrderingTerm.asc(s.date),
+              (s) => OrderingTerm.asc(s.startMinutes),
+            ]))
+          .get();
+
   /// سعر الحصة ومبلغ الأستاذ المقترحان لضيف في [sessionId]: لحصة المراجعة ثمنها ونصيب أستاذها كاملين،
   /// ولحصة فوج عادي حصة واحدة من سعر الدورة ومن نصيب الأستاذ (مقرَّبتان لأقرب 10).
   Future<GuestSuggestion> suggest(String sessionId) async {

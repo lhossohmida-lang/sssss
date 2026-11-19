@@ -135,6 +135,7 @@ create table if not exists public."contacts" (
   "phone" text not null,
   "note" text not null,
   "follow_up_date" text,
+  "level_id" text,
   "source" text not null,
   "synced_at" bigint not null default 0,
   primary key ("id")

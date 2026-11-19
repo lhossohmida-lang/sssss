@@ -4,12 +4,80 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'guests_panel.dart';
+
 /// تفاصيل المجموعة: أستاذها وجدولها وقاعتها، وشبكة حضور الدورة (صفوف
 /// التلاميذ وأعمدة الحصص) مع التنقل بين الدورات.
 class GroupDetailsScreen extends ConsumerWidget {
   const GroupDetailsScreen({required this.groupId, super.key});
 
   final String groupId;
+
+  /// ورقة حضور حصة فوج المراجعة (حصته الوحيدة): تُفتح بعد الإنشاء مرة، ومنها يُعاد إليها كل حين.
+  Future<void> _openRoster(BuildContext context, WidgetRef ref) async {
+    final sessionId = await ref
+        .read(groupServiceProvider)
+        .firstSessionId(groupId);
+    if (!context.mounted) return;
+    if (sessionId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('لا حصة لهذا الفوج')));
+      return;
+    }
+    await context.push('/attendance/$sessionId');
+  }
+
+  /// إضافة تلميذ لحصة واحدة (لمرة واحدة، أو مسجَّل في فوج آخر) إلى حصة قادمة من هذا الفوج: يختار المدير
+  /// الحصة (والتالية أولاً) ثم تُفتح قائمة ضيوفها.
+  Future<void> _addGuest(BuildContext context, WidgetRef ref) async {
+    final sessions = await ref
+        .read(guestServiceProvider)
+        .openSessions(groupId, today: DateKey.of(DateTime.now()));
+    if (!context.mounted) return;
+    if (sessions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا حصة قادمة في هذا الفوج لإضافة تلميذ إليها'),
+        ),
+      );
+      return;
+    }
+    final sessionId = sessions.length == 1
+        ? sessions.first.id
+        : await showClayBottomSheet<String>(
+            context,
+            title: 'اختر الحصة',
+            builder: (sheet) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'يُضاف التلميذ إلى حصة واحدة فقط ويدفع ثمنها وحدها، في أي وقت من عمر الفوج ولو بعد بدء دورته.',
+                  style: Theme.of(sheet).textTheme.bodySmall,
+                ),
+                const SizedBox(height: ClaySpacing.md),
+                for (final s in sessions.take(12))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
+                    child: ClayListTile(
+                      title:
+                          '${GroupService.weekdayName(DateKey.weekday(s.date))} ${s.date}',
+                      subtitle:
+                          '${DateKey.formatMinutes(s.startMinutes)}–${DateKey.formatMinutes(s.endMinutes)}'
+                          '${s.sessionNumber == null ? '' : ' · الحصة ${s.sessionNumber}'}',
+                      onTap: () => Navigator.of(sheet).pop(s.id),
+                    ),
+                  ),
+              ],
+            ),
+          );
+    if (sessionId == null || !context.mounted) return;
+    await showClayBottomSheet<void>(
+      context,
+      title: 'ضيوف الحصة',
+      builder: (_) => GuestsSheet(sessionId: sessionId, canAdd: true),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,6 +94,13 @@ class GroupDetailsScreen extends ConsumerWidget {
         ref.can(PermissionModule.students, PermissionAction.add) ||
         ref.can(PermissionModule.receiveMoney, PermissionAction.use) ||
         canPast;
+    final canRoster = ref.can(
+      PermissionModule.attendance,
+      PermissionAction.view,
+    );
+    final canGuests =
+        ref.can(PermissionModule.attendance, PermissionAction.add) ||
+        ref.can(PermissionModule.attendance, PermissionAction.edit);
     // فوج منتظِر: لا حصص له بعد؛ المدير يحدد تاريخ أول حصة (يُنبَّه عند اكتمال العدد).
     final waiting = ref
         .watch(waitingGroupsProvider)
@@ -120,6 +195,25 @@ class GroupDetailsScreen extends ConsumerWidget {
                       const ClayBadge(
                         label: 'حصة مراجعة: حصة واحدة يحضرها ضيوف يدفعون ثمنها',
                         tone: ClayTone.info,
+                      ),
+                      // ورقة الحضور تُفتح بعد الإنشاء مرة واحدة؛ هذا الزر يعيد إليها (حضور الضيوف وإضافتهم).
+                      if (canRoster) ...[
+                        const SizedBox(height: ClaySpacing.md),
+                        ClayButton(
+                          label: 'ورقة حضور الحصة والضيوف',
+                          icon: ClayIcons.attendance,
+                          expand: true,
+                          onPressed: () => _openRoster(context, ref),
+                        ),
+                      ],
+                    ] else if (canGuests && waiting == null) ...[
+                      const SizedBox(height: ClaySpacing.md),
+                      ClayButton(
+                        label: 'إضافة تلميذ لحصة واحدة',
+                        icon: ClayIcons.add,
+                        kind: ClayButtonKind.secondary,
+                        expand: true,
+                        onPressed: () => _addGuest(context, ref),
                       ),
                     ],
                     if (canSetup) ...[

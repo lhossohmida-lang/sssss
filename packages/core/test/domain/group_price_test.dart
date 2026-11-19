@@ -424,6 +424,35 @@ void main() {
       },
     );
 
+    test('من الإصدار 6: تضيف عمود السنة لدليل الهواتف وتبقي أرقامه', () async {
+      await env.db.customStatement('ALTER TABLE contacts DROP COLUMN level_id');
+      await env.db.customStatement(
+        'INSERT INTO contacts (id, created_at, updated_at, name, phone, note, source) '
+        "VALUES ('c1', 1, 1, 'مهتم', '0550000001', 'اتصل بعد شهر', 'manual')",
+      );
+      await env.db.migration.onUpgrade(Migrator(env.db), 6, 7);
+      expect(await columns('contacts'), contains('level_id'));
+      final row = await env.db
+          .customSelect("SELECT phone, level_id FROM contacts WHERE id = 'c1'")
+          .getSingle();
+      expect(row.read<String>('phone'), '0550000001');
+      expect(row.read<String?>('level_id'), isNull);
+    });
+
+    test(
+      'من الإصدار 5 مباشرة إلى 7: جدول الدليل يُنشأ بعموده ولا يتكرر',
+      () async {
+        await downToV5();
+        await env.db.migration.onUpgrade(Migrator(env.db), 5, 7);
+        final names = [
+          for (final row
+              in await env.db.customSelect('PRAGMA table_info(contacts)').get())
+            row.read<String>('name'),
+        ];
+        expect(names.where((n) => n == 'level_id'), hasLength(1));
+      },
+    );
+
     test('من الإصدار 5: تضيف أعمدة الأفواج المنتظِرة والضيوف وجدولي الضيوف والهواتف', () async {
       await downToV5();
       await env.db.customStatement(

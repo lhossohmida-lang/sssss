@@ -8,6 +8,8 @@ import 'package:school_core/testing.dart';
 
 import '../support/fixtures.dart';
 
+typedef PhoneLevel = (String?, String?);
+
 void main() {
   late TestEnv env;
   late CycleService cycles;
@@ -156,6 +158,73 @@ void main() {
         );
       },
     );
+  });
+
+  group('دليل الهواتف: السنة الدراسية', () {
+    late ContactService contacts;
+    setUp(() async {
+      contacts = ContactService(env.db, env.writer);
+      for (final (id, name, order) in [
+        ('lv2', '2 ثانوي', 302),
+        ('lv3', '3 ثانوي', 303),
+      ]) {
+        await env.db
+            .into(env.db.levels)
+            .insert(
+              LevelsCompanion.insert(
+                id: id,
+                createdAt: 1,
+                updatedAt: 1,
+                name: name,
+                stage: 'secondary',
+                sortOrder: order,
+              ),
+            );
+      }
+    });
+
+    test('الرقم يحمل سنة اختيارية تُحفظ وتُعدَّل وتُمسح', () async {
+      final a = await contacts.add(phone: '0551112233', levelId: 'lv3');
+      final none = await contacts.add(phone: '0551112244');
+      expect(a.levelId, 'lv3');
+      expect(none.levelId, isNull);
+      expect(
+        await contacts.update(a.id, phone: '0551112233', levelId: 'lv2'),
+        isTrue,
+      );
+      expect(
+        (await contacts.watchAll().first)
+            .firstWhere((c) => c.id == a.id)
+            .levelId,
+        'lv2',
+      );
+      // تعديل دون سنة يمسحها (الحقل اختياري).
+      await contacts.update(a.id, phone: '0551112233');
+      expect(
+        (await contacts.watchAll().first)
+            .firstWhere((c) => c.id == a.id)
+            .levelId,
+        isNull,
+      );
+    });
+
+    test('أرقام التلاميذ تحمل سنة كل تلميذ واسمها', () async {
+      await env.db.customStatement(
+        "UPDATE students SET level_id = 'lv3' WHERE id IN ('s1', 's2')",
+      );
+      await env.db.customStatement(
+        "UPDATE students SET level_id = 'lv2' WHERE id = 's3'",
+      );
+      final phones = await contacts.watchStudentPhones().first;
+      PhoneLevel of(String id) {
+        final p = phones.firstWhere((p) => p.studentId == id);
+        return (p.levelId, p.levelName);
+      }
+
+      expect(of('s1'), ('lv3', '3 ثانوي'));
+      expect(of('s3'), ('lv2', '2 ثانوي'));
+      expect(of('s4'), (null, null), reason: 'بلا سنة');
+    });
   });
 
   group('من يتحمّل التخفيض', () {

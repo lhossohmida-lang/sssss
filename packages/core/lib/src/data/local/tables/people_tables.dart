@@ -122,6 +122,9 @@ class Contacts extends Table with SyncColumns {
   /// تاريخ التواصل المقرر `YYYY-MM-DD`؛ `null` إن لم يُحدَّد.
   TextColumn get followUpDate => text().nullable()();
 
+  /// السنة الدراسية التي يخصها الرقم (لتصنيف الدليل وإرسال رسالة لسنة بعينها)؛ `null` بلا سنة.
+  TextColumn get levelId => text().nullable().references(Levels, #id)();
+
   /// أصل السجل: `manual` أدخله المدير / `one_time` تلميذ لمرة واحدة / `student` رقم تلميذ منسوخ.
   TextColumn get source => text().withDefault(const Constant('manual'))();
 }

@@ -2801,6 +2801,20 @@ class $ContactsTable extends Contacts
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _levelIdMeta = const VerificationMeta(
+    'levelId',
+  );
+  @override
+  late final GeneratedColumn<String> levelId = GeneratedColumn<String>(
+    'level_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES levels (id)',
+    ),
+  );
   static const VerificationMeta _sourceMeta = const VerificationMeta('source');
   @override
   late final GeneratedColumn<String> source = GeneratedColumn<String>(
@@ -2821,6 +2835,7 @@ class $ContactsTable extends Contacts
     phone,
     note,
     followUpDate,
+    levelId,
     source,
   ];
   @override
@@ -2891,6 +2906,12 @@ class $ContactsTable extends Contacts
         ),
       );
     }
+    if (data.containsKey('level_id')) {
+      context.handle(
+        _levelIdMeta,
+        levelId.isAcceptableOrUnknown(data['level_id']!, _levelIdMeta),
+      );
+    }
     if (data.containsKey('source')) {
       context.handle(
         _sourceMeta,
@@ -2938,6 +2959,10 @@ class $ContactsTable extends Contacts
         DriftSqlType.string,
         data['${effectivePrefix}follow_up_date'],
       ),
+      levelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}level_id'],
+      ),
       source: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source'],
@@ -2970,6 +2995,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
   /// تاريخ التواصل المقرر `YYYY-MM-DD`؛ `null` إن لم يُحدَّد.
   final String? followUpDate;
 
+  /// السنة الدراسية التي يخصها الرقم (لتصنيف الدليل وإرسال رسالة لسنة بعينها)؛ `null` بلا سنة.
+  final String? levelId;
+
   /// أصل السجل: `manual` أدخله المدير / `one_time` تلميذ لمرة واحدة / `student` رقم تلميذ منسوخ.
   final String source;
   const ContactRow({
@@ -2981,6 +3009,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     required this.phone,
     required this.note,
     this.followUpDate,
+    this.levelId,
     required this.source,
   });
   @override
@@ -2997,6 +3026,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     map['note'] = Variable<String>(note);
     if (!nullToAbsent || followUpDate != null) {
       map['follow_up_date'] = Variable<String>(followUpDate);
+    }
+    if (!nullToAbsent || levelId != null) {
+      map['level_id'] = Variable<String>(levelId);
     }
     map['source'] = Variable<String>(source);
     return map;
@@ -3016,6 +3048,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       followUpDate: followUpDate == null && nullToAbsent
           ? const Value.absent()
           : Value(followUpDate),
+      levelId: levelId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(levelId),
       source: Value(source),
     );
   }
@@ -3034,6 +3069,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       phone: serializer.fromJson<String>(json['phone']),
       note: serializer.fromJson<String>(json['note']),
       followUpDate: serializer.fromJson<String?>(json['followUpDate']),
+      levelId: serializer.fromJson<String?>(json['levelId']),
       source: serializer.fromJson<String>(json['source']),
     );
   }
@@ -3049,6 +3085,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       'phone': serializer.toJson<String>(phone),
       'note': serializer.toJson<String>(note),
       'followUpDate': serializer.toJson<String?>(followUpDate),
+      'levelId': serializer.toJson<String?>(levelId),
       'source': serializer.toJson<String>(source),
     };
   }
@@ -3062,6 +3099,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     String? phone,
     String? note,
     Value<String?> followUpDate = const Value.absent(),
+    Value<String?> levelId = const Value.absent(),
     String? source,
   }) => ContactRow(
     id: id ?? this.id,
@@ -3072,6 +3110,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     phone: phone ?? this.phone,
     note: note ?? this.note,
     followUpDate: followUpDate.present ? followUpDate.value : this.followUpDate,
+    levelId: levelId.present ? levelId.value : this.levelId,
     source: source ?? this.source,
   );
   ContactRow copyWithCompanion(ContactsCompanion data) {
@@ -3086,6 +3125,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       followUpDate: data.followUpDate.present
           ? data.followUpDate.value
           : this.followUpDate,
+      levelId: data.levelId.present ? data.levelId.value : this.levelId,
       source: data.source.present ? data.source.value : this.source,
     );
   }
@@ -3101,6 +3141,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
           ..write('phone: $phone, ')
           ..write('note: $note, ')
           ..write('followUpDate: $followUpDate, ')
+          ..write('levelId: $levelId, ')
           ..write('source: $source')
           ..write(')'))
         .toString();
@@ -3116,6 +3157,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     phone,
     note,
     followUpDate,
+    levelId,
     source,
   );
   @override
@@ -3130,6 +3172,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
           other.phone == this.phone &&
           other.note == this.note &&
           other.followUpDate == this.followUpDate &&
+          other.levelId == this.levelId &&
           other.source == this.source);
 }
 
@@ -3142,6 +3185,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
   final Value<String> phone;
   final Value<String> note;
   final Value<String?> followUpDate;
+  final Value<String?> levelId;
   final Value<String> source;
   final Value<int> rowid;
   const ContactsCompanion({
@@ -3153,6 +3197,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     this.phone = const Value.absent(),
     this.note = const Value.absent(),
     this.followUpDate = const Value.absent(),
+    this.levelId = const Value.absent(),
     this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3165,6 +3210,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     required String phone,
     this.note = const Value.absent(),
     this.followUpDate = const Value.absent(),
+    this.levelId = const Value.absent(),
     this.source = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -3180,6 +3226,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     Expression<String>? phone,
     Expression<String>? note,
     Expression<String>? followUpDate,
+    Expression<String>? levelId,
     Expression<String>? source,
     Expression<int>? rowid,
   }) {
@@ -3192,6 +3239,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
       if (phone != null) 'phone': phone,
       if (note != null) 'note': note,
       if (followUpDate != null) 'follow_up_date': followUpDate,
+      if (levelId != null) 'level_id': levelId,
       if (source != null) 'source': source,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3206,6 +3254,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     Value<String>? phone,
     Value<String>? note,
     Value<String?>? followUpDate,
+    Value<String?>? levelId,
     Value<String>? source,
     Value<int>? rowid,
   }) {
@@ -3218,6 +3267,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
       phone: phone ?? this.phone,
       note: note ?? this.note,
       followUpDate: followUpDate ?? this.followUpDate,
+      levelId: levelId ?? this.levelId,
       source: source ?? this.source,
       rowid: rowid ?? this.rowid,
     );
@@ -3250,6 +3300,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     if (followUpDate.present) {
       map['follow_up_date'] = Variable<String>(followUpDate.value);
     }
+    if (levelId.present) {
+      map['level_id'] = Variable<String>(levelId.value);
+    }
     if (source.present) {
       map['source'] = Variable<String>(source.value);
     }
@@ -3270,6 +3323,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
           ..write('phone: $phone, ')
           ..write('note: $note, ')
           ..write('followUpDate: $followUpDate, ')
+          ..write('levelId: $levelId, ')
           ..write('source: $source, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -28262,6 +28316,24 @@ final class $$LevelsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$ContactsTable, List<ContactRow>>
+  _contactsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.contacts,
+    aliasName: 'levels__id__contacts__level_id',
+  );
+
+  $$ContactsTableProcessedTableManager get contactsRefs {
+    final manager = $$ContactsTableTableManager(
+      $_db,
+      $_db.contacts,
+    ).filter((f) => f.levelId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_contactsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$SubjectsTable, List<SubjectRow>>
   _subjectsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.subjects,
@@ -28359,6 +28431,31 @@ class $$LevelsTableFilterComposer
           }) => $$StudentsTableFilterComposer(
             $db: $db,
             $table: $db.students,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> contactsRefs(
+    Expression<bool> Function($$ContactsTableFilterComposer f) f,
+  ) {
+    final $$ContactsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.contacts,
+      getReferencedColumn: (t) => t.levelId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ContactsTableFilterComposer(
+            $db: $db,
+            $table: $db.contacts,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -28519,6 +28616,31 @@ class $$LevelsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> contactsRefs<T extends Object>(
+    Expression<T> Function($$ContactsTableAnnotationComposer a) f,
+  ) {
+    final $$ContactsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.contacts,
+      getReferencedColumn: (t) => t.levelId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ContactsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.contacts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> subjectsRefs<T extends Object>(
     Expression<T> Function($$SubjectsTableAnnotationComposer a) f,
   ) {
@@ -28585,6 +28707,7 @@ class $$LevelsTableTableManager
           LevelRow,
           PrefetchHooks Function({
             bool studentsRefs,
+            bool contactsRefs,
             bool subjectsRefs,
             bool waitingListsRefs,
           })
@@ -28651,6 +28774,7 @@ class $$LevelsTableTableManager
           prefetchHooksCallback:
               ({
                 studentsRefs = false,
+                contactsRefs = false,
                 subjectsRefs = false,
                 waitingListsRefs = false,
               }) {
@@ -28658,6 +28782,7 @@ class $$LevelsTableTableManager
                   db: db,
                   explicitlyWatchedTables: [
                     if (studentsRefs) db.students,
+                    if (contactsRefs) db.contacts,
                     if (subjectsRefs) db.subjects,
                     if (waitingListsRefs) db.waitingLists,
                   ],
@@ -28680,6 +28805,26 @@ class $$LevelsTableTableManager
                                 table,
                                 p0,
                               ).studentsRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'level_id',
+                          typedResults: items,
+                        ),
+                      if (contactsRefs)
+                        await $_getPrefetchedDataByColumns<
+                          LevelRow,
+                          $LevelsTable,
+                          ContactRow,
+                          $ContactsTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LevelsTableReferences
+                              ._contactsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LevelsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).contactsRefs,
                           currentColumn: 'id',
                           referencedColumn: 'level_id',
                           typedResults: items,
@@ -28746,6 +28891,7 @@ typedef $$LevelsTableProcessedTableManager =
       LevelRow,
       PrefetchHooks Function({
         bool studentsRefs,
+        bool contactsRefs,
         bool subjectsRefs,
         bool waitingListsRefs,
       })
@@ -30935,6 +31081,7 @@ typedef $$ContactsTableCreateCompanionBuilder = ContactsCompanion Function({
   required String phone,
   Value<String> note,
   Value<String?> followUpDate,
+  Value<String?> levelId,
   Value<String> source,
   Value<int> rowid,
 });
@@ -30947,9 +31094,32 @@ typedef $$ContactsTableUpdateCompanionBuilder = ContactsCompanion Function({
   Value<String> phone,
   Value<String> note,
   Value<String?> followUpDate,
+  Value<String?> levelId,
   Value<String> source,
   Value<int> rowid,
 });
+
+final class $$ContactsTableReferences
+    extends BaseReferences<_$AppDatabase, $ContactsTable, ContactRow> {
+  $$ContactsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $LevelsTable _levelIdTable(_$AppDatabase db) =>
+      db.levels.createAlias('contacts__level_id__levels__id');
+
+  $$LevelsTableProcessedTableManager? get levelId {
+    final $_column = $_itemColumn<String>('level_id');
+    if ($_column == null) return null;
+    final manager = $$LevelsTableTableManager(
+      $_db,
+      $_db.levels,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_levelIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$ContactsTableFilterComposer
     extends Composer<_$AppDatabase, $ContactsTable> {
@@ -31004,6 +31174,29 @@ class $$ContactsTableFilterComposer
     column: $table.source,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$LevelsTableFilterComposer get levelId {
+    final $$LevelsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.levelId,
+      referencedTable: $db.levels,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LevelsTableFilterComposer(
+            $db: $db,
+            $table: $db.levels,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ContactsTableOrderingComposer
@@ -31059,6 +31252,29 @@ class $$ContactsTableOrderingComposer
     column: $table.source,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$LevelsTableOrderingComposer get levelId {
+    final $$LevelsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.levelId,
+      referencedTable: $db.levels,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LevelsTableOrderingComposer(
+            $db: $db,
+            $table: $db.levels,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ContactsTableAnnotationComposer
@@ -31098,6 +31314,29 @@ class $$ContactsTableAnnotationComposer
 
   GeneratedColumn<String> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
+
+  $$LevelsTableAnnotationComposer get levelId {
+    final $$LevelsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.levelId,
+      referencedTable: $db.levels,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LevelsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.levels,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ContactsTableTableManager
@@ -31111,12 +31350,9 @@ class $$ContactsTableTableManager
           $$ContactsTableAnnotationComposer,
           $$ContactsTableCreateCompanionBuilder,
           $$ContactsTableUpdateCompanionBuilder,
-          (
-            ContactRow,
-            BaseReferences<_$AppDatabase, $ContactsTable, ContactRow>,
-          ),
+          (ContactRow, $$ContactsTableReferences),
           ContactRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool levelId})
         > {
   $$ContactsTableTableManager(_$AppDatabase db, $ContactsTable table)
     : super(
@@ -31139,6 +31375,7 @@ class $$ContactsTableTableManager
                 Value<String> phone = const Value.absent(),
                 Value<String> note = const Value.absent(),
                 Value<String?> followUpDate = const Value.absent(),
+                Value<String?> levelId = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ContactsCompanion(
@@ -31150,6 +31387,7 @@ class $$ContactsTableTableManager
                 phone: phone,
                 note: note,
                 followUpDate: followUpDate,
+                levelId: levelId,
                 source: source,
                 rowid: rowid,
               ),
@@ -31163,6 +31401,7 @@ class $$ContactsTableTableManager
                 required String phone,
                 Value<String> note = const Value.absent(),
                 Value<String?> followUpDate = const Value.absent(),
+                Value<String?> levelId = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ContactsCompanion.insert(
@@ -31174,6 +31413,7 @@ class $$ContactsTableTableManager
                 phone: phone,
                 note: note,
                 followUpDate: followUpDate,
+                levelId: levelId,
                 source: source,
                 rowid: rowid,
               ),
@@ -31181,15 +31421,49 @@ class $$ContactsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$ContactsTable, ContactRow>(table),
-                  BaseReferences<_$AppDatabase, $ContactsTable, ContactRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$ContactsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({levelId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (levelId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.levelId,
+                        referencedTable: $$ContactsTableReferences
+                            ._levelIdTable(db),
+                        referencedColumn: $$ContactsTableReferences
+                            ._levelIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -31204,9 +31478,9 @@ typedef $$ContactsTableProcessedTableManager =
       $$ContactsTableAnnotationComposer,
       $$ContactsTableCreateCompanionBuilder,
       $$ContactsTableUpdateCompanionBuilder,
-      (ContactRow, BaseReferences<_$AppDatabase, $ContactsTable, ContactRow>),
+      (ContactRow, $$ContactsTableReferences),
       ContactRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool levelId})
     >;
 typedef $$SubjectsTableCreateCompanionBuilder = SubjectsCompanion Function({
   required String id,

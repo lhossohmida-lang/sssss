@@ -170,6 +170,7 @@ abstract final class AssistantSchema {
       module: PermissionModule.students,
       notes: {
         'follow_up_date': 'تاريخ التواصل المقرر',
+        'level_id': 'السنة الدراسية للتصنيف (levels.id)؛ NULL بلا سنة',
         'source': 'manual أدخله المدير / one_time تلميذ لمرة واحدة',
       },
     ),

@@ -12,11 +12,17 @@ class StudentPhone {
     required this.studentId,
     required this.name,
     required this.phone,
+    this.levelId,
+    this.levelName,
   });
 
   final String studentId;
   final String name;
   final String phone;
+
+  /// سنة التلميذ الدراسية؛ `null` بلا سنة.
+  final String? levelId;
+  final String? levelName;
 }
 
 /// دليل الهواتف: خانة منفصلة تماماً عن التلاميذ، تسجَّل فيها أرقام هواتف من لا يوجدون عندنا (تلاميذ
@@ -66,7 +72,8 @@ class ContactService {
     return db
         .customSelect(
           "SELECT s.id, s.first_name || ' ' || s.last_name AS name, "
-          's.parent_phone AS phone FROM students s '
+          's.parent_phone AS phone, s.level_id, l.name AS level_name '
+          'FROM students s LEFT JOIN levels l ON l.id = s.level_id '
           "WHERE s.deleted_at IS NULL AND s.single_use = 0 AND s.parent_phone <> '' "
           "${text.isEmpty ? '' : "AND (s.first_name || ' ' || s.last_name LIKE ? OR s.parent_phone LIKE ?) "}"
           'ORDER BY s.last_name, s.first_name, s.id LIMIT ?',
@@ -77,7 +84,7 @@ class ContactService {
             ],
             Variable<int>(limit),
           ],
-          readsFrom: {db.students},
+          readsFrom: {db.students, db.levels},
         )
         .watch()
         .map(
@@ -87,6 +94,8 @@ class ContactService {
                 studentId: row.read<String>('id'),
                 name: row.read<String>('name').trim(),
                 phone: row.read<String>('phone'),
+                levelId: row.read<String?>('level_id'),
+                levelName: row.read<String?>('level_name'),
               ),
           ],
         );
@@ -131,6 +140,7 @@ class ContactService {
     required String phone,
     String note = '',
     String? followUpDate,
+    String? levelId,
     String source = sourceManual,
   }) async {
     final errors = validate(phone: phone, followUpDate: followUpDate);
@@ -148,6 +158,7 @@ class ContactService {
         followUpDate: Value(
           followUpDate == null || followUpDate.isEmpty ? null : followUpDate,
         ),
+        levelId: Value(levelId),
         source: Value(source),
       ),
       key: {'id': id},
@@ -182,6 +193,7 @@ class ContactService {
     required String phone,
     String note = '',
     String? followUpDate,
+    String? levelId,
   }) async {
     final errors = validate(phone: phone, followUpDate: followUpDate);
     if (errors.isNotEmpty) throw ValidationException(errors);
@@ -195,6 +207,7 @@ class ContactService {
         'follow_up_date': followUpDate == null || followUpDate.isEmpty
             ? null
             : followUpDate,
+        'level_id': levelId,
       },
     );
   }
