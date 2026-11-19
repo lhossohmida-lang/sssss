@@ -26,6 +26,8 @@ SERVICE_ROLE_JWT = "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.signatu
 class State:
     def __init__(self):
         self.status = "ACTIVE_HEALTHY"
+        self.project_code = 200
+        self.projects = [{"id": REF, "name": "school"}]
         self.keys_status = 200
         self.keys = [
             {"type": "publishable", "name": "default", "api_key": ANON},
@@ -67,7 +69,11 @@ def make_handler(state):
             management = self.headers.get("Authorization") == f"Bearer {TOKEN}"
             admin = self.headers.get("apikey") == state.secret
 
+            if path == "/v1/projects" and method == "GET":
+                return self.send(200, state.projects) if management else self.send(401, {"message": "bad"})
             if path == f"/v1/projects/{REF}" and method == "GET":
+                if management and state.project_code != 200:
+                    return self.send(state.project_code, {"message": "forbidden"})
                 return self.send(200, {"status": state.status}) if management else self.send(401, {"message": "bad"})
             if path == f"/v1/projects/{REF}/api-keys" and method == "GET":
                 if not management:
@@ -267,6 +273,19 @@ class Refusals(FakeServerCase):
     def test_missing_key_permission_has_a_clear_message(self):
         self.state.keys_status = 403
         with self.assertRaisesRegex(sb.ApiError, "API Key Secrets"):
+            sb.Bootstrap(self.config).verify()
+
+    def test_a_token_without_access_names_the_projects_it_does_see(self):
+        self.state.project_code = 403
+        self.state.projects = [{"id": "smlygpzdndtousbngdod", "name": "directory"}]
+        with self.assertRaisesRegex(sb.ApiError, "Project Settings.*directory \\(smlygp…\\)") as raised:
+            sb.Bootstrap(self.config).verify()
+        self.assertNotIn(TOKEN, str(raised.exception), "لا تُذكر قيمة الرمز في سجل علني")
+
+    def test_a_token_that_sees_nothing_says_so(self):
+        self.state.project_code = 404
+        self.state.projects = []
+        with self.assertRaisesRegex(sb.ApiError, "لا يصل إليه الرمز.*لا شيء"):
             sb.Bootstrap(self.config).verify()
 
     def test_bad_token_is_reported(self):

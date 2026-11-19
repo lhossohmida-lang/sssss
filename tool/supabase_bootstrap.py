@@ -145,6 +145,21 @@ class Bootstrap:
     def _management(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.cfg.token}"}
 
+    def visible_projects(self) -> str:
+        """أسماء المشاريع التي يراها الرمز، لتشخيص 403 و404 (الاسم وبداية المعرّف فقط، ولا سرّ)."""
+        try:
+            status, payload = call("GET", f"{self.cfg.api_base}/v1/projects", self._management)
+        except ApiError:
+            return ""
+        if status != 200 or not isinstance(payload, list):
+            return ""
+        names = [
+            f"{item.get('name', '?')} ({str(item.get('id') or item.get('ref') or '')[:6]}…)"
+            for item in payload
+            if isinstance(item, dict)
+        ]
+        return " المشاريع التي يراها الرمز: " + ("، ".join(names) if names else "لا شيء") + "."
+
     def project_status(self) -> str:
         status, payload = call(
             "GET", f"{self.cfg.api_base}/v1/projects/{self.cfg.ref}", self._management
@@ -152,10 +167,14 @@ class Bootstrap:
         if status == 401:
             raise ApiError("رمز Supabase مرفوض (خاطئ أو منتهٍ)" + token_hint(self.cfg.token), status)
         if status == 403:
-            raise ApiError("رمز Supabase لا يملك صلاحية قراءة المشروع (Project Settings)", status)
+            raise ApiError(
+                "رمز Supabase لا يملك صلاحية قراءة المشروع (Project Settings)" + self.visible_projects(),
+                status,
+            )
         if status == 404:
             raise ApiError(
-                "المشروع غير موجود أو لا يصل إليه الرمز: تحقق من SUPABASE_PROJECT_REF ونطاق الرمز",
+                "المشروع غير موجود أو لا يصل إليه الرمز: تحقق من SUPABASE_PROJECT_REF ونطاق الرمز"
+                + self.visible_projects(),
                 status,
             )
         if status != 200 or not isinstance(payload, dict):
