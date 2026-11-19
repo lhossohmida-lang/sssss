@@ -168,7 +168,7 @@ void main() {
   );
 
   appTest(
-    'الشبكة: حصة مراجعة حضرها تلميذ من الفوج عمود إضافي لا يدخل حصص الدورة',
+    'الشبكة: حصة مراجعة حضرها تلميذ من الفوج حصة من دورته بين حصصها وفي مجموعه',
     (tester) async {
       tester.view.physicalSize = const Size(900, 1400);
       final semantics = tester.ensureSemantics();
@@ -234,12 +234,24 @@ void main() {
       // عنوان العمود «م» بتسمية «حصة مراجعة»، ولسمير وحده خلية فيه.
       expect(find.text('م'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('^حصة مراجعة')), findsOneWidget);
+      expect(find.text('م: حصة مراجعة من دورة من حضرها'), findsOneWidget);
       final first = tester.getSemantics(find.text('سمير بن علي')).label;
       expect(RegExp('حاضر').allMatches(first), hasLength(2));
+      expect(first, contains('حاضر · حصة مراجعة'));
+      // 12 نوفمبر بعد الحصة الأولى (7) وقبل الثانية (14): حصة من دورته بين حصصها لا في آخرها.
+      final inOrder = [
+        first.indexOf('حاضر · لم يدفع'),
+        first.indexOf('حاضر · حصة مراجعة'),
+        first.indexOf('غائب'),
+      ];
+      expect(inOrder.every((i) => i >= 0), isTrue);
+      expect(inOrder, [...inOrder]..sort());
       final second = tester.getSemantics(find.text('نور بن علي')).label;
       expect(RegExp('حاضر').allMatches(second), hasLength(1));
-      // مجموع الدورة لا يشمل المراجعة: 1 من 8 لكليهما.
-      expect(find.text('1/8'), findsNWidgets(2));
+      expect(second, isNot(contains('حصة مراجعة')));
+      // مجموع سمير يشمل المراجعة (حضر حصة عامة ومراجعة من 8 حصص ومراجعة)، ونور 1 من 8.
+      expect(find.text('2/9'), findsOneWidget);
+      expect(find.text('1/8'), findsOneWidget);
       semantics.dispose();
     },
   );

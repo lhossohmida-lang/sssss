@@ -72,6 +72,7 @@ class _GroupGridViewState extends ConsumerState<GroupGridView> {
             const SizedBox(height: ClaySpacing.lg),
             _Legend(
               showPayment: g.students.any((s) => s.coveredSessions != null),
+              showReview: g.reviewSessions.isNotEmpty,
             ),
           ],
         );
@@ -170,11 +171,10 @@ class AttendanceGridTable extends StatelessWidget {
     final p = context.palette;
     final text = Theme.of(context).textTheme;
     final sessions = grid.sessions;
-    final reviews = grid.reviewSessions;
-    final tableWidth =
-        nameWidth +
-        (sessions.length + reviews.length) * cellWidth +
-        totalsWidth;
+    // أعمدة الدورة بالترتيب الزمني: حصصها، وحصص المراجعة التي حضرها بعض تلاميذ الفوج (تُعدّ حصصاً من
+    // دورتهم فتقع بين حصصها بحسب تاريخها).
+    final columns = _GridColumn.merge(sessions, grid.reviewSessions);
+    final tableWidth = nameWidth + columns.length * cellWidth + totalsWidth;
 
     Widget header(SessionRow s) {
       final cancelled = !SessionStatus.fromCode(s.status).countsInCycle;
@@ -210,7 +210,7 @@ class AttendanceGridTable extends StatelessWidget {
       );
     }
 
-    // حصة مراجعة حضرها بعض تلاميذ الفوج ضيوفاً: عمود إضافي بعنوان «م».
+    // حصة مراجعة حضرها بعض تلاميذ الفوج ضيوفاً: حصة من دورتهم بعنوان «م» بدل رقم الحصة.
     Widget reviewHeader(SessionRow s) => SizedBox(
       width: cellWidth,
       height: headerHeight,
@@ -256,8 +256,8 @@ class AttendanceGridTable extends StatelessWidget {
                         ),
                       ),
                     ),
-                    for (final s in sessions) header(s),
-                    for (final s in reviews) reviewHeader(s),
+                    for (final c in columns)
+                      c.review ? reviewHeader(c.session) : header(c.session),
                     SizedBox(
                       width: totalsWidth,
                       child: Center(
@@ -275,7 +275,7 @@ class AttendanceGridTable extends StatelessWidget {
                   itemBuilder: (context, i) => _GridRow(
                     student: grid.students[i],
                     sessions: sessions,
-                    reviews: reviews,
+                    columns: columns,
                     cellWidth: cellWidth,
                   ),
                 ),
@@ -288,17 +288,46 @@ class AttendanceGridTable extends StatelessWidget {
   }
 }
 
+/// عمود في الشبكة: حصة من حصص الدورة أو حصة مراجعة هي حصة من دورة من حضرها ضيفاً.
+class _GridColumn {
+  const _GridColumn(this.session, {required this.review});
+
+  final SessionRow session;
+  final bool review;
+
+  /// الأعمدة بالترتيب الزمني (التاريخ ثم وقت البداية، ثم الحصة العامة قبل المراجعة، ثم المعرّف).
+  static List<_GridColumn> merge(
+    List<SessionRow> sessions,
+    List<SessionRow> reviews,
+  ) =>
+      [
+        for (final s in sessions) _GridColumn(s, review: false),
+        for (final s in reviews) _GridColumn(s, review: true),
+      ]..sort((a, b) {
+        final byDate = a.session.date.compareTo(b.session.date);
+        if (byDate != 0) return byDate;
+        final byStart = a.session.startMinutes.compareTo(
+          b.session.startMinutes,
+        );
+        if (byStart != 0) return byStart;
+        if (a.review != b.review) return a.review ? 1 : -1;
+        return a.session.id.compareTo(b.session.id);
+      });
+}
+
 class _GridRow extends StatelessWidget {
   const _GridRow({
     required this.student,
     required this.sessions,
-    required this.reviews,
+    required this.columns,
     required this.cellWidth,
   });
 
   final GridStudent student;
+
+  /// حصص الدورة العامة (للمجموع)، و[columns] كل أعمدة الشبكة بترتيبها الزمني.
   final List<SessionRow> sessions;
-  final List<SessionRow> reviews;
+  final List<_GridColumn> columns;
   final double cellWidth;
 
   @override
@@ -308,10 +337,25 @@ class _GridRow extends StatelessWidget {
     final counted = sessions
         .where((s) => SessionStatus.fromCode(s.status).countsInCycle)
         .length;
-    // الحصص المحسوبة (غير الملغاة) بالترتيب: من دفع شهره تُدفع أولى حصصه بقدر ما دفع.
+    // الحصص المحسوبة (غير الملغاة) بالترتيب: من دفع شهره تُدفع أولى حصصه بقدر ما دفع. وحصة المراجعة
+    // خلية لمن هو ضيف فيها (حصة من دورته)، وفراغ لغيره، ولا تدخل ترتيب التسديد.
     var position = 0;
     final cells = <Widget>[];
-    for (final s in sessions) {
+    for (final c in columns) {
+      final s = c.session;
+      if (c.review) {
+        cells.add(
+          student.reviewSessionIds.contains(s.id)
+              ? _Cell(
+                  width: cellWidth,
+                  status: student.cells[s.id],
+                  cancelled: false,
+                  review: true,
+                )
+              : SizedBox(width: cellWidth),
+        );
+        continue;
+      }
       final cancelled = !SessionStatus.fromCode(s.status).countsInCycle;
       cells.add(
         _Cell(
@@ -322,18 +366,6 @@ class _GridRow extends StatelessWidget {
         ),
       );
       if (!cancelled) position++;
-    }
-    // أعمدة المراجعة: خلية لمن هو ضيف فيها، وفراغ لغيره.
-    for (final s in reviews) {
-      cells.add(
-        student.reviewSessionIds.contains(s.id)
-            ? _Cell(
-                width: cellWidth,
-                status: student.cells[s.id],
-                cancelled: false,
-              )
-            : SizedBox(width: cellWidth),
-      );
     }
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -364,7 +396,7 @@ class _GridRow extends StatelessWidget {
               child: Directionality(
                 textDirection: TextDirection.ltr,
                 child: Text(
-                  '${student.countIn(sessions, AttendanceStatus.present)}/$counted',
+                  '${student.presentTotal(sessions)}/${student.sessionsTotal(counted)}',
                   style: text.labelMedium,
                 ),
               ),
@@ -386,11 +418,15 @@ class _Cell extends StatelessWidget {
     required this.status,
     required this.cancelled,
     this.paid,
+    this.review = false,
   });
 
   final double width;
   final AttendanceStatus? status;
   final bool cancelled;
+
+  /// حصة مراجعة هي حصة من دورة التلميذ (تُذكر لقارئ الشاشة).
+  final bool review;
 
   /// هل الحصة مدفوعة؟ `null` إن لم تُحسب المدفوعات.
   final bool? paid;
@@ -439,7 +475,7 @@ class _Cell extends StatelessWidget {
       width: width,
       child: Center(
         child: Semantics(
-          label: '${look.$3}$payment',
+          label: '${look.$3}$payment${review ? ' · حصة مراجعة' : ''}',
           excludeSemantics: true,
           child: fill != null
               ? Container(
@@ -463,10 +499,13 @@ class _Cell extends StatelessWidget {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend({this.showPayment = false});
+  const _Legend({this.showPayment = false, this.showReview = false});
 
   /// هل تُحسب المدفوعات؟ فيُشرح لونا المربعين.
   final bool showPayment;
+
+  /// هل في الدورة حصة مراجعة؟ فيُشرح عنوانها «م».
+  final bool showReview;
 
   @override
   Widget build(BuildContext context) {
@@ -481,6 +520,11 @@ class _Legend extends StatelessWidget {
           ClayBadge(label: 'مربع أزرق: حصة مدفوعة', tone: ClayTone.info),
           ClayBadge(label: 'مربع أحمر: حضر ولم يدفع', tone: ClayTone.danger),
         ],
+        if (showReview)
+          const ClayBadge(
+            label: 'م: حصة مراجعة من دورة من حضرها',
+            tone: ClayTone.info,
+          ),
       ],
     );
   }

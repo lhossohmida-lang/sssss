@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
+import 'date_key.dart';
 import 'dues_service.dart';
 import 'enums.dart';
 import 'pricing.dart';
@@ -39,15 +40,28 @@ class GridStudent {
   /// هل غادر المجموعة (يظهر لأن له حضوراً في هذه الدورة)؟
   final bool leftGroup;
 
-  /// حصص المراجعة التي هو ضيف فيها: أعمدة إضافية في الشبكة (يظهر حضوره فيها في [cells]).
+  /// حصص المراجعة التي هو ضيف فيها: تُعدّ حصصاً من دورته، فتظهر بين حصصها بحسب تاريخها ويدخل حضورها
+  /// في مجموعه (يظهر حضوره فيها في [cells]).
   final Set<String> reviewSessionIds;
 
   int count(AttendanceStatus status) =>
       cells.values.where((s) => s == status).length;
 
-  /// عدد حصص [sessions] التي كانت حالته فيها [status] (دون أعمدة المراجعة الإضافية).
+  /// عدد حصص [sessions] التي كانت حالته فيها [status] (حصص الدورة العامة دون حصص المراجعة).
   int countIn(Iterable<SessionRow> sessions, AttendanceStatus status) =>
       sessions.where((s) => cells[s.id] == status).length;
+
+  /// عدد حصص المراجعة التي حضرها ضيفاً وكانت حالته فيها [status].
+  int reviewCountIn(AttendanceStatus status) =>
+      reviewSessionIds.where((id) => cells[id] == status).length;
+
+  /// ما يُعدّ له من حصص الدورة: حصصها المحسوبة [counted] وحصص المراجعة التي هو ضيف فيها.
+  int sessionsTotal(int counted) => counted + reviewSessionIds.length;
+
+  /// عدد ما حضره من حصص دورته: حصصها العامة [sessions] وحصص المراجعة التي حضرها.
+  int presentTotal(Iterable<SessionRow> sessions) =>
+      countIn(sessions, AttendanceStatus.present) +
+      reviewCountIn(AttendanceStatus.present);
 }
 
 /// شبكة حضور دورة: حصصها بالترتيب الزمني، وتلاميذها بحالاتهم فيها.
@@ -63,8 +77,10 @@ class GroupGrid {
   final GroupRow group;
   final int cycleNumber;
 
-  /// حصص مراجعة (فوج من حصة واحدة في مادة هذا الفوج) حضرها تلاميذه ضيوفاً خلال أيام هذه الدورة: تُضاف
-  /// أعمدة في الشبكة وكأنها حصص مضافة إلى فوجهم الأصلي، ولا تُحسب في حصص الدورة.
+  /// حصص مراجعة (فوج من حصة واحدة في مادة هذا الفوج) حضرها تلاميذه ضيوفاً في أيام هذه الدورة (من أول
+  /// حصة فيها حتى أول حصة في الدورة التالية، وللدورة الحالية بلا نهاية): تُعدّ حصصاً من دورتهم فتظهر
+  /// بين حصصها بحسب تاريخها ويدخل حضورها في مجموعهم؛ ولا تدخل [countedSessions] لأنها لا تخص بقية
+  /// تلاميذ الفوج ولا تغيّر عدد حصص دورته.
   final List<SessionRow> reviewSessions;
 
   /// حصص الدورة بالترتيب الزمني، وفيها الملغاة (تُعرض باهتة).
@@ -183,10 +199,28 @@ class GroupGridQueries {
       );
     }
 
-    // حصص المراجعة التي حضرها تلاميذ الفوج ضيوفاً (في مادته، وضمن أيام الدورة).
+    // حصص المراجعة التي حضرها تلاميذ الفوج ضيوفاً (في مادته)، وتقع في أيام هذه الدورة: من أول حصة فيها
+    // حتى أول حصة في الدورة التالية (غير شاملة)، وللدورة الحالية بلا نهاية (فلا تضيع مراجعة تلي آخر
+    // حصصها قبل أن تبدأ دورة جديدة).
     final reviewSessions = <SessionRow>[];
     final reviewGuests = <String, Set<String>>{};
     if (sessions.isNotEmpty) {
+      final nextStart = await db
+          .customSelect(
+            'SELECT MIN(date) AS d FROM sessions WHERE group_id = ? '
+            'AND cycle_number > ? AND deleted_at IS NULL',
+            variables: [Variable<String>(groupId), Variable<int>(cycle)],
+            readsFrom: {db.sessions},
+          )
+          .getSingle();
+      final String? endExclusive =
+          nextStart.read<String?>('d') ??
+          (cycle == group.currentCycleNumber
+              ? null
+              : DateKey.of(
+                  DateKey.parse(sessions.last.date)
+                      .add(const Duration(days: 1)),
+                ));
       final reviewRows = await db
           .customSelect(
             'SELECT DISTINCT se.id, se.date, se.start_minutes '
@@ -197,13 +231,14 @@ class GroupGridQueries {
             'AND rg.deleted_at IS NULL AND rg.subject_id = ? '
             'JOIN group_students gs ON gs.student_id = sg.student_id '
             'AND gs.group_id = ? AND gs.deleted_at IS NULL '
-            'WHERE sg.deleted_at IS NULL AND se.date >= ? AND se.date <= ? '
+            'WHERE sg.deleted_at IS NULL AND se.date >= ? '
+            '${endExclusive == null ? '' : 'AND se.date < ? '}'
             'ORDER BY se.date, se.start_minutes, se.id',
             variables: [
               Variable<String>(group.subjectId),
               Variable<String>(groupId),
               Variable<String>(sessions.first.date),
-              Variable<String>(sessions.last.date),
+              if (endExclusive != null) Variable<String>(endExclusive),
             ],
             readsFrom: {
               db.sessionGuests,

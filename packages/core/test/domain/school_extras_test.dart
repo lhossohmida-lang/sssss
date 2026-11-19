@@ -568,31 +568,39 @@ void main() {
       }
     }
 
-    test('تظهر عموداً إضافياً لمن حضرها ضيفاً، ولا تدخل حصص الدورة', () async {
-      await regularSessions();
-      final review = await reviewSession(groupId: 'rev');
-      await guest(review, 's1');
-      await attendance.mark(
-        sessionId: review,
-        studentId: 's1',
-        status: AttendanceStatus.present,
-      );
-      final grid = (await GroupGridQueries(env.db).load('g1'))!;
-      expect(grid.sessions, hasLength(8));
-      expect(grid.countedSessions, 8);
-      expect(grid.reviewSessions.map((s) => s.id), [review]);
-      final s1 = grid.students.firstWhere((s) => s.studentId == 's1');
-      final s2 = grid.students.firstWhere((s) => s.studentId == 's2');
-      expect(s1.reviewSessionIds, {review});
-      expect(s1.cells[review], AttendanceStatus.present);
-      expect(s2.reviewSessionIds, isEmpty);
-      expect(s2.cells.containsKey(review), isFalse);
-      // حضوره في الدورة لا يشمل حصة المراجعة.
-      expect(s1.countIn(grid.sessions, AttendanceStatus.present), 0);
-      expect(s1.count(AttendanceStatus.present), 1);
-    });
+    test(
+      'حصة من دورة من حضرها ضيفاً: تُحسب في مجموعه ولا تدخل حصص الدورة العامة',
+      () async {
+        await regularSessions();
+        final review = await reviewSession(groupId: 'rev');
+        await guest(review, 's1');
+        await attendance.mark(
+          sessionId: review,
+          studentId: 's1',
+          status: AttendanceStatus.present,
+        );
+        final grid = (await GroupGridQueries(env.db).load('g1'))!;
+        expect(grid.sessions, hasLength(8));
+        expect(grid.countedSessions, 8);
+        expect(grid.reviewSessions.map((s) => s.id), [review]);
+        final s1 = grid.students.firstWhere((s) => s.studentId == 's1');
+        final s2 = grid.students.firstWhere((s) => s.studentId == 's2');
+        expect(s1.reviewSessionIds, {review});
+        expect(s1.cells[review], AttendanceStatus.present);
+        expect(s2.reviewSessionIds, isEmpty);
+        expect(s2.cells.containsKey(review), isFalse);
+        // حصص الدورة العامة لا تشملها، ومجموعه يشمل ما حضره منها.
+        expect(s1.countIn(grid.sessions, AttendanceStatus.present), 0);
+        expect(s1.reviewCountIn(AttendanceStatus.present), 1);
+        expect(s1.count(AttendanceStatus.present), 1);
+        expect(s1.presentTotal(grid.sessions), 1);
+        expect(s1.sessionsTotal(grid.countedSessions), 9);
+        expect(s2.presentTotal(grid.sessions), 0);
+        expect(s2.sessionsTotal(grid.countedSessions), 8);
+      },
+    );
 
-    test('ضيف لم يُسجَّل حضوره بعد: عمود بلا حالة', () async {
+    test('ضيف لم يُسجَّل حضوره بعد: حصة من دورته بلا حالة', () async {
       await regularSessions();
       final review = await reviewSession(groupId: 'rev');
       await guest(review, 's2');
@@ -600,26 +608,61 @@ void main() {
       final s2 = grid.students.firstWhere((s) => s.studentId == 's2');
       expect(s2.reviewSessionIds, {review});
       expect(s2.cells[review], isNull);
+      expect(s2.sessionsTotal(grid.countedSessions), 9);
+      expect(s2.presentTotal(grid.sessions), 0);
+    });
+
+    test('مراجعة مادة أخرى أو بلا ضيوف منهم لا تظهر', () async {
+      await regularSessions();
+      final other = await reviewSession(
+        groupId: 'rev-other',
+        subjectId: 'sub2',
+      );
+      await guest(other, 's1');
+      await reviewSession(groupId: 'rev-empty', date: '2026-11-13');
+      final grid = (await GroupGridQueries(env.db).load('g1'))!;
+      expect(grid.reviewSessions, isEmpty);
+      expect(grid.students.every((s) => s.reviewSessionIds.isEmpty), isTrue);
     });
 
     test(
-      'مراجعة مادة أخرى أو خارج أيام الدورة أو بلا ضيوف منهم لا تظهر',
+      'المراجعة تتبع الدورة التي يقع تاريخها فيها، وللدورة الحالية بلا نهاية',
       () async {
-        await regularSessions();
-        final other = await reviewSession(
-          groupId: 'rev-other',
-          subjectId: 'sub2',
+        await regularSessions(); // الدورة 1: من 10 إلى 17 نوفمبر.
+        await env.db.customStatement(
+          "UPDATE groups SET current_cycle_number = 2 WHERE id = 'g1'",
         );
-        await guest(other, 's1');
-        final outside = await reviewSession(
-          groupId: 'rev-late',
-          date: '2026-12-30',
+        for (final day in ['24', '25']) {
+          await cycles.addSession(
+            groupId: 'g1',
+            date: '2026-11-$day',
+            startMinutes: 600,
+            endMinutes: 690,
+            status: SessionStatus.normal,
+          );
+        }
+        // 20 نوفمبر بعد آخر حصص الدورة 1 وقبل الدورة 2، و2 ديسمبر بعد حصص الدورة 2 (الحالية)،
+        // و5 نوفمبر قبل أول حصة في الدورتين.
+        final between = await reviewSession(
+          groupId: 'rev-a',
+          date: '2026-11-20',
         );
-        await guest(outside, 's1');
-        await reviewSession(groupId: 'rev-empty', date: '2026-11-13');
-        final grid = (await GroupGridQueries(env.db).load('g1'))!;
-        expect(grid.reviewSessions, isEmpty);
-        expect(grid.students.every((s) => s.reviewSessionIds.isEmpty), isTrue);
+        final later = await reviewSession(groupId: 'rev-b', date: '2026-12-02');
+        final early = await reviewSession(groupId: 'rev-c', date: '2026-11-05');
+        for (final id in [between, later, early]) {
+          await guest(id, 's1');
+        }
+        final queries = GroupGridQueries(env.db);
+        final first = (await queries.load('g1', cycleNumber: 1))!;
+        final second = (await queries.load('g1'))!;
+        expect(first.reviewSessions.map((s) => s.id), [between]);
+        expect(second.reviewSessions.map((s) => s.id), [later]);
+        expect(
+          first.students
+              .firstWhere((s) => s.studentId == 's1')
+              .reviewSessionIds,
+          {between},
+        );
       },
     );
   });
