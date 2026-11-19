@@ -64,18 +64,18 @@
 
 ## 2. روابط التحميل
 
-صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-11`**
-(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-11>):
+صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-12`**
+(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-12>):
 
 | الملف | الرابط المباشر |
 | --- | --- |
-| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-admin.apk> |
-| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-teacher.apk> |
-| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-student.apk> |
-| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-admin-setup.exe> |
-| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-11/school-admin-windows.zip> |
+| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-12/school-admin.apk> |
+| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-12/school-teacher.apk> |
+| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-12/school-student.apk> |
+| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-12/school-admin-setup.exe> |
+| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-12/school-admin-windows.zip> |
 
-**`preview-11`** يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء الأربع) ويحمل كل ما في القسمين أعلاه «ما أُضيف في `preview-11`» و«ما أُضيف في `preview-10`». نجحت بوابة المحاكي `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط) و`release-check: ok tag=preview-11 assets=5`؛ وتحتاج خادم المدرسة بالترحيلين `0010` و`0011` (طُبّقا على demo). **`preview-10`** سبقه بالدليل المضمَّن. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
+**`preview-12`** يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء الأربع) ويحمل كل ما في الأقسام أعلاه «ما أُضيف في `preview-12`» و«`preview-11`» و«`preview-10`». نجحت بوابة المحاكي `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط) و`release-check: ok tag=preview-12 assets=5`؛ وتحتاج خادم المدرسة بالترحيلين `0010` و`0011` (طُبّقا على demo). **`preview-10`** سبقه بالدليل المضمَّن. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
 
 الروابط تتغيّر باسم كل إصدار. **`preview-9`** يحمل الحضور السابق وديون الأساتذة والعمال وبوابة فحص الإصدار والدخول برقم الهاتف وتغيير رقم
 الدخول من «حسابي» والإرسال التلقائي للرسائل وإعداد الفوج من صفحة واحدة ودليل الاستخدام (وهذا كله في `preview-8`)، ويزيد: تمييز أخطاء
