@@ -1,0 +1,56 @@
+name: supabase-migrate-db
+
+# يطبّق ترحيلات الخادم الناقصة على قاعدة مدرسة بكلمة سر القاعدة وحدها (السرّ SUPABASE_DB_PASSWORD في Environment
+# المدرسة)، دون رمز Supabase الشخصي: للحالة التي لا يصل فيها الرمز المخزَّن إلى مشروع المدرسة فيفشل
+# `supabase-deploy` عند «Verify access to the project» قبل أي ترحيل. لا يمسّ الدوال ولا الأسرار (هذه من عمل
+# `supabase-deploy` متى صحّ الرمز). يعمل عند تغيّر `supabase/MIGRATE` (علامة تُرفع رقمها لإعادة التشغيل) أو يدوياً.
+# التفاصيل في tool/db_apply_migrations.py، والنتيجة في تعليق `supabase-db-migrate` العام (دون أسرار).
+on:
+  push:
+    paths:
+      - supabase/MIGRATE
+      - tool/db_apply_migrations.py
+      - .github/workflows/supabase-migrate-db.yml
+  workflow_dispatch:
+    inputs:
+      school:
+        description: اسم المدرسة (اسم الـEnvironment)
+        required: true
+        default: demo
+
+permissions:
+  contents: read
+
+# لا يتداخل مع نشر الخادم نفسه.
+concurrency:
+  group: supabase-deploy-${{ inputs.school || 'demo' }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.school || 'demo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the pending migrations with the database password
+        shell: bash
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
+          DB_REGION: ${{ vars.DB_REGION }}
+          DB_POOLER_HOSTS: ${{ vars.DB_POOLER_HOSTS }}
+          MASK_ENV: SUPABASE_DB_PASSWORD
+        run: |
+          set +e
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          python3 tool/db_apply_migrations.py > supabase-db-migrate.log 2>&1
+          status=$?
+          cat supabase-db-migrate.log
+          if [ "$status" != "0" ]; then
+            python3 tool/ci_error.py supabase-db-migrate supabase-db-migrate.log 40
+          else
+            echo "::notice title=supabase-db-migrate::$(tail -n 4 supabase-db-migrate.log | tr '\n' ' ')"
+          fi
+          exit "$status"
