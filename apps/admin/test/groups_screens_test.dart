@@ -59,6 +59,19 @@ Future<AppRuntime> openGroups(
             monthlyPrice: const Value(2000),
           ),
         );
+    // سنة الفوج حين تكون مادته عامة (كل المستويات): تُختار عند إنشائه.
+    await db
+        .into(db.levels)
+        .insert(
+          LevelsCompanion.insert(
+            id: 'lv3',
+            createdAt: 1,
+            updatedAt: 1,
+            name: '3 متوسط',
+            stage: 'middle',
+            sortOrder: 203,
+          ),
+        );
     for (final id in ['t1', 't2']) {
       await db
           .into(db.teachers)
@@ -151,8 +164,12 @@ Future<void> openForm(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+const yearLabel = 'السنة الدراسية';
+
 Future<void> fillBasics(WidgetTester tester) async {
   await pick(tester, 'المادة', 'رياضيات');
+  // مادة عامة (كل المستويات): لا فوج لكل المستويات، فتُختار سنته.
+  await pick(tester, yearLabel, '3 متوسط');
   await pick(tester, 'الأستاذ', 'كمال');
   await pick(tester, 'القاعة الافتراضية', 'القاعة 1 (30)');
 }
@@ -187,8 +204,8 @@ void main() {
     await pick(tester, 'اليوم', 'الثلاثاء');
     await submit(tester);
 
-    // بعد الإنشاء تُفتح صفحة إعداد الفوج لإضافة تلاميذه من نفس المكان.
-    expect(find.text('رياضيات · الفوج 1'), findsOneWidget);
+    // بعد الإنشاء تُفتح صفحة إعداد الفوج لإضافة تلاميذه من نفس المكان؛ ومادته الخاصة بسنته.
+    expect(find.text('رياضيات (3 متوسط) · الفوج 1'), findsOneWidget);
     expect(find.text('لا تلاميذ في الفوج بعد.'), findsOneWidget);
     expect(find.widgetWithText(ClayButton, 'إضافة تلميذ'), findsOneWidget);
     await finishSetup(tester);
@@ -392,6 +409,7 @@ void main() {
     });
     await openForm(tester);
     await pick(tester, 'المادة', 'رياضيات');
+    await pick(tester, yearLabel, '3 متوسط');
     await pick(tester, 'الأستاذ', 'ياسين');
     // ياسين بلا نصيب افتراضي في ملفه: يُكتب عند إنشاء الفوج (لازم).
     await typeIn(tester, rateLabel, '900');
@@ -410,7 +428,8 @@ void main() {
     await submit(tester);
     await finishSetup(tester);
     await openGroupList(tester);
-    expect(find.text('فوج 2'), findsOneWidget);
+    // سنته «3 متوسط» غير سنة الفوج الأول (مادة عامة): فرقمه 1 في سنته.
+    expect(find.text('فوج 1'), findsOneWidget);
   });
 
   appTest('خانة غير صالحة تُرفض برسالة', (tester) async {

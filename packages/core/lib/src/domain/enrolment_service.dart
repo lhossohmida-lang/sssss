@@ -346,10 +346,18 @@ class EnrolmentService {
         .customSelect(
           'SELECT e.id, e.waiting_list_id FROM waiting_entries e '
           'JOIN waiting_lists l ON l.id = e.waiting_list_id '
-          'WHERE e.student_id = ? AND l.subject_id = ? '
-          'AND e.deleted_at IS NULL',
-          variables: [Variable<String>(studentId), Variable<String>(subjectId)],
-          readsFrom: {db.waitingEntries, db.waitingLists},
+          'WHERE e.student_id = ? AND e.deleted_at IS NULL AND ('
+          'l.subject_id = ? OR l.subject_id IN ('
+          // قائمة انتظار المادة العامة التي تحمل اسم مادة الفوج (فوج سنة خاصة من مادة عامة).
+          'SELECT g.id FROM subjects g JOIN subjects sp ON sp.name = g.name '
+          'WHERE sp.id = ? AND sp.level_id IS NOT NULL AND g.level_id IS NULL '
+          'AND g.deleted_at IS NULL))',
+          variables: [
+            Variable<String>(studentId),
+            Variable<String>(subjectId),
+            Variable<String>(subjectId),
+          ],
+          readsFrom: {db.waitingEntries, db.waitingLists, db.subjects},
         )
         .get();
     for (final row in rows) {

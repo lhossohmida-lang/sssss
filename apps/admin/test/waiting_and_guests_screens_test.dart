@@ -372,7 +372,7 @@ void main() {
       await typeIn(tester, targetLabel, '2');
       await submit(tester);
       // تُفتح صفحة الإعداد لإضافة تلاميذه من المكان نفسه.
-      expect(find.text('رياضيات · الفوج 1'), findsOneWidget);
+      expect(find.text('رياضيات (3 متوسط) · الفوج 1'), findsOneWidget);
       await finishSetup(tester);
 
       final db = runtime.db;
@@ -525,6 +525,7 @@ void main() {
     Future<AppRuntime> createReview(WidgetTester tester) async {
       final runtime = await openReview(tester);
       await pick(tester, 'المادة', 'رياضيات');
+      await pick(tester, yearLabel, '3 متوسط');
       await pick(tester, 'الأستاذ', 'كمال');
       await typeIn(tester, feeLabel, '500');
       await tester.tap(find.widgetWithText(ClayButton, 'إنشاء حصة المراجعة'));
@@ -565,6 +566,7 @@ void main() {
     ) async {
       final runtime = await openReview(tester);
       await pick(tester, 'المادة', 'رياضيات');
+      await pick(tester, yearLabel, '3 متوسط');
       await pick(tester, 'الأستاذ', 'كمال');
       expect(textOf(tester, rateLabelReview), '800');
       await typeIn(tester, feeLabel, '500');

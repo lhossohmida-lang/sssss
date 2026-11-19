@@ -65,6 +65,9 @@ class DashboardScreen extends ConsumerWidget {
             [
               if (school.isNotEmpty) school,
               '${GroupService.weekdayName(today.weekday)} ${DateKey.of(today)}',
+              // رقم الإصدار المثبَّت (للبناء العام فقط): يعرف المدير به أي نسخة يشغّل.
+              if (UpdateBuildConfig.release.isNotEmpty)
+                'الإصدار ${UpdateBuildConfig.release}',
             ].join(' · '),
             style: text.bodyMedium!.copyWith(color: p.textMuted),
           ),

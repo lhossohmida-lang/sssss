@@ -708,13 +708,8 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
   Widget build(BuildContext context) {
     final subjects = ref.watch(subjectsProvider).value ?? const <SubjectItem>[];
     final levelId = widget.student.levelId;
-    final offered = [
-      for (final s in subjects)
-        if (levelId == null ||
-            s.subject.levelId == null ||
-            s.subject.levelId == levelId)
-          s,
-    ];
+    // مواد مستواه والمواد العامة (دون العامة التي لها مادة بالاسم نفسه في مستواه).
+    final offered = SubjectItem.offeredFor(subjects, levelId);
     final p = context.palette;
     return ClayDialog(
       title: 'إضافة مادة',

@@ -601,6 +601,37 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  appTest('مادة عامة لها مثيل في سنة التلميذ: يُعرض مثيلها وحده', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    // فوج ثالث متوسط أُنشئ من الرياضيات العامة: مادته «رياضيات» لتلك السنة.
+    await runDb(
+      tester,
+      () => o.runtime.db
+          .into(o.runtime.db.subjects)
+          .insert(
+            SubjectsCompanion.insert(
+              id: 'math3',
+              createdAt: 1,
+              updatedAt: 1,
+              name: 'رياضيات',
+              levelId: const Value('lv3'),
+              monthlyPrice: const Value(2000),
+            ),
+          ),
+    );
+    await tester.pumpAndSettle();
+    await pick(tester, 'المستوى', '3 متوسط');
+    await tester.tap(find.text('اختر المادة').first);
+    await tester.pumpAndSettle();
+    // مادة السنة وحدها، لا العامة معها.
+    expect(find.text('رياضيات (3 متوسط)'), findsOneWidget);
+    expect(find.text('رياضيات'), findsNothing);
+    await tester.tap(find.text('رياضيات (3 متوسط)').last);
+    await tester.pumpAndSettle();
+  });
+
   appTest('النقل: الحقل يظهر بالتفعيل، وسعره مطلوب', (tester) async {
     final o = await openForm(tester);
     expect(find.text('سعر النقل الشهري (دج)'), findsNothing);

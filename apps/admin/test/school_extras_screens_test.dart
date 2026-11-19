@@ -148,6 +148,29 @@ void main() {
       expect(find.text('إضافة عامل'), findsOneWidget);
     });
 
+    appTest(
+      'لوحة ويندوز العريضة وهاتف المدير: البطاقتان ظاهرتان حتى بلا أساتذة ولا عمال',
+      (tester) async {
+        await boot(tester);
+        for (final size in const [
+          Size(1400, 900),
+          Size(900, 700),
+          Size(380, 800),
+        ]) {
+          tester.view.physicalSize = size;
+          await tester.pumpAndSettle();
+          expect(find.text('الأساتذة'), findsOneWidget, reason: '$size');
+          expect(find.text('العمال'), findsOneWidget, reason: '$size');
+          expect(find.text('حضر اليوم 0'), findsOneWidget, reason: '$size');
+          expect(
+            find.text('في العمل الآن 0 · حضر اليوم 0'),
+            findsOneWidget,
+            reason: '$size',
+          );
+        }
+      },
+    );
+
     appTest('عامل بلا صلاحية الأساتذة والعمال لا يرى البطاقتين', (
       tester,
     ) async {

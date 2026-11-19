@@ -172,14 +172,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     final lines =
         ref.watch(transportLinesProvider).value ?? const <TransportLineRow>[];
     final settings = ref.watch(schoolSettingsProvider).value;
-    // مواد مستوى التلميذ والمواد العامة؛ دون مستوى تُعرض كلها.
-    final offered = [
-      for (final s in subjects)
-        if (_levelId == null ||
-            s.subject.levelId == null ||
-            s.subject.levelId == _levelId)
-          s,
-    ];
+    // مواد مستوى التلميذ والمواد العامة (دون العامة التي لها مادة بالاسم نفسه في مستواه)؛ دون مستوى تُعرض كلها.
+    final offered = SubjectItem.offeredFor(subjects, _levelId);
     // مجموع الدورة بعد التخفيض للأفواج المختارة، وسعر النقل الشهري إن استعمله.
     var groupCount = 0;
     var groupsNet = 0;

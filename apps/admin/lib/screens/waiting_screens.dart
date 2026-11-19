@@ -193,6 +193,8 @@ class _WaitingDetailsScreenState extends ConsumerState<WaitingDetailsScreen> {
                               path: '/groups/new',
                               queryParameters: {
                                 'subject': item.list.subjectId,
+                                if (item.list.levelId != null)
+                                  'level': item.list.levelId!,
                                 if (item.list.preferredTeacherId != null)
                                   'teacher': item.list.preferredTeacherId!,
                               },

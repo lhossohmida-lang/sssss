@@ -29,6 +29,25 @@ class SubjectItem {
   String get id => subject.id;
   String get name => subject.name;
   int get monthlyPrice => subject.monthlyPrice;
+
+  /// المواد التي تُعرض لتلميذ في مستوى [levelId]: مواد مستواه والمواد العامة (كل المستويات)، دون العامة
+  /// التي لها مادة بالاسم نفسه في مستواه (فأفواج سنته أولى). ودون مستوى تُعرض كلها.
+  static List<SubjectItem> offeredFor(
+    List<SubjectItem> subjects,
+    String? levelId,
+  ) {
+    if (levelId == null) return subjects;
+    final specific = {
+      for (final s in subjects)
+        if (s.subject.levelId == levelId) s.name,
+    };
+    return [
+      for (final s in subjects)
+        if (s.subject.levelId == levelId ||
+            (s.subject.levelId == null && !specific.contains(s.name)))
+          s,
+    ];
+  }
 }
 
 /// المواد: اسم، مستوى اختياري، وسعر الشهر الافتراضي.
@@ -41,6 +60,7 @@ class SubjectService {
   /// حقول التحقق.
   static const String fieldName = 'name';
   static const String fieldPrice = 'price';
+  static const String fieldLevel = 'level';
 
   /// المواد الحية مع أسماء مستوياتها، مرتبة بالاسم.
   Stream<List<SubjectItem>> watchAll() {
@@ -108,6 +128,76 @@ class SubjectService {
   /// حذف ناعم؛ المجموعات والتلاميذ المرتبطون يحتفظون بالمادة في سجلاتهم.
   Future<bool> remove(String id) =>
       writer.softDelete(db.subjects, key: {'id': id});
+
+  /// مادة السنة [levelId] التي تحمل اسم المادة [subjectId]: فلكل فوج مادته الخاصة وسنته الدراسية، ولا فوج
+  /// «لكل المستويات». إن كانت [subjectId] مادة عامة (بلا سنة) أُعيدت مادة بالاسم نفسه لتلك السنة: الموجودة
+  /// إن وُجدت، وإلا تُنشأ بسعر المادة العامة، ويُعطى أساتذةُ المادة العامة تدريسها كذلك (من يدرّس الرياضيات
+  /// يدرّسها لكل سنة). ومادة لها سنة أصلاً تُعاد كما هي إن طابقت [levelId] وإلا يُرفض الطلب.
+  Future<SubjectRow> ensureForLevel(String subjectId, String levelId) {
+    return db.transaction(() async {
+      final general =
+          await (db.select(db.subjects)
+                ..where((s) => s.id.equals(subjectId) & s.deletedAt.isNull()))
+              .getSingleOrNull();
+      if (general == null) {
+        throw ValidationException.field(fieldName, 'المادة غير موجودة');
+      }
+      if (general.levelId != null) {
+        if (general.levelId == levelId) return general;
+        throw ValidationException.field(
+          fieldLevel,
+          'هذه المادة مرتبطة بسنة دراسية أخرى',
+        );
+      }
+      final level =
+          await (db.select(db.levels)
+                ..where((l) => l.id.equals(levelId) & l.deletedAt.isNull()))
+              .getSingleOrNull();
+      if (level == null) {
+        throw ValidationException.field(fieldLevel, 'اختر السنة الدراسية');
+      }
+      final existing =
+          await (db.select(db.subjects)..where(
+                (s) =>
+                    s.name.equals(general.name) &
+                    s.levelId.equals(levelId) &
+                    s.deletedAt.isNull(),
+              ))
+              .get();
+      final specific = existing.isNotEmpty
+          ? existing.first
+          : await add(
+              name: general.name,
+              levelId: levelId,
+              monthlyPrice: general.monthlyPrice,
+            );
+      final teachers =
+          await (db.select(db.teacherSubjects)..where(
+                (t) => t.subjectId.equals(general.id) & t.deletedAt.isNull(),
+              ))
+              .get();
+      final linked = {
+        for (final row in await (db.select(
+          db.teacherSubjects,
+        )..where((t) => t.subjectId.equals(specific.id))).get())
+          if (row.deletedAt == null) row.teacherId,
+      };
+      for (final link in teachers) {
+        if (linked.contains(link.teacherId)) continue;
+        await writer.save(
+          db.teacherSubjects,
+          TeacherSubjectsCompanion.insert(
+            teacherId: link.teacherId,
+            subjectId: specific.id,
+            updatedAt: 0,
+            deletedAt: const Value(null),
+          ),
+          key: {'teacher_id': link.teacherId, 'subject_id': specific.id},
+        );
+      }
+      return specific;
+    });
+  }
 
   Future<String> _validate(
     String name,

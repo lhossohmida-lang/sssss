@@ -371,15 +371,17 @@ class GroupFormScreen extends ConsumerStatefulWidget {
     this.groupId,
     this.initialSubjectId,
     this.initialTeacherId,
+    this.initialLevelId,
     super.key,
   });
 
   /// معرّف المجموعة عند التعديل؛ `null` للإنشاء.
   final String? groupId;
 
-  /// مادة وأستاذ مقترحان عند الإنشاء من قائمة انتظار.
+  /// مادة وأستاذ وسنة مقترحة عند الإنشاء من قائمة انتظار.
   final String? initialSubjectId;
   final String? initialTeacherId;
+  final String? initialLevelId;
 
   @override
   ConsumerState<GroupFormScreen> createState() => _GroupFormScreenState();
@@ -406,6 +408,10 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
   String? _subjectId;
   String? _teacherId;
   String? _roomId;
+
+  /// سنة الفوج حين تكون مادته عامة (كل المستويات): تُعيَّن له مادة بالاسم نفسه لتلك السنة (انظر
+  /// [SubjectService.ensureForLevel]).
+  String? _levelId;
   GroupRow? _existing;
   bool _loaded = false;
   bool _saving = false;
@@ -430,6 +436,17 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     }
   }
 
+  /// مادة عامة (كل المستويات) عند الإنشاء: لا فوج لكل المستويات، فتُختار سنة هذا الفوج.
+  bool _needsLevel(String? subjectId) {
+    if (_editing || subjectId == null) return false;
+    final subject = ref
+        .read(subjectsProvider)
+        .value
+        ?.where((s) => s.id == subjectId)
+        .firstOrNull;
+    return subject != null && subject.subject.levelId == null;
+  }
+
   /// سعر المادة الافتراضي مقترحاً لسعر الفوج (يُكتب غيره إن شاء)، أو فارغ إن لم يُحدَّد لها سعر.
   String _subjectPriceText(List<SubjectItem> subjects, String? subjectId) {
     final price = subjects
@@ -451,6 +468,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         .firstOrNull;
     setState(() {
       _subjectId = subjectId;
+      _levelId = widget.initialLevelId;
       _price.text = _subjectPriceText(subjects, subjectId);
       if (teacher != null) {
         _teacherId = teacher.id;
@@ -652,9 +670,11 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
       });
       return;
     }
-    // سعر الفوج ومبلغ أستاذه يُكتبان عند الإنشاء ولا يُتركان فارغين.
+    // سعر الفوج ومبلغ أستاذه يُكتبان عند الإنشاء ولا يُتركان فارغين، وسنته إن كانت مادته عامة.
     if (!_editing) {
       final missing = {
+        if (_needsLevel(subjectId) && _levelId == null)
+          SubjectService.fieldLevel: 'اختر السنة الدراسية لهذا الفوج',
         if (_priceValue == null)
           GroupService.fieldPrice: 'أدخل سعر الشهر للتلميذ',
         if (_rateValue == null)
@@ -691,6 +711,15 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     // أول حصة ينتقل إلى «الحضور السابق» الذي يبني منه الحصص المقررة ويسجّل الماضي.
     final firstIsPast = _firstDate.isBefore(now);
     try {
+      // فوج من مادة عامة: مادته الخاصة بسنته (تُنشأ إن لم توجد).
+      var groupSubject = subjectId;
+      if (_needsLevel(subjectId)) {
+        groupSubject =
+            (await ref
+                    .read(subjectServiceProvider)
+                    .ensureForLevel(subjectId, _levelId!))
+                .id;
+      }
       GroupRow? created;
       if (_editing) {
         await service.update(
@@ -705,7 +734,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         );
       } else if (_waiting) {
         created = await service.createWaiting(
-          subjectId: subjectId,
+          subjectId: groupSubject,
           teacherId: teacherId,
           roomId: _roomId,
           sessionsPerCycle: int.tryParse(_cycle.text.trim()) ?? 0,
@@ -715,7 +744,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
         );
       } else {
         created = await service.create(
-          subjectId: subjectId,
+          subjectId: groupSubject,
           teacherId: teacherId,
           roomId: _roomId,
           sessionsPerCycle: int.tryParse(_cycle.text.trim()) ?? 0,
@@ -799,6 +828,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
     final p = context.palette;
     final subjects = ref.watch(subjectsProvider).value ?? const <SubjectItem>[];
     final rooms = ref.watch(roomsProvider).value ?? const <RoomRow>[];
+    final levels = ref.watch(levelsProvider).value ?? const <LevelRow>[];
     final teachers = _subjectId == null
         ? const <TeacherRow>[]
         : ref.watch(subjectTeachersProvider(_subjectId!)).value ??
@@ -862,6 +892,25 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                               _price.text = _subjectPriceText(subjects, value);
                             }),
                     ),
+                    if (_needsLevel(_subjectId)) ...[
+                      gap,
+                      ClayDropdown<String>(
+                        label: 'السنة الدراسية',
+                        hint: 'اختر سنة هذا الفوج',
+                        value: _levelId,
+                        error: _errors[SubjectService.fieldLevel],
+                        helper: 'لا يوجد فوج لكل المستويات: لكل فوج مادته وسنته الدراسية',
+                        options: [
+                          for (final l in levels)
+                            ClayOption(value: l.id, label: l.name),
+                        ],
+                        onChanged: (value) => setState(() {
+                          _levelId = value;
+                          _errors = {..._errors}
+                            ..remove(SubjectService.fieldLevel);
+                        }),
+                      ),
+                    ],
                     gap,
                     ClayDropdown<String>(
                       label: 'الأستاذ',
@@ -1493,6 +1542,9 @@ class _ReviewSessionFormScreenState
   String? _subjectId;
   String? _teacherId;
   String? _roomId;
+
+  /// سنة حصة المراجعة حين تكون مادتها عامة (كل المستويات).
+  String? _levelId;
   late DateTime _date = DateTime(
     DateTime.now().year,
     DateTime.now().month,
@@ -1508,6 +1560,17 @@ class _ReviewSessionFormScreenState
     _fee.dispose();
     _rate.dispose();
     super.dispose();
+  }
+
+  /// مادة عامة (كل المستويات): لا حصة مراجعة لكل المستويات، فتُختار سنتها.
+  bool _needsLevel(String? subjectId) {
+    if (subjectId == null) return false;
+    final subject = ref
+        .read(subjectsProvider)
+        .value
+        ?.where((s) => s.id == subjectId)
+        .firstOrNull;
+    return subject != null && subject.subject.levelId == null;
   }
 
   Future<void> _pickDate() async {
@@ -1546,6 +1609,8 @@ class _ReviewSessionFormScreenState
     final rate = int.tryParse(_rate.text.trim());
     final missing = {
       if (subjectId == null) GroupService.fieldSubject: 'اختر المادة',
+      if (_needsLevel(subjectId) && _levelId == null)
+        SubjectService.fieldLevel: 'اختر السنة الدراسية لحصة المراجعة',
       if (teacherId == null) GroupService.fieldTeacher: 'اختر الأستاذ',
       if (fee == null) GroupService.fieldPrice: 'أدخل ثمن الحصة',
       if (rate == null)
@@ -1560,10 +1625,19 @@ class _ReviewSessionFormScreenState
       _errors = const {};
     });
     try {
+      // حصة من مادة عامة: مادتها الخاصة بسنتها (تُنشأ إن لم توجد).
+      var reviewSubject = subjectId!;
+      if (_needsLevel(subjectId)) {
+        reviewSubject =
+            (await ref
+                    .read(subjectServiceProvider)
+                    .ensureForLevel(subjectId, _levelId!))
+                .id;
+      }
       final group = await ref
           .read(groupServiceProvider)
           .createReview(
-            subjectId: subjectId!,
+            subjectId: reviewSubject,
             teacherId: teacherId!,
             roomId: _roomId,
             date: DateKey.of(_date),
@@ -1595,6 +1669,7 @@ class _ReviewSessionFormScreenState
     final p = context.palette;
     final subjects = ref.watch(subjectsProvider).value ?? const <SubjectItem>[];
     final rooms = ref.watch(roomsProvider).value ?? const <RoomRow>[];
+    final levels = ref.watch(levelsProvider).value ?? const <LevelRow>[];
     final teachers = _subjectId == null
         ? const <TeacherRow>[]
         : ref.watch(subjectTeachersProvider(_subjectId!)).value ??
@@ -1638,6 +1713,25 @@ class _ReviewSessionFormScreenState
                         _teacherId = null;
                       }),
                     ),
+                    if (_needsLevel(_subjectId)) ...[
+                      gap,
+                      ClayDropdown<String>(
+                        label: 'السنة الدراسية',
+                        hint: 'اختر سنة حصة المراجعة',
+                        value: _levelId,
+                        error: _errors[SubjectService.fieldLevel],
+                        helper: 'لا يوجد حصة مراجعة لكل المستويات: لكل حصة مادته وسنته الدراسية',
+                        options: [
+                          for (final l in levels)
+                            ClayOption(value: l.id, label: l.name),
+                        ],
+                        onChanged: (value) => setState(() {
+                          _levelId = value;
+                          _errors = {..._errors}
+                            ..remove(SubjectService.fieldLevel);
+                        }),
+                      ),
+                    ],
                     gap,
                     ClayDropdown<String>(
                       label: 'الأستاذ',

@@ -288,6 +288,7 @@ final List<AppPage> adminPages = [
     builder: (context, state) => GroupFormScreen(
       initialSubjectId: state.uri.queryParameters['subject'],
       initialTeacherId: state.uri.queryParameters['teacher'],
+      initialLevelId: state.uri.queryParameters['level'],
     ),
   ),
   AppPage(
