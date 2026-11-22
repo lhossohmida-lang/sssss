@@ -8,8 +8,10 @@ inputs:
     description: مجلد فيه school-admin.apk وschool-teacher.apk وschool-student.apk
     required: true
   artifact-name:
+    # لا يبدأ بـapk- ولا ipa-: مهمة النشر في build تنزّل ملفات التثبيت بهذين النمطين (كان apk-smoke يطابق apk-*
+    # فأُرفقت اللقطات وsummary.json بالإصدارات حتى preview-14).
     description: اسم أرتيفاكت لقطات الشاشة
-    default: apk-smoke
+    default: smoke-screens
   directory:
     description: >-
       هل يضمّن البناء دليل المدارس؟ 1: تُتوقَّع شاشة تسجيل الدخول بالهاتف (الإدارة) واختيار المدرسة (الأستاذ والتلميذ)،

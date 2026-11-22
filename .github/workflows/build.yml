@@ -258,7 +258,7 @@ jobs:
       - name: Read version
         id: version
         run: echo "tag=$(head -n 1 RELEASE_VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
-      # ملفات التثبيت وحدها، لا لقطات اختبارات الدخان (كانت تُرفق بالإصدار خطأً حتى preview-13).
+      # ملفات التثبيت وحدها، لا لقطات اختبارات الدخان (أرتيفاكتها smoke-screens؛ كانت تُرفق بالإصدار خطأً حتى preview-14).
       - uses: actions/download-artifact@v4
         with:
           pattern: apk-*

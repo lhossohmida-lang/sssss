@@ -61,7 +61,7 @@
 
 - **نسخ iPhone للتطبيقات الثلاثة** (الإدارة والأستاذ ووليّ التلميذ) دون حاسوب Apple ودون دفع: ملفات `.ipa` تُبنى على خوادم GitHub وتُثبَّت مجاناً من حاسوب Windows ببرنامج Sideloadly وحساب Apple ID عادي. تعمل 7 أيام ثم يُعاد تثبيتها (تبقى البيانات)، و3 تطبيقات كحد لكل iPhone. الخطوات كاملة في [`IOS.md`](IOS.md). جُرّب كل تطبيق على محاكي iPhone (وصل شاشته الأولى)، لا على iPhone حقيقي.
 - مسح رمز الربط بكاميرا iPhone يعمل. ولا تعمل على iPhone بعد: إشعارات الدفع، وGoogle Drive، وإرسال SMS (يبقى من هاتف Android)، والمساعد بالصوت، والتحديث التلقائي.
-- صفحة الإصدار تحوي ملفات التثبيت وحدها (لم تعد لقطات اختبار المحاكي تُرفق بها).
+- في `preview-14` ما زالت لقطات بوابة المحاكي (`admin.png` و`teacher.png` و`student.png` و`summary.json`) مرفقة بالإصدار، ففشل فحص `release-check` عليها وحدها (الملفات الثمانية سليمة). أُصلح السبب (اسم أرتيفاكت اللقطات صار `smoke-screens`) فلا تُرفق من الإصدار التالي.
 
 ## ما أُضيف في `preview-13` (بعد `preview-12`)
 
@@ -78,18 +78,21 @@
 
 ## 2. روابط التحميل
 
-صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-13`**
-(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-13>):
+صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-14`**
+(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-14>):
 
 | الملف | الرابط المباشر |
 | --- | --- |
-| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-13/school-admin.apk> |
-| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-13/school-teacher.apk> |
-| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-13/school-student.apk> |
-| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-13/school-admin-setup.exe> |
-| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-13/school-admin-windows.zip> |
+| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-admin.apk> |
+| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-teacher.apk> |
+| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-student.apk> |
+| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-admin-setup.exe> |
+| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-admin-windows.zip> |
+| الإدارة لـiPhone (يُثبَّت بـSideloadly، `IOS.md`) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-admin.ipa> |
+| الأستاذ لـiPhone | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-teacher.ipa> |
+| الوليّ والتلميذ لـiPhone | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-14/school-student.ipa> |
 
-**`preview-13`** يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء الأربع) ويحمل كل ما في الأقسام أعلاه «ما أُضيف في `preview-13`» و«`preview-12`» و«`preview-11`» و«`preview-10`». نجحت بوابة المحاكي `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط) و`release-check: ok tag=preview-13 assets=5`؛ وتحتاج خادم المدرسة بالترحيلين `0010` و`0011` (طُبّقا على demo). **`preview-10`** سبقه بالدليل المضمَّن. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
+**`preview-14`** (`0b9473a`) يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء) ويحمل كل ما في الأقسام أعلاه «ما أُضيف في `preview-14`» و«`preview-13`» و«`preview-12`» و«`preview-11`» و«`preview-10`». نجحت بوابة محاكي Android `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط)، ونجحت نسخ iPhone الثلاث على محاكي iPhone 17 Pro (`ios-smoke`: «أدخل رقم هاتفك وكلمة السر» و«اختر مدرستك» مرتين) وفحص ملفاتها (`ipa_check`)؛ وفشل `release-check` على اللقطات المرفقة وحدها (انظر أعلاه)، والملفات الثمانية مرفوعة ببصماتها. قبله **`preview-13`** (`release-check: ok assets=5`)؛ وتحتاج خادم المدرسة بالترحيلين `0010` و`0011` (طُبّقا على demo). **`preview-10`** سبقه بالدليل المضمَّن. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
 
 الروابط تتغيّر باسم كل إصدار. **`preview-9`** يحمل الحضور السابق وديون الأساتذة والعمال وبوابة فحص الإصدار والدخول برقم الهاتف وتغيير رقم
 الدخول من «حسابي» والإرسال التلقائي للرسائل وإعداد الفوج من صفحة واحدة ودليل الاستخدام (وهذا كله في `preview-8`)، ويزيد: تمييز أخطاء
