@@ -61,6 +61,8 @@ jobs:
           SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
           SCHOOL: ${{ inputs.school }}
+          GOOGLE_DRIVE_OWNER_EMAIL: ${{ vars.GOOGLE_DRIVE_OWNER_EMAIL || secrets.GOOGLE_DRIVE_OWNER_EMAIL }}
+          GOOGLE_DRIVE_IOS_CLIENT_ID: ${{ vars.GOOGLE_DRIVE_IOS_CLIENT_ID }}
         run: |
           defines="$RUNNER_TEMP/defines.txt"
           : > "$defines"
@@ -77,6 +79,24 @@ jobs:
             if [ -n "$DIRECTORY_URL" ] && [ -n "$DIRECTORY_KEY" ]; then
               printf '%s\n' "--dart-define=DIRECTORY_URL=$DIRECTORY_URL" "--dart-define=DIRECTORY_KEY=$DIRECTORY_KEY" >> "$defines"
               directory=1
+            fi
+          fi
+          # Google Drive في الإدارة على iPhone: يلزم معرّف عميل iOS (Google Cloud، نوع iOS، dz.school.admin) ومخطّطه
+          # المعكوس في Info.plist ليعود تسجيل الدخول إلى التطبيق. دونه تبقى شاشة Drive تشرح ما ينقص.
+          if [ "${{ matrix.app }}" = "admin" ]; then
+            printf '%s\n' "--dart-define=GOOGLE_DRIVE_OWNER_EMAIL=$GOOGLE_DRIVE_OWNER_EMAIL" >> "$defines"
+            if [ -n "$GOOGLE_DRIVE_IOS_CLIENT_ID" ]; then
+              printf '%s\n' "--dart-define=GOOGLE_DRIVE_IOS_CLIENT_ID=$GOOGLE_DRIVE_IOS_CLIENT_ID" >> "$defines"
+              scheme="com.googleusercontent.apps.${GOOGLE_DRIVE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+              plist=apps/admin/ios/Runner/Info.plist
+              /usr/libexec/PlistBuddy -c "Add :GIDClientID string $GOOGLE_DRIVE_IOS_CLIENT_ID" "$plist"
+              /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$plist"
+              /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$plist"
+              /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$plist"
+              /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string $scheme" "$plist"
+              echo "::notice title=ios-drive::admin: Google Drive enabled"
+            else
+              echo "::notice title=ios-drive::admin: GOOGLE_DRIVE_IOS_CLIENT_ID absent (Drive off on iPhone)"
             fi
           fi
           echo "DEFINES_FILE=$defines" >> "$GITHUB_ENV"

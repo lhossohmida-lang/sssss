@@ -39,8 +39,11 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
   bool _busy = false;
   bool _resolvingAction = false;
 
+  // Android وiPhone: التعرف على الكلام (speech_to_text) وقراءة الرد بمحرك النظام (قناة tts في كل منهما).
   bool get _voiceSupported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
   void dispose() {

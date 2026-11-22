@@ -108,7 +108,7 @@ class _DriveBackupLifecycleState extends ConsumerState<DriveBackupLifecycle> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// ربط Google Sign-In على Android وتدفق PKCE ذي loopback على Windows.
+/// ربط Google Sign-In على Android وiPhone وتدفق PKCE ذي loopback على Windows.
 /// رموز سطح المكتب تبقى في التخزين الآمن للنظام، ورمز Drive قصير العمر لا
 /// يُكتب في قاعدة التطبيق أو في سجل العمليات.
 class GoogleDriveController implements DriveController {
@@ -119,8 +119,9 @@ class GoogleDriveController implements DriveController {
       _windowsClientSecret = const String.fromEnvironment(
         'GOOGLE_DRIVE_WINDOWS_CLIENT_SECRET',
       ),
-      _serverClientId = const String.fromEnvironment(
-        'GOOGLE_SERVER_CLIENT_ID',
+      _serverClientId = const String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID'),
+      _iosClientId = const String.fromEnvironment(
+        'GOOGLE_DRIVE_IOS_CLIENT_ID',
       ) {
     _preferences = DevicePreferences(runtime.db);
     final staging = Directory(
@@ -153,6 +154,10 @@ class GoogleDriveController implements DriveController {
   /// معرّف عميل Web في Google Cloud: يلزم تسجيل الدخول على Android (Credential
   /// Manager) إن لم يضمّنه ملف google-services.json.
   final String _serverClientId;
+
+  /// معرّف عميل iOS في Google Cloud (نوع iOS، معرّف الحزمة dz.school.admin): يلزم Drive على iPhone، ويضيف
+  /// مسار ios في CI مخطّطه المعكوس إلى Info.plist.
+  final String _iosClientId;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final StreamController<DriveAccount?> _accountController =
       StreamController<DriveAccount?>.broadcast();
@@ -180,6 +185,7 @@ class GoogleDriveController implements DriveController {
   bool get isConfigured =>
       _ownerEmail.trim().isNotEmpty &&
       (Platform.isAndroid ||
+          (Platform.isIOS && _iosClientId.trim().isNotEmpty) ||
           (Platform.isWindows &&
               _windowsClientId.trim().isNotEmpty &&
               _windowsClientSecret.trim().isNotEmpty));
@@ -197,8 +203,11 @@ class GoogleDriveController implements DriveController {
             _windowsClientSecret.trim().isEmpty)) {
       return 'بيانات OAuth لنسخة Windows لم تُضبط بعد.';
     }
-    if (!Platform.isWindows && !Platform.isAndroid) {
-      return 'Google Drive متاح في تطبيق الإدارة على Android وWindows.';
+    if (Platform.isIOS && _iosClientId.trim().isEmpty) {
+      return 'معرّف عميل iOS لـGoogle (GOOGLE_DRIVE_IOS_CLIENT_ID) لم يُضبط في هذا البناء.';
+    }
+    if (!Platform.isWindows && !Platform.isAndroid && !Platform.isIOS) {
+      return 'Google Drive متاح في تطبيق الإدارة على Android وiPhone وWindows.';
     }
     return 'أضف إعداد OAuth الخاص بتطبيق Android إلى بناء الإدارة.';
   }
@@ -273,7 +282,11 @@ class GoogleDriveController implements DriveController {
         );
     }
     await google.initialize(
-      clientId: Platform.isWindows ? _windowsClientId : null,
+      clientId: Platform.isWindows
+          ? _windowsClientId
+          : Platform.isIOS
+          ? _iosClientId
+          : null,
       serverClientId: Platform.isAndroid && _serverClientId.isNotEmpty
           ? _serverClientId
           : null,
@@ -726,7 +739,7 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
       );
       if (Platform.isAndroid) {
         await SystemNavigator.pop();
-      } else if (Platform.isWindows) {
+      } else if (Platform.isWindows || Platform.isIOS) {
         exit(0);
       }
     });

@@ -508,6 +508,38 @@ void main() {
       controller.dispose();
     });
 
+    test('without download (iPhone) a newer release is only announced, never fetched', () async {
+      source.result = sample('preview-8');
+      final controller = UpdateController(
+        currentTag: 'preview-7',
+        source: source,
+        downloader: downloader,
+        installer: installer,
+        canDownload: false,
+      );
+      await controller.checkNow();
+      expect(controller.state.value, isA<UpdateAvailable>());
+      await controller.checkNow(manual: true);
+      await controller.downloadNow();
+      expect(controller.state.value, isA<UpdateAvailable>());
+      expect(downloader.downloads, isEmpty);
+      controller.dispose();
+    });
+
+    test(
+      'the first check comes a few seconds after opening the app by default',
+      () {
+        final controller = UpdateController(
+          currentTag: 'preview-7',
+          source: source,
+          downloader: downloader,
+          installer: installer,
+        );
+        expect(controller.firstCheckDelay, const Duration(seconds: 3));
+        controller.dispose();
+      },
+    );
+
     test('a manual check downloads even on a metered network', () async {
       unmetered = false;
       source.result = sample('preview-8');

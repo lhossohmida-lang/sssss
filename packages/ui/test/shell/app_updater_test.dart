@@ -91,12 +91,20 @@ void main() {
       },
     );
 
+    test(
+      'iPhone apps look for their own IPA (announced, installed from a PC)',
+      () {
+        for (final app in AppIdentity.values) {
+          expect(
+            updateAssetName(app, platform: TargetPlatform.iOS),
+            'school-${app.name}.ipa',
+          );
+        }
+      },
+    );
+
     test('other systems have no in-app update', () {
-      for (final platform in [
-        TargetPlatform.iOS,
-        TargetPlatform.linux,
-        TargetPlatform.macOS,
-      ]) {
+      for (final platform in [TargetPlatform.linux, TargetPlatform.macOS]) {
         expect(updateAssetName(AppIdentity.admin, platform: platform), isNull);
       }
     });
@@ -204,7 +212,7 @@ void main() {
           find.text('جارٍ تنزيل النسخة الجديدة preview-8'),
           findsOneWidget,
         );
-        expect(find.text('42٪'), findsOneWidget);
+        expect(find.textContaining('42٪'), findsOneWidget);
         expect(find.byType(LinearProgressIndicator), findsOneWidget);
         expect(
           tester
@@ -271,6 +279,106 @@ void main() {
         );
         await tester.pump();
         expect(find.text('تعذّر الاتصال بخادم التحديثات'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'with a hide callback the ready card offers later as well as install',
+      (tester) async {
+        var hidden = 0;
+        source.result = release('preview-8');
+        await pump(
+          tester,
+          UpdateBanner(controller: controller, onHide: () => hidden++),
+        );
+        await tester.runAsync(controller.checkNow);
+        await tester.pump();
+        expect(find.text('تثبيت الآن'), findsOneWidget);
+        await tester.tap(find.text('لاحقاً'));
+        expect(hidden, 1);
+        // الإخفاء للبطاقة وحدها: النسخة تبقى جاهزة.
+        expect(controller.state.value, isA<UpdateReady>());
+      },
+    );
+
+    testWidgets(
+      'on iPhone a new release is announced with the steps and nothing is downloaded',
+      (tester) async {
+        final ios = UpdateController(
+          currentTag: 'preview-7',
+          source: source,
+          downloader: downloader,
+          installer: installer,
+          canDownload: false,
+        );
+        addTearDown(ios.dispose);
+        source.result = release('preview-8');
+        await pump(
+          tester,
+          UpdateBanner(
+            controller: ios,
+            platform: TargetPlatform.iOS,
+            onHide: () {},
+          ),
+        );
+        await tester.runAsync(() => ios.checkNow(manual: true));
+        await tester.pump();
+        expect(find.text('نسخة جديدة (preview-8) متاحة'), findsOneWidget);
+        expect(find.textContaining('Sideloadly'), findsOneWidget);
+        expect(find.text('خطوات التحديث'), findsOneWidget);
+        expect(find.text('لاحقاً'), findsOneWidget);
+        expect(find.text('تنزيل'), findsNothing);
+        expect(downloader.downloads, isEmpty);
+        await ios.downloadNow();
+        expect(downloader.downloads, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'the overlay card sits above every page, hides on later and comes back when the app is reopened',
+      (tester) async {
+        source.result = release('preview-8');
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [updateControllerProvider.overrideWithValue(controller)],
+            child: const ClayApp(
+              app: AppIdentity.admin,
+              home: Scaffold(body: Center(child: Text('الصفحة'))),
+              overlay: UpdateOverlay(),
+            ),
+          ),
+        );
+        await tester.runAsync(controller.checkNow);
+        await tester.pump();
+        expect(find.text('الصفحة'), findsOneWidget);
+        expect(find.text('تثبيت الآن'), findsOneWidget);
+
+        // صفحة جديدة فوق الأولى: البطاقة تبقى ظاهرة فوقها.
+        final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+        unawaited(
+          navigator.push(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('صفحة أخرى')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('صفحة أخرى'), findsOneWidget);
+        expect(find.text('تثبيت الآن'), findsOneWidget);
+
+        await tester.tap(find.text('لاحقاً'));
+        await tester.pump();
+        expect(find.text('تثبيت الآن'), findsNothing);
+
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+        expect(find.text('تثبيت الآن'), findsOneWidget);
       },
     );
 

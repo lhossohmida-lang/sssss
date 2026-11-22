@@ -163,6 +163,7 @@ class ClayApp extends StatelessWidget {
     this.routerConfig,
     this.themeMode = ThemeMode.system,
     this.title,
+    this.overlay,
     super.key,
   }) : assert(
          (home != null) != (routerConfig != null),
@@ -175,6 +176,9 @@ class ClayApp extends StatelessWidget {
   final ThemeMode themeMode;
   final String? title;
 
+  /// طبقة فوق كل الصفحات والنوافذ (بطاقة التحديث)؛ لا تمنع اللمس خارج ما ترسمه.
+  final Widget? overlay;
+
   @override
   Widget build(BuildContext context) {
     final common = (
@@ -184,8 +188,13 @@ class ClayApp extends StatelessWidget {
       themeMode: themeMode,
       locale: AppIdentity.locale,
     );
-    Widget rtl(BuildContext context, Widget? child) =>
-        Directionality(textDirection: TextDirection.rtl, child: child!);
+    final top = overlay;
+    Widget rtl(BuildContext context, Widget? child) => Directionality(
+      textDirection: TextDirection.rtl,
+      child: top == null
+          ? child!
+          : Stack(fit: StackFit.expand, children: [child!, top]),
+    );
     if (routerConfig != null) {
       return MaterialApp.router(
         title: common.title,

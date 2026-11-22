@@ -273,7 +273,6 @@ class ShellPage extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          const UpdateBanner(),
           const TutorialWelcomeBanner(),
           Expanded(child: shell),
         ],
@@ -337,6 +336,11 @@ class _SchoolAppState extends ConsumerState<SchoolApp> {
     ref.watch(pushNotificationsProvider);
     // يبدأ فحص النسخ الجديدة وتنزيلها في الخلفية ما دام التطبيق مفتوحاً (معطَّل في بناء التطوير).
     ref.watch(updateControllerProvider);
-    return ClayApp(app: _runtime.app, routerConfig: _router);
+    // بطاقة التحديث فوق كل شيء، من شاشة الدخول إلى الصفحات المفتوحة.
+    return ClayApp(
+      app: _runtime.app,
+      routerConfig: _router,
+      overlay: const UpdateOverlay(),
+    );
   }
 }

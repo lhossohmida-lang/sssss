@@ -20,7 +20,7 @@ abstract class AssistantVoiceEngine extends ChangeNotifier {
   Future<void> stopSpeaking();
 }
 
-/// تعرف قصير على كلام المستخدم وقراءة الرد بمحرك الهاتف على Android.
+/// تعرف قصير على كلام المستخدم وقراءة الرد بمحرك الهاتف (Android وiPhone).
 class PluginAssistantVoiceEngine extends AssistantVoiceEngine {
   PluginAssistantVoiceEngine({stt.SpeechToText? recognizer})
     : _recognizer = recognizer ?? stt.SpeechToText();

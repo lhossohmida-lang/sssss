@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:school_core/school_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../clay/clay_button.dart';
 import '../clay/clay_container.dart';
@@ -28,6 +28,8 @@ abstract final class UpdateBuildConfig {
 String? updateAssetName(AppIdentity app, {TargetPlatform? platform}) {
   final target = platform ?? defaultTargetPlatform;
   if (target == TargetPlatform.android) return 'school-${app.name}.apk';
+  // iPhone: يُعلَن الإصدار الجديد فقط، ويُثبَّت ملفه من حاسوب (Sideloadly).
+  if (target == TargetPlatform.iOS) return 'school-${app.name}.ipa';
   if (target == TargetPlatform.windows && app == AppIdentity.admin) {
     return 'school-admin-setup.exe';
   }
@@ -79,17 +81,20 @@ class WindowsSetupInstaller implements UpdateInstaller {
   }
 }
 
-/// هل الشبكة الحالية غير محدودة الاستهلاك (واي فاي أو كابل)؟ على Windows نعم دائماً.
-Future<bool> unmeteredNetwork() async {
-  if (defaultTargetPlatform != TargetPlatform.android) return true;
-  try {
-    final kinds = await Connectivity().checkConnectivity();
-    return kinds.contains(ConnectivityResult.wifi) ||
-        kinds.contains(ConnectivityResult.ethernet);
-  } on Object {
-    return false;
-  }
+/// iPhone: لا تثبيت من التطبيق (Apple تمنعه خارج المتجر)؛ يُعرض الإصدار الجديد مع خطوات Sideloadly.
+class ManualIosInstaller implements UpdateInstaller {
+  const ManualIosInstaller();
+
+  @override
+  Future<void> install(File file, UpdateRelease release) async =>
+      throw const UpdateException(
+        'ثبّت النسخة الجديدة من الحاسوب ببرنامج Sideloadly',
+      );
 }
+
+/// صفحة خطوات تثبيت نسخة iPhone (وتحديثها) في المستودع.
+Uri iosInstallGuide(String repo) =>
+    Uri.parse('https://github.com/$repo/blob/main/IOS.md');
 
 /// متحكم التحديث التلقائي لهذا التطبيق، أو `null` إن كان معطّلاً (بناء تطوير/خاص أو نظام بلا تحديث).
 final Provider<UpdateController?>
@@ -109,10 +114,13 @@ updateControllerProvider = Provider<UpdateController?>((ref) {
         '${runtime.photosDirectory.parent.path}${Platform.pathSeparator}updates',
       ),
     ),
-    installer: defaultTargetPlatform == TargetPlatform.windows
-        ? const WindowsSetupInstaller()
-        : const AndroidApkInstaller(),
-    canDownloadAutomatically: unmeteredNetwork,
+    installer: switch (defaultTargetPlatform) {
+      TargetPlatform.windows => const WindowsSetupInstaller(),
+      TargetPlatform.iOS => const ManualIosInstaller(),
+      _ => const AndroidApkInstaller(),
+    },
+    // التحديث يُنزَّل وحده متى وُجد (على أي شبكة)، والتثبيت بقرار المستخدم من البطاقة.
+    canDownload: defaultTargetPlatform != TargetPlatform.iOS,
   )..start();
   ref.onDispose(controller.dispose);
   return controller;
@@ -121,52 +129,96 @@ updateControllerProvider = Provider<UpdateController?>((ref) {
 String _megabytes(int bytes) =>
     '${(bytes / (1024 * 1024)).toStringAsFixed(0)} ميغابايت';
 
-/// شريط التحديث أعلى المحتوى: تنزيل جارٍ، أو نسخة جاهزة للتثبيت، أو نسخة تنتظر موافقة (شبكة بيانات).
+/// بطاقة التحديث: تنزيل جارٍ، أو نسخة جاهزة للتثبيت، أو نسخة متاحة (على iPhone تُثبَّت من الحاسوب).
 class UpdateBanner extends ConsumerWidget {
-  const UpdateBanner({this.controller, super.key});
+  const UpdateBanner({
+    this.controller,
+    this.onHide,
+    this.floating = false,
+    this.platform,
+    super.key,
+  });
 
   /// للاختبار؛ الافتراضي متحكم [updateControllerProvider].
   final UpdateController? controller;
+
+  /// «لاحقاً»: يخفي البطاقة حتى الفتح التالي للتطبيق (يمرّره [UpdateOverlay]).
+  final VoidCallback? onHide;
+
+  /// بطاقة بارزة بظل فوق كل الشاشات.
+  final bool floating;
+
+  /// للاختبار؛ الافتراضي النظام الحالي.
+  final TargetPlatform? platform;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final update = controller ?? ref.watch(updateControllerProvider);
     if (update == null) return const SizedBox.shrink();
+    final target = platform ?? defaultTargetPlatform;
+    final hideLabel = onHide == null ? null : 'لاحقاً';
     return ValueListenableBuilder<UpdateState>(
       valueListenable: update.state,
       builder: (context, state, _) => switch (state) {
         UpdateDownloading(:final release, :final fraction) => _Card(
+          floating: floating,
           icon: Icons.downloading_rounded,
           title: 'جارٍ تنزيل النسخة الجديدة ${release.tag}',
           progress: fraction,
-          detail: '${(fraction * 100).round()}٪',
+          detail:
+              '${(fraction * 100).round()}٪ · ستُعرض عليك للتثبيت عند اكتمالها',
+          dismissLabel: hideLabel,
+          onDismiss: onHide,
         ),
         UpdateReady(:final release) => _Card(
+          floating: floating,
           icon: Icons.system_update_rounded,
           title: 'نسخة جديدة (${release.tag}) جاهزة للتثبيت',
-          detail: defaultTargetPlatform == TargetPlatform.windows
-              ? 'سيُغلق التطبيق ثم يُفتح من جديد بعد التثبيت'
-              : 'ستظهر نافذة تثبيت النظام للموافقة',
+          detail: target == TargetPlatform.windows
+              ? 'نُزِّلت. سيُغلق التطبيق ثم يُفتح من جديد بعد التثبيت'
+              : 'نُزِّلت. ستظهر نافذة تثبيت النظام للموافقة',
           actionLabel: 'تثبيت الآن',
           onAction: () => unawaited(update.install()),
+          dismissLabel: hideLabel,
+          onDismiss: onHide,
         ),
+        UpdateAvailable(:final release) when target == TargetPlatform.iOS =>
+          _Card(
+            floating: floating,
+            icon: Icons.system_update_rounded,
+            title: 'نسخة جديدة (${release.tag}) متاحة',
+            detail:
+                'على iPhone تُثبَّت من الحاسوب ببرنامج Sideloadly فوق النسخة الحالية '
+                '(تبقى بياناتك): نزّل ملف ${release.assetName} من صفحة الإصدار',
+            actionLabel: 'خطوات التحديث',
+            onAction: () => unawaited(
+              launchUrl(
+                iosInstallGuide(UpdateBuildConfig.repo),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+            dismissLabel: hideLabel,
+            onDismiss: onHide,
+          ),
         UpdateAvailable(:final release) => _Card(
+          floating: floating,
           icon: Icons.cloud_download_rounded,
           title: 'نسخة جديدة (${release.tag}) متاحة',
-          detail:
-              'حجمها ${_megabytes(release.size)}؛ لن تُنزَّل عبر بيانات الهاتف دون موافقتك',
+          detail: 'حجمها ${_megabytes(release.size)}؛ اضغط «تنزيل» لتنزيلها',
           actionLabel: 'تنزيل',
           onAction: () => unawaited(update.downloadNow()),
           dismissLabel: 'لاحقاً',
           onDismiss: update.dismiss,
         ),
-        UpdateInstalling() => const _Card(
+        UpdateInstalling() => _Card(
+          floating: floating,
           icon: Icons.install_mobile_rounded,
           title: 'جارٍ بدء التثبيت…',
           progress: null,
           busy: true,
         ),
         UpdateFailed(:final message, release: != null) => _Card(
+          floating: floating,
           icon: Icons.error_outline_rounded,
           title: message,
           error: true,
@@ -184,6 +236,7 @@ class UpdateBanner extends ConsumerWidget {
 
 class _Card extends StatelessWidget {
   const _Card({
+    required this.floating,
     required this.icon,
     required this.title,
     this.detail,
@@ -196,6 +249,7 @@ class _Card extends StatelessWidget {
     this.onDismiss,
   });
 
+  final bool floating;
   final IconData icon;
   final String title;
   final String? detail;
@@ -221,7 +275,7 @@ class _Card extends StatelessWidget {
         0,
       ),
       child: ClayCard(
-        flat: true,
+        flat: !floating,
         padding: const EdgeInsets.all(ClaySpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,6 +328,67 @@ class _Card extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// بطاقة التحديث فوق كل الشاشات (تسجيل الدخول والصفحات المفتوحة والنوافذ). تظهر عند كل فتح للتطبيق ما دامت
+/// نسخة جديدة تُنزَّل أو جاهزة أو متاحة؛ «لاحقاً» يخفيها حتى العودة إلى التطبيق، فيُفحص من جديد وتعود.
+class UpdateOverlay extends ConsumerStatefulWidget {
+  const UpdateOverlay({this.controller, super.key});
+
+  /// للاختبار؛ الافتراضي متحكم [updateControllerProvider].
+  final UpdateController? controller;
+
+  @override
+  ConsumerState<UpdateOverlay> createState() => _UpdateOverlayState();
+}
+
+class _UpdateOverlayState extends ConsumerState<UpdateOverlay>
+    with WidgetsBindingObserver {
+  bool _hidden = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (_hidden) setState(() => _hidden = false);
+    final update = widget.controller ?? ref.read(updateControllerProvider);
+    if (update != null) unawaited(update.checkNow());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hidden) return const SizedBox.shrink();
+    final update = widget.controller ?? ref.watch(updateControllerProvider);
+    if (update == null) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        bottom: false,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Material(
+            type: MaterialType.transparency,
+            child: UpdateBanner(
+              controller: update,
+              floating: true,
+              onHide: () => setState(() => _hidden = true),
+            ),
+          ),
         ),
       ),
     );

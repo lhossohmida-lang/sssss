@@ -339,7 +339,7 @@ class UpdateUpToDate extends UpdateState {
   const UpdateUpToDate();
 }
 
-/// إصدار جديد ينتظر موافقة المستخدم على تنزيله (شبكة بيانات الهاتف).
+/// إصدار جديد لم يُنزَّل: ينتظر «تنزيل» (حين يمنع [UpdateController] التنزيل التلقائي)، أو على iPhone يُعلَن فقط.
 class UpdateAvailable extends UpdateState {
   const UpdateAvailable(this.release);
 
@@ -388,7 +388,8 @@ class UpdateController {
     required this._downloader,
     required this._installer,
     Future<bool> Function()? canDownloadAutomatically,
-    this.firstCheckDelay = const Duration(seconds: 20),
+    this.canDownload = true,
+    this.firstCheckDelay = const Duration(seconds: 3),
     this.checkEvery = const Duration(hours: 6),
   }) : _canDownloadAutomatically = canDownloadAutomatically ?? _always,
        _current = ReleaseVersion.tryParse(currentTag);
@@ -396,6 +397,10 @@ class UpdateController {
   static Future<bool> _always() async => true;
 
   final String currentTag;
+
+  /// هل يُنزَّل الملف ويُثبَّت من التطبيق؟ لا على iPhone: يُعلن الإصدار الجديد فقط (`UpdateAvailable`) ويُثبَّت
+  /// من حاسوب (Sideloadly)، فلا يُنزَّل ملف لا يمكن تثبيته.
+  final bool canDownload;
   final Duration firstCheckDelay;
   final Duration checkEvery;
   final UpdateSource _source;
@@ -439,6 +444,10 @@ class UpdateController {
         _set(manual ? const UpdateUpToDate() : const UpdateIdle());
         return;
       }
+      if (!canDownload) {
+        _set(UpdateAvailable(latest));
+        return;
+      }
       if (before case UpdateReady(:final release) when release == latest) {
         _set(before);
         return;
@@ -464,7 +473,7 @@ class UpdateController {
     }
   }
 
-  /// تنزيل بموافقة المستخدم (إصدار ينتظر على شبكة بيانات الهاتف).
+  /// تنزيل بطلب المستخدم (إصدار متاح لم يُنزَّل، أو بعد فشل).
   Future<void> downloadNow() async {
     final current = state.value;
     final release = switch (current) {
@@ -472,7 +481,7 @@ class UpdateController {
       UpdateFailed(:final release?) => release,
       _ => null,
     };
-    if (release == null || _busy || _disposed) return;
+    if (release == null || !canDownload || _busy || _disposed) return;
     _busy = true;
     try {
       await _download(release);
