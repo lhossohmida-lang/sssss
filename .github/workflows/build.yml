@@ -207,6 +207,13 @@ jobs:
             dist/school-admin-setup.exe
           if-no-files-found: error
 
+  # نسخ iPhone: ملفات .ipa غير موقَّعة للتطبيقات الثلاثة بعد تشغيل كل منها على محاكي iPhone (انظر ios.yml وIOS.md).
+  ios:
+    uses: ./.github/workflows/ios.yml
+    with:
+      school: ${{ inputs.school || '' }}
+    secrets: inherit
+
   # بوابة قبل النشر: الملفات الثلاثة تُثبَّت على محاكي Android وتبدأ بلا انهيار (tool/apk_smoke.py)، وإلا لا يُنشر شيء.
   smoke:
     needs: android
@@ -242,7 +249,7 @@ jobs:
 
   # لا يُنشر علناً إلا البناء العام؛ بناء مدرسة خاص يبقى أرتيفاكتاً.
   release:
-    needs: [android, windows, smoke]
+    needs: [android, windows, smoke, ios]
     if: ${{ !inputs.school }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -251,8 +258,19 @@ jobs:
       - name: Read version
         id: version
         run: echo "tag=$(head -n 1 RELEASE_VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+      # ملفات التثبيت وحدها، لا لقطات اختبارات الدخان (كانت تُرفق بالإصدار خطأً حتى preview-13).
       - uses: actions/download-artifact@v4
         with:
+          pattern: apk-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-admin
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ipa-*
           path: dist
           merge-multiple: true
       - name: Publish release
@@ -272,6 +290,10 @@ jobs:
               رسائل DLL على أي جهاز، ويُثبَّت لمستخدم واحد دون صلاحيات مدير. قد تعرض Windows تحذير SmartScreen لأن الملف
               غير موقَّع: اختر «More info» ثم «Run anyway».
             - `school-admin-windows.zip` النسخة المحمولة (تضمّ المكتبات نفسها): فك الضغط ثم شغّل `admin.exe`
+            - `school-admin.ipa` و`school-teacher.ipa` و`school-student.ipa` نسخ iPhone (iOS 15 وما بعده) غير موقَّعة:
+              تُثبَّت مجاناً من حاسوب Windows ببرنامج Sideloadly وحساب Apple ID عادي، وتعمل 7 أيام ثم يُعاد تثبيتها
+              بالبرنامج نفسه (حد Apple للحساب المجاني، 3 تطبيقات لكل iPhone). الخطوات كاملة في IOS.md بالمستودع:
+              https://github.com/${{ github.repository }}/blob/main/IOS.md
 
             عند أول تشغيل: مع دليل المدارس يكتب صاحب المدرسة والعمال رقم الهاتف وكلمة السر فتُعرف المدرسة وحدها، ويختار
             الأستاذ والوليّ مدرستهم من القائمة ثم يدخلون. ودون دليل مضمَّن في هذا البناء يطلب كل تطبيق رمز مدرستك

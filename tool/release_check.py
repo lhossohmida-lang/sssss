@@ -4,7 +4,8 @@
 التطبيقات تقرأ ملفاتها من واجهة GitHub (`/releases`) وتتحقق من بصمة SHA-256 التي يعلنها GitHub لكل ملف
 (`digest`)، ولا تقبل رابطاً خارج `https://github.com/<المستودع>/releases/download/`. فيفحص هذا السكربت بعد النشر أن
 كل ملف متوقع موجود مرفوع وحجمه موجب وبصمته سليمة ورابطه من مستودعنا، وإلا فشل المسار فلا يصل أجهزةً إصدار لا يستطيع
-تحديث نفسه (والبصمة قد تتأخر ثوانيَ بعد الرفع فتُعاد المحاولة).
+تحديث نفسه (والبصمة قد تتأخر ثوانيَ بعد الرفع فتُعاد المحاولة). ويُرفض كل ملف غير متوقع (لقطات اختبار الدخان مثلاً)،
+وملفات iPhone (.ipa) لا يقرؤها المحدّث لكنها جزء من الإصدار فتُفحص كذلك.
 
 الاستعمال: python3 tool/release_check.py <وسم الإصدار>
 المدخلات من البيئة: GITHUB_REPOSITORY (المالك/المستودع)، وGITHUB_TOKEN (اختياري)، وGITHUB_API_URL (الافتراضي
@@ -29,6 +30,9 @@ EXPECTED = (
     "school-student.apk",
     "school-admin-setup.exe",
     "school-admin-windows.zip",
+    "school-admin.ipa",
+    "school-teacher.ipa",
+    "school-student.ipa",
 )
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -70,6 +74,8 @@ def problems(release: Any, repo: str, tag: str) -> list[str]:
             found.append(f"{name}: بلا بصمة SHA-256 معلنة")
         if asset.get("browser_download_url") != prefix + name:
             found.append(f"{name}: رابط التنزيل ليس من {prefix}")
+    for name in sorted(n for n in assets if n not in EXPECTED):
+        found.append(f"{name}: ملف غير متوقع في الإصدار")
     return found
 
 

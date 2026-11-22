@@ -95,7 +95,9 @@ class ReleaseCheck(unittest.TestCase):
         self.assertEqual(code, 0, out)
         for name in rc.EXPECTED:
             self.assertIn(name, out)
-        self.assertIn("::notice title=release-check::ok tag=preview-7 assets=5", out)
+        self.assertIn("::notice title=release-check::ok tag=preview-7 assets=8", out)
+        for name in ("school-admin.ipa", "school-teacher.ipa", "school-student.ipa"):
+            self.assertIn(name, rc.EXPECTED)
         self.assertEqual(self.api.requests[0][0], f"/repos/{REPO}/releases/tags/{TAG}")
 
     def test_the_token_is_sent_but_never_printed(self):
@@ -112,6 +114,14 @@ class ReleaseCheck(unittest.TestCase):
         code, out = self.run_main(attempts="1")
         self.assertEqual(code, 1)
         self.assertIn("school-admin-setup.exe: غير موجود", out)
+
+    def test_stray_files_such_as_smoke_screenshots_are_rejected(self):
+        release = good_release(assets=[asset(n) for n in rc.EXPECTED] + [asset("admin.png"), asset("summary.json")])
+        self.api.responses = [(200, release)]
+        code, out = self.run_main(attempts="1")
+        self.assertEqual(code, 1)
+        self.assertIn("admin.png: ملف غير متوقع في الإصدار", out)
+        self.assertIn("summary.json: ملف غير متوقع في الإصدار", out)
 
     def test_bad_digests_sizes_states_and_foreign_links_are_each_reported(self):
         bad = good_release(

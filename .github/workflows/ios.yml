@@ -30,7 +30,8 @@ env:
 
 jobs:
   ipa:
-    runs-on: macos-15
+    # Xcode 26 (Swift 6.2) لازم: حزمة firebase-ios-sdk 13 التي تعتمدها firebase_messaging لا تُحلّ بـXcode 16.
+    runs-on: macos-26
     timeout-minutes: 75
     environment: ${{ inputs.school || 'public' }}
     strategy:
@@ -39,6 +40,8 @@ jobs:
         app: [admin, teacher, student]
     steps:
       - uses: actions/checkout@v4
+      - name: Show Xcode
+        run: echo "::notice title=ios-xcode::$(xcodebuild -version | paste -sd ' ' -)"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
