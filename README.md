@@ -195,7 +195,12 @@ cd apps/student && flutter build apk --release
 
 # Windows (نسخة الإدارة)
 cd apps/admin && flutter build windows --release
+
+# iPhone (على macOS بـXcode 26 فقط؛ في CI مسار ios): .app غير موقَّع يُضغط في Payload/ ليصير .ipa
+cd apps/student && flutter build ios --release --no-codesign
 ```
+
+نسخ iPhone لا تحتاج Mac عندنا: يبنيها مسار `ios` على خوادم GitHub، وتثبيتها مجاناً من Windows في `IOS.md`.
 
 التوقيع: يقرأ Gradle المفتاح من متغيرات البيئة `SCHOOL_KEYSTORE_PATH` و
 `SCHOOL_KEYSTORE_PASSWORD` و`SCHOOL_KEY_ALIAS` و`SCHOOL_KEY_PASSWORD`؛ فإن لم توجد وُقّع
@@ -266,6 +271,7 @@ Pack» لتعمل الكاميرا.
 | `check` | كل push وطلب دمج | التنسيق والتحليل الصارم ودالة المساعد وكل الاختبارات، ومهمة `server-sql` لاختبارات الخادم |
 | `build` | تغيّر محتوى `RELEASE_VERSION` أو يدوياً | يبني ثلاثة APK ومثبّت Windows ونسخته المحمولة **عامة** (بلا إعداد مدرسة) وينشرها في GitHub Releases باسم النسخة؛ ويدوياً مع مدخل `school` يبني نسخة تلك المدرسة أرتيفاكتاً فقط |
 | `windows-installer` | تغيّر ملفات المثبّت أو يدوياً | يبني مثبّت Windows ويتحقق منه (نسخ مكتبات Visual C++، وفحص اكتمال المكتبات، وتثبيت صامت وتشغيل وإزالة) **دون نشر**؛ المثبّت أرتيفاكت أسبوعين |
+| `ios` | يستدعيه `build`، أو عند تغيير ملفات iOS، أو يدوياً | على macOS-26: يشغّل كل تطبيق على محاكي iPhone حتى شاشته الأولى ثم يبني `.ipa` غير موقَّع ويفحصه (`tool/ipa_check.py`)؛ انظر `IOS.md` |
 | `perf` | يدوياً أو عند تغيير اختبار القياس | قياس زمن الإطارات على محاكي Android (انظر `PERFORMANCE.md`) |
 | `release-smoke` | يدوياً أو عند تغيير ملفاته | يفحص إصداراً منشوراً دون أجهزة: يثبّت التطبيقات الثلاثة على محاكي Android ويشغّلها ويقارن بصماتها بما يعلنه GitHub، ويشغّل المحدِّث الحقيقي على الإصدار؛ ومسار `build` يستعمل الإجراء نفسه بوابةً قبل النشر |
 
