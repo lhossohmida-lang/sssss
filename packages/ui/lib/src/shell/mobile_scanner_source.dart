@@ -7,7 +7,7 @@ import '../clay/clay_display.dart';
 import '../clay/clay_icons.dart';
 import 'qr_scanning.dart';
 
-/// مسح رموز QR بكاميرا الهاتف الخلفية (Android). الكاميرا تبقى شغّالة طوال
+/// مسح رموز QR بكاميرا الهاتف الخلفية (Android وiPhone). الكاميرا تبقى شغّالة طوال
 /// فتح الشاشة، فلا يُنتظر تشغيلها عند كل مسح.
 class MobileScannerSource implements QrCodeSource {
   MobileScannerSource()
@@ -47,5 +47,5 @@ class MobileScannerSource implements QrCodeSource {
   Future<void> dispose() => _controller.dispose();
 }
 
-/// هل يُفعَّل مسح الكاميرا على هذا النظام؟ (Android فقط؛ على Windows قارئ USB.)
-bool get cameraScanningSupported => Platform.isAndroid;
+/// هل يُفعَّل مسح الكاميرا على هذا النظام؟ (Android وiPhone؛ على Windows قارئ USB.)
+bool get cameraScanningSupported => Platform.isAndroid || Platform.isIOS;

@@ -1,0 +1,166 @@
+name: ios
+
+# نسخ iPhone للتطبيقات الثلاثة دون حاسوب Apple ودون اشتراك مدفوع: تُبنى على خوادم macOS لـGitHub (مجانية لأن المستودع
+# عام) ملفات .ipa غير موقَّعة؛ يوقّعها صاحب الجهاز عند التثبيت بحساب Apple ID مجاني (Sideloadly من Windows؛ انظر IOS.md).
+# وقبل البناء يُشغَّل كل تطبيق حقيقي بإضافاته الأصلية على محاكي iPhone ويُتحقق أنه يصل شاشته الأولى بلا انهيار، تعويضاً
+# عن غياب جهاز iPhone حقيقي.
+#
+# يستدعيه build فتُرفق الملفات الثلاثة بالإصدار، ويُشغَّل وحده عند تغيير ملفات iOS أو يدوياً (أرتيفاكتات فقط).
+on:
+  workflow_call:
+    inputs:
+      school:
+        description: اسم Environment مدرسة لبناء خاص؛ فارغ للبناء العام
+        type: string
+        default: ""
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/*/ios/**"
+      - "apps/*/integration_test/device_smoke_test.dart"
+      - "packages/ui/lib/device_smoke.dart"
+      - "tool/ipa_check.py"
+      - ".github/workflows/ios.yml"
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.9"
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 75
+    environment: ${{ inputs.school || 'public' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [admin, teacher, student]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      # دليل المدارس: عامّ، من متغيرات المستودع أو الملف directory/public.json (كما في build).
+      - name: Resolve the school directory
+        env:
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
+        run: python3 tool/directory_setup.py public
+      # قيم البناء كما في Android، دون الدفع (Firebase) وGoogle Drive لأنهما لا يعملان على iPhone بعد. سطر لكل قيمة.
+      - name: Prepare build values
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          SCHOOL: ${{ inputs.school }}
+        run: |
+          defines="$RUNNER_TEMP/defines.txt"
+          : > "$defines"
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            printf '%s\n' "--dart-define=SUPABASE_URL=$SUPABASE_URL" "--dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> "$defines"
+          fi
+          # بناء مدرسة خاص (مدخل school) يفتح على تسجيل دخول مدرسته، فلا يُجرَّب على المحاكي (كبوابة Android).
+          directory=0
+          smoke=0
+          if [ -z "$SCHOOL" ]; then
+            smoke=1
+            tag="$(head -n 1 RELEASE_VERSION | tr -d '[:space:]')"
+            printf '%s\n' "--dart-define=APP_RELEASE=$tag" "--dart-define=UPDATE_REPO=$GITHUB_REPOSITORY" >> "$defines"
+            if [ -n "$DIRECTORY_URL" ] && [ -n "$DIRECTORY_KEY" ]; then
+              printf '%s\n' "--dart-define=DIRECTORY_URL=$DIRECTORY_URL" "--dart-define=DIRECTORY_KEY=$DIRECTORY_KEY" >> "$defines"
+              directory=1
+            fi
+          fi
+          echo "DEFINES_FILE=$defines" >> "$GITHUB_ENV"
+          echo "SMOKE_DIRECTORY=$directory" >> "$GITHUB_ENV"
+          echo "RUN_SMOKE=$smoke" >> "$GITHUB_ENV"
+          echo "::notice title=ios-build::${{ matrix.app }}: directory=$directory smoke=$smoke"
+      - name: Start an iPhone simulator
+        if: env.RUN_SMOKE == '1'
+        run: |
+          udid="$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted((r for r in devices if "iOS" in r), key=lambda r: [int(p) for p in r.rsplit("iOS-", 1)[-1].split("-") if p.isdigit()])
+          for runtime in reversed(runtimes):
+              phones = [d for d in devices[runtime] if d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"])
+                  break
+          ')"
+          if [ -z "$udid" ]; then
+            echo "::error title=ios-smoke-${{ matrix.app }}::لا يوجد محاكي iPhone متاح على الخادم"
+            exit 1
+          fi
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
+          echo "::notice title=ios-simulator::$(xcrun simctl list devices | grep "$udid" | xargs)"
+      # التطبيق الحقيقي (main) على المحاكي: يصل شاشته الأولى أو يفشل بالنصوص الظاهرة (packages/ui/lib/device_smoke.dart).
+      - name: Run the app on the iPhone simulator
+        id: smoke
+        if: env.RUN_SMOKE == '1'
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          set -o pipefail
+          defines=()
+          while IFS= read -r line; do [ -n "$line" ] && defines+=("$line"); done < "$DEFINES_FILE"
+          flutter test integration_test/device_smoke_test.dart -d "$SIMULATOR" \
+            "${defines[@]}" "--dart-define=SMOKE_DIRECTORY=$SMOKE_DIRECTORY" 2>&1 | tee "$RUNNER_TEMP/smoke.log"
+          line="$(grep -o 'smoke-ok .*' "$RUNNER_TEMP/smoke.log" | head -n 1)"
+          echo "::notice title=ios-smoke-${{ matrix.app }}::${line:-ok}"
+      - name: Screenshot the simulator
+        if: always() && env.SIMULATOR != ''
+        run: |
+          mkdir -p dist/screens
+          xcrun simctl io "$SIMULATOR" screenshot "dist/screens/${{ matrix.app }}.png" || true
+      - name: Report a failed simulator run
+        if: failure() && steps.smoke.outcome == 'failure'
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          MASK_ENV: SUPABASE_ANON_KEY,DIRECTORY_KEY
+        run: |
+          python3 tool/ci_error.py "ios-smoke-${{ matrix.app }}" "$RUNNER_TEMP/smoke.log" 40
+      # يُبنى حتى إن فشل المحاكي فتظهر نتيجتا الخطوتين في تشغيل واحد (ويبقى المسار فاشلاً).
+      - name: Build the iPhone app (unsigned)
+        id: build
+        if: ${{ !cancelled() }}
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          set -o pipefail
+          defines=()
+          while IFS= read -r line; do [ -n "$line" ] && defines+=("$line"); done < "$DEFINES_FILE"
+          flutter build ios --release --no-codesign "${defines[@]}" 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: Report a failed build
+        if: failure() && steps.build.outcome == 'failure'
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || vars.SUPABASE_ANON_KEY }}
+          MASK_ENV: SUPABASE_ANON_KEY,DIRECTORY_KEY
+        run: |
+          python3 tool/ci_error.py "ios-build-${{ matrix.app }}" "$RUNNER_TEMP/build.log" 40
+      # ملف .ipa = مجلد Payload فيه Runner.app مضغوطاً؛ يُفحص قبل رفعه (tool/ipa_check.py).
+      - name: Package the IPA
+        run: |
+          app="apps/${{ matrix.app }}/build/ios/iphoneos/Runner.app"
+          test -d "$app"
+          rm -rf "$RUNNER_TEMP/ipa" && mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
+          cp -R "$app" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/school-${{ matrix.app }}.ipa" Payload)
+          python3 tool/ipa_check.py "dist/school-${{ matrix.app }}.ipa" "dz.school.${{ matrix.app }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa-${{ matrix.app }}
+          path: dist/school-${{ matrix.app }}.ipa
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-screens-${{ matrix.app }}
+          path: dist/screens
+          if-no-files-found: ignore
+          retention-days: 14
