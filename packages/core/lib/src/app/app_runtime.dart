@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../app_identity.dart';
@@ -161,10 +163,17 @@ class AppRuntime {
     int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
     final settings = config ?? AppConfig.fromEnvironment();
+    // في المتصفح (نسخة الويب) لا ملفات: القاعدة في ذاكرة المتصفح الدائمة باسم المدرسة نفسه.
     final resolvedDatabaseFile =
         databaseFile ??
-        (database == null ? await _databaseFile(app, settings) : null);
-    final db = database ?? openAppDatabase(resolvedDatabaseFile!);
+        (database == null && !kIsWeb
+            ? await _databaseFile(app, settings)
+            : null);
+    final db =
+        database ??
+        (kIsWeb
+            ? openWebAppDatabase('school_${_scope(app, settings)}')
+            : openAppDatabase(resolvedDatabaseFile!));
 
     SupabaseClient? client;
     var ownsSupabase = false;
@@ -305,6 +314,7 @@ class AppRuntime {
   /// يفرّغ مجلد الصور المحلي (صور تلاميذ المدرسة السابقة). متزامن: مجلد صغير وعملية نادرة، فلا
   /// يمتد مسح المدرسة على انتظار إدخال/إخراج غير متزامن.
   void _clearPhotos() {
+    if (kIsWeb) return;
     try {
       if (!photosDirectory.existsSync()) return;
       for (final entry in photosDirectory.listSync()) {
@@ -326,6 +336,12 @@ class AppRuntime {
 
   /// مكان حفظ ربط هذا التطبيق بمدرسته على الجهاز.
   static Future<PairingStore> pairingStore(AppIdentity app) async {
+    if (kIsWeb) {
+      return PreferencesPairingStore(
+        await SharedPreferences.getInstance(),
+        'pairing_${app.name}',
+      );
+    }
     final dir = await getApplicationSupportDirectory();
     return FilePairingStore(File(p.join(dir.path, 'pairing_${app.name}.json')));
   }
@@ -340,6 +356,8 @@ class AppRuntime {
     AppIdentity app,
     AppConfig config,
   ) async {
+    // في المتصفح لا مجلد: الصور تُعرض من الخادم ولا تُحفظ محلياً.
+    if (kIsWeb) return Directory('photos_${_scope(app, config)}');
     final dir = await getApplicationSupportDirectory();
     return Directory(p.join(dir.path, 'photos_${_scope(app, config)}'));
   }

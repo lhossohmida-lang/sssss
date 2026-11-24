@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'app_config.dart';
 
 /// سبب رفض رمز ربط المدرسة.
@@ -201,6 +203,53 @@ abstract interface class PairingStore {
   /// يفك الربط واختيار المعاينة معاً (لا يمسّ قاعدة المدرسة المحلية فتعود كما
   /// كانت عند إعادة الربط بالمدرسة نفسها).
   Future<void> clear();
+}
+
+/// يحفظ الاختيار في تخزين المتصفح الدائم (نسخة الويب): نص JSON نفسه بمفتاح [key].
+class PreferencesPairingStore implements PairingStore {
+  PreferencesPairingStore(this.preferences, this.key);
+
+  final SharedPreferences preferences;
+  final String key;
+
+  Map<String, Object?>? _read() {
+    final raw = preferences.getString(key);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, Object?> ? decoded : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @override
+  Future<SchoolPairing?> load() async {
+    final map = _read();
+    if (map == null || !map.containsKey('u')) return null;
+    try {
+      return SchoolPairing.fromJson(map);
+    } on PairingException {
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> isLocalPreview() async {
+    final map = _read();
+    return map != null && map['local'] == true && !map.containsKey('u');
+  }
+
+  @override
+  Future<void> save(SchoolPairing pairing) =>
+      preferences.setString(key, jsonEncode(pairing.toJson()));
+
+  @override
+  Future<void> chooseLocalPreview() =>
+      preferences.setString(key, jsonEncode({'v': 1, 'local': true}));
+
+  @override
+  Future<void> clear() => preferences.remove(key);
 }
 
 /// يحفظ الاختيار في ملف JSON صغير بجانب قاعدة التطبيق.

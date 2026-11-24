@@ -18,3 +18,7 @@ AppDatabase openAppDatabase(File file) {
     ),
   );
 }
+
+/// على الويب وحده (انظر `open_database_web.dart`)؛ لا تُستدعى هنا.
+AppDatabase openWebAppDatabase(String name) =>
+    throw UnsupportedError('قاعدة المتصفح على الويب وحده');
