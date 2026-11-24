@@ -282,6 +282,11 @@ class WorkerAttendance extends Table with SyncColumns {
 
   /// تعديل المدير اليدوي لليوم: `off` / `half` / `full`، أو `null` دون تعديل.
   TextColumn get overrideKind => text().nullable()();
+
+  /// كل دخول وخروج في اليوم بترتيبه: JSON `[[دخول, خروج أو null], …]` بالمللي ثانية (UTC). يدخل العامل
+  /// ويخرج أكثر من مرة في اليوم؛ و[checkIn] أول دخول و[checkOut] آخر خروج. `null` في سجلات ما قبل
+  /// هذا العمود أو من أجهزة لم تُحدَّث: فتُقرأ زوجاً واحداً من [checkIn] إلى [checkOut].
+  TextColumn get punches => text().nullable()();
 }
 
 /// طلبات الأستاذ لتغيير الحصص.

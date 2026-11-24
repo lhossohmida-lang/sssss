@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
@@ -7,6 +9,97 @@ import 'enums.dart';
 import 'school_settings.dart';
 import 'settings_service.dart';
 import 'stable_id.dart';
+
+/// دخول واحد للعامل وخروجه (بالمللي ثانية UTC)؛ [outAt] فارغ ما دام لم يمسح خروجه.
+class WorkPunch {
+  const WorkPunch(this.inAt, [this.outAt]);
+
+  final int inAt;
+  final int? outAt;
+
+  bool get isOpen => outAt == null;
+
+  /// مدة هذا الدخول بالدقائق؛ `null` ما دام مفتوحاً.
+  int? get minutes => WageRules.workedMinutes(inAt, outAt);
+
+  @override
+  bool operator ==(Object other) =>
+      other is WorkPunch && other.inAt == inAt && other.outAt == outAt;
+
+  @override
+  int get hashCode => Object.hash(inAt, outAt);
+
+  @override
+  String toString() => 'WorkPunch($inAt, $outAt)';
+}
+
+/// قراءة عمود `punches` وكتابته (دوال صافية).
+abstract final class WorkPunches {
+  /// كل دخول وخروج في اليوم من [json]؛ وإن غاب (سجل قديم أو من جهاز لم يُحدَّث) فزوج واحد من
+  /// [checkIn] إلى [checkOut]. وإن كان في [checkOut] خروج أحدث من آخر دخول مفتوح (جهاز قديم مسح
+  /// الخروج) فيُغلق به ذلك الدخول.
+  static List<WorkPunch> parse(String? json, int? checkIn, int? checkOut) {
+    final punches = <WorkPunch>[];
+    if (json != null && json.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(json);
+        if (decoded is List) {
+          for (final pair in decoded) {
+            if (pair is List && pair.isNotEmpty && pair.first is int) {
+              final out = pair.length > 1 && pair[1] is int
+                  ? pair[1] as int
+                  : null;
+              punches.add(WorkPunch(pair.first as int, out));
+            }
+          }
+        }
+      } on FormatException {
+        punches.clear();
+      }
+    }
+    if (punches.isEmpty) {
+      return checkIn == null ? [] : [WorkPunch(checkIn, checkOut)];
+    }
+    final last = punches.last;
+    if (checkOut != null && last.isOpen && checkOut > last.inAt) {
+      punches[punches.length - 1] = WorkPunch(last.inAt, checkOut);
+    }
+    return punches;
+  }
+
+  /// نص JSON لعمود `punches`.
+  static String encode(List<WorkPunch> punches) => jsonEncode([
+    for (final p in punches) [p.inAt, p.outAt],
+  ]);
+
+  /// مجموع دقائق الدخولات المغلقة؛ `null` إن لم يُغلق أي دخول.
+  static int? workedMinutes(List<WorkPunch> punches) {
+    int? total;
+    for (final punch in punches) {
+      final minutes = punch.minutes;
+      if (minutes != null) total = (total ?? 0) + minutes;
+    }
+    return total;
+  }
+}
+
+/// حالة يوم العامل كما تُلوَّن في تقويم الحضور.
+enum WorkDayStatus {
+  /// يوم لم يأتِ بعد (أو اليوم ولم يدخل بعد).
+  future,
+
+  /// غاب (أحمر).
+  absent,
+
+  /// أكمل نصف يوم أو يوماً كاملاً دون نقص (أخضر).
+  complete,
+
+  /// حضر لكن أقل من نصف اليوم، أو لم يمسح خروجه (برتقالي).
+  short,
+
+  /// في عمله الآن (دخل اليوم ولم يخرج بعد).
+  working,
+}
 
 /// يوم واحد في كشف حضور وأجر العامل.
 ///
@@ -22,6 +115,7 @@ class WorkerDay {
     required this.overridden,
     this.checkIn,
     this.checkOut,
+    this.punches = const [],
   });
 
   final String date;
@@ -41,14 +135,35 @@ class WorkerDay {
   /// هل عدّل المدير هذا اليوم يدوياً؟
   final bool overridden;
 
+  /// أول دخول وآخر خروج في اليوم.
   final int? checkIn;
   final int? checkOut;
 
-  /// مدة العمل بالدقائق من الدخول إلى آخر خروج؛ `null` إن لم يمسح أحدهما.
-  int? get workedMinutes => WageRules.workedMinutes(checkIn, checkOut);
+  /// كل دخول وخروج في اليوم بترتيبه.
+  final List<WorkPunch> punches;
 
-  /// دخل ولم يمسح خروجه: ما زال في عمله أو نسي المسح. لا يُحسب أجره حتى يخرج أو يعدّله المدير.
-  bool get isOpen => present && checkOut == null && !overridden;
+  /// مجموع مدة العمل بالدقائق في كل دخول أُغلق بخروج؛ `null` إن لم يُغلق أي دخول.
+  int? get workedMinutes => punches.isEmpty
+      ? WageRules.workedMinutes(checkIn, checkOut)
+      : WorkPunches.workedMinutes(punches);
+
+  /// آخر دخول لم يُمسح خروجه: ما زال في عمله أو نسي المسح. ذلك الدخول لا يُحسب حتى يخرج.
+  bool get isOpen =>
+      present &&
+      !overridden &&
+      (punches.isEmpty ? checkOut == null : punches.last.isOpen);
+
+  /// لون اليوم في تقويم الحضور: غائب، أو أكمل يومه (نصفاً أو كاملاً)، أو حضر دون ذلك.
+  WorkDayStatus statusOn(String today) {
+    if (date.compareTo(today) > 0) return WorkDayStatus.future;
+    if (paidKind != WorkDayKind.off) return WorkDayStatus.complete;
+    if (overridden) return WorkDayStatus.absent;
+    if (!present) {
+      return date == today ? WorkDayStatus.future : WorkDayStatus.absent;
+    }
+    if (date == today && isOpen) return WorkDayStatus.working;
+    return WorkDayStatus.short;
+  }
 
   /// عمل مدة أقل من نصف اليوم فلم يُحسب له شيء (إلا أن يعدّله المدير).
   bool get isBelowHalf =>
@@ -191,12 +306,17 @@ class WageService {
     var date = first;
     for (var i = 0; i < daysInMonth; i++) {
       final row = byDate[date];
+      final punches = WorkPunches.parse(
+        row?.punches,
+        row?.checkIn,
+        row?.checkOut,
+      );
       final present = row?.checkIn != null;
       final override = row?.overrideKind == null
           ? null
           : WorkDayKind.fromCode(row!.overrideKind!);
       final paid = WageRules.paidKind(
-        workedMinutes: WageRules.workedMinutes(row?.checkIn, row?.checkOut),
+        workedMinutes: WorkPunches.workedMinutes(punches),
         halfDayMinutes: config.workerHalfDayMinutes,
         fullDayMinutes: config.workerFullDayMinutes,
         override: override,
@@ -215,6 +335,7 @@ class WageService {
           overridden: override != null,
           checkIn: row?.checkIn,
           checkOut: row?.checkOut,
+          punches: punches,
         ),
       );
       date = DateKey.next(date);

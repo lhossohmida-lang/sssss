@@ -96,6 +96,7 @@ class ClayListPage<T> extends StatefulWidget {
     this.searchHint,
     this.matches,
     this.onRetry,
+    this.actions = const [],
     super.key,
   }) : assert(
          (searchHint == null) == (matches == null),
@@ -118,6 +119,9 @@ class ClayListPage<T> extends StatefulWidget {
   final bool Function(T item, String query)? matches;
   final VoidCallback? onRetry;
 
+  /// أزرار في شريط العنوان.
+  final List<Widget> actions;
+
   @override
   State<ClayListPage<T>> createState() => _ClayListPageState<T>();
 }
@@ -129,7 +133,11 @@ class _ClayListPageState<T> extends State<ClayListPage<T>> {
   Widget build(BuildContext context) {
     final canAdd = widget.addLabel != null && widget.onAdd != null;
     return Scaffold(
-      appBar: ClayAppBar(title: widget.title, showBack: true),
+      appBar: ClayAppBar(
+        title: widget.title,
+        showBack: true,
+        actions: widget.actions,
+      ),
       body: Column(
         children: [
           if (widget.searchHint != null)

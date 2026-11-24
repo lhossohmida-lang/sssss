@@ -119,12 +119,22 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
               horizontal: ClaySpacing.screenPadding,
               vertical: ClaySpacing.xs,
             ),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                _query.isEmpty ? '${page.total} تلميذ' : '${page.total} نتيجة',
-                style: text.bodySmall!.copyWith(color: p.textMuted),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _query.isEmpty
+                        ? '${page.total} تلميذ'
+                        : '${page.total} نتيجة',
+                    style: text.bodySmall!.copyWith(color: p.textMuted),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => context.push('/bulk/students'),
+                  icon: const Icon(Icons.checklist_rounded, size: 18),
+                  label: const Text('تحديد وطباعة'),
+                ),
+              ],
             ),
           ),
         Expanded(child: body),

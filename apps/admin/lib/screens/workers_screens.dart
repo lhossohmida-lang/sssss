@@ -25,6 +25,13 @@ class WorkersScreen extends ConsumerWidget {
       matches: (item, query) =>
           item.name.contains(query) || item.worker.phone.contains(query),
       onRetry: () => ref.invalidate(workersProvider),
+      actions: [
+        IconButton(
+          tooltip: 'تحديد للطباعة والرسائل',
+          icon: const Icon(Icons.checklist_rounded),
+          onPressed: () => context.push('/bulk/workers'),
+        ),
+      ],
       addLabel: 'إضافة عامل',
       onAdd: canAdd ? () => context.push('/workers/new') : null,
       itemExtent: 80,
@@ -42,7 +49,7 @@ class WorkersScreen extends ConsumerWidget {
   }
 }
 
-/// إضافة عامل أو تعديله: الاسم والهاتف وأجر اليوم الكامل ونصفه وساعات الدوام المتوقعة. لا أيام
+/// إضافة عامل أو تعديله: الاسم والهاتف وأجر اليوم الكامل ونصفه. لا ساعات ولا أيام
 /// عمل محددة: يُحسب يوم العامل من وقت دخوله وخروجه حسب إعدادات المدرسة.
 class WorkerFormScreen extends ConsumerStatefulWidget {
   const WorkerFormScreen({this.workerId, super.key});
@@ -59,6 +66,7 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
   final _phone = TextEditingController();
   final _full = TextEditingController(text: '0');
   final _half = TextEditingController(text: '0');
+  // لا وقت دخول وخروج محدد للعامل: يبقى العمودان القديمان كما هما (يتفقان مع الخادم) ولا يُعرضان.
   int _start = 480;
   int _end = 1020;
   bool _loaded = false;
@@ -102,16 +110,6 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
     _full.dispose();
     _half.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickTime({required bool start}) async {
-    final picked = await showClayTimePicker(
-      context,
-      title: start ? 'بداية العمل' : 'نهاية العمل',
-      initial: start ? _start : _end,
-    );
-    if (picked == null) return;
-    setState(() => start ? _start = picked : _end = picked);
   }
 
   Future<void> _save() async {
@@ -217,40 +215,11 @@ class _WorkerFormScreenState extends ConsumerState<WorkerFormScreen> {
                   error: _errors[WorkerService.fieldHalfWage],
                 ),
                 gap,
-                Text('ساعات العمل المتوقعة', style: text.titleSmall),
-                const SizedBox(height: ClaySpacing.xs),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClayButton(
-                        label: 'من ${DateKey.formatMinutes(_start)}',
-                        kind: ClayButtonKind.secondary,
-                        onPressed: () => _pickTime(start: true),
-                      ),
-                    ),
-                    const SizedBox(width: ClaySpacing.sm),
-                    Expanded(
-                      child: ClayButton(
-                        label: 'إلى ${DateKey.formatMinutes(_end)}',
-                        kind: ClayButtonKind.secondary,
-                        onPressed: () => _pickTime(start: false),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_errors[WorkerService.fieldHours] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: ClaySpacing.xs),
-                    child: Text(
-                      _errors[WorkerService.fieldHours]!,
-                      style: text.bodySmall!.copyWith(color: p.status.danger),
-                    ),
-                  ),
-                gap,
                 // لا برنامج أسبوعي: يأتي العامل يوماً نصف يوم وبعد أسبوع يوماً كاملاً.
                 Text(
-                  'لا أيام محددة للعامل: يُحسب يومه من وقت دخوله وخروجه الممسوحين '
-                  '(نصف يوم أو يوم كامل) حسب مدتيهما في الإعدادات.',
+                  'لا أيام ولا ساعات محددة للعامل: يُسجَّل وقت كل دخول وخروج '
+                  'يمسحه (ولو دخل وخرج أكثر من مرة في اليوم)، ويُحسب يومه من '
+                  'مجموع مدته (نصف يوم أو يوم كامل) حسب مدتيهما في الإعدادات.',
                   style: text.bodySmall!.copyWith(color: p.textMuted),
                 ),
                 if (_errors['form'] != null)
@@ -419,12 +388,6 @@ class WorkerProfileScreen extends ConsumerWidget {
                     ),
                     row('أجر اليوم الكامل', Money.format(w.fullDayWage)),
                     row('أجر نصف اليوم', Money.format(w.halfDayWage)),
-                    row(
-                      'ساعات العمل',
-                      '${DateKey.formatMinutes(w.expectedStartMinutes)}'
-                          ' – ${DateKey.formatMinutes(w.expectedEndMinutes)}',
-                      ltr: true,
-                    ),
                   ],
                 ),
               ),

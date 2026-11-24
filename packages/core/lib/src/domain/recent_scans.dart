@@ -5,6 +5,7 @@ import 'dues_service.dart';
 import 'group_sql.dart';
 import 'qr_code.dart';
 import 'scan_service.dart';
+import 'wage_service.dart';
 
 /// مسح حديث مقروء من القاعدة: يصل من أي جهاز (هاتف الماسح مثلاً) بعد
 /// مزامنته، فتعرضه شاشة المدخل لحظة وصوله.
@@ -184,12 +185,17 @@ class RecentScanFeed {
   Future<List<FeedScan>> _workers(int since) async {
     final rows = await db
         .customSelect(
-          'SELECT wa.id, wa.check_in, wa.check_out, wa.late_minutes, '
+          'SELECT wa.id, wa.check_in, wa.check_out, wa.punches, '
           'w.id AS worker_id, w.name FROM worker_attendance wa '
           'JOIN workers w ON w.id = wa.worker_id '
           'WHERE wa.deleted_at IS NULL AND w.deleted_at IS NULL '
-          'AND (wa.check_in >= ? OR wa.check_out >= ?) LIMIT 50',
-          variables: [Variable<int>(since), Variable<int>(since)],
+          'AND (wa.check_in >= ? OR wa.check_out >= ? OR wa.updated_at >= ?) '
+          'LIMIT 50',
+          variables: [
+            Variable<int>(since),
+            Variable<int>(since),
+            Variable<int>(since),
+          ],
           readsFrom: {db.workerAttendance, db.workers},
         )
         .get();
@@ -200,29 +206,35 @@ class RecentScanFeed {
         id: row.read<String>('worker_id'),
         name: row.read<String>('name'),
       );
-      final checkIn = row.read<int?>('check_in');
-      final checkOut = row.read<int?>('check_out');
-      if (checkIn != null && checkIn >= since) {
-        result.add(
-          FeedScan(
-            key: 'W:${row.read<String>('id')}:in',
-            at: DateTime.fromMillisecondsSinceEpoch(checkIn),
-            result: ScanResult(
-              outcome: ScanOutcome.workerIn,
-              owner: owner,
-              lateMinutes: row.read<int>('late_minutes'),
+      final id = row.read<String>('id');
+      final punches = WorkPunches.parse(
+        row.read<String?>('punches'),
+        row.read<int?>('check_in'),
+        row.read<int?>('check_out'),
+      );
+      // كل دخول وخروج في اليوم مسح مستقل؛ الأول بالمفتاحين القديمين فلا يتكرر عرضه.
+      for (var i = 0; i < punches.length; i++) {
+        final punch = punches[i];
+        final suffix = i == 0 ? '' : ':$i';
+        if (punch.inAt >= since) {
+          result.add(
+            FeedScan(
+              key: 'W:$id:in$suffix',
+              at: DateTime.fromMillisecondsSinceEpoch(punch.inAt),
+              result: ScanResult(outcome: ScanOutcome.workerIn, owner: owner),
             ),
-          ),
-        );
-      }
-      if (checkOut != null && checkOut >= since) {
-        result.add(
-          FeedScan(
-            key: 'W:${row.read<String>('id')}:out',
-            at: DateTime.fromMillisecondsSinceEpoch(checkOut),
-            result: ScanResult(outcome: ScanOutcome.workerOut, owner: owner),
-          ),
-        );
+          );
+        }
+        final out = punch.outAt;
+        if (out != null && out >= since) {
+          result.add(
+            FeedScan(
+              key: 'W:$id:out$suffix',
+              at: DateTime.fromMillisecondsSinceEpoch(out),
+              result: ScanResult(outcome: ScanOutcome.workerOut, owner: owner),
+            ),
+          );
+        }
       }
     }
     return result;

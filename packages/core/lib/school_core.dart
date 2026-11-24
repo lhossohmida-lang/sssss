@@ -71,6 +71,7 @@ export 'src/domain/past_sessions_service.dart';
 export 'src/domain/payment_service.dart';
 export 'src/domain/payout_queries.dart';
 export 'src/domain/payout_service.dart';
+export 'src/domain/people_directory.dart';
 export 'src/domain/phone.dart';
 export 'src/domain/photo_processor.dart';
 export 'src/domain/photo_service.dart';

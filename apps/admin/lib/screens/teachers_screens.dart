@@ -128,6 +128,13 @@ class TeachersScreen extends ConsumerWidget {
           item.teacher.phone.contains(query) ||
           item.subjectNames.any((s) => s.contains(query)),
       onRetry: () => ref.invalidate(teachersProvider),
+      actions: [
+        IconButton(
+          tooltip: 'تحديد للطباعة والرسائل',
+          icon: const Icon(Icons.checklist_rounded),
+          onPressed: () => context.push('/bulk/teachers'),
+        ),
+      ],
       addLabel: 'إضافة أستاذ',
       onAdd: canAdd ? () => _add(context, ref) : null,
       itemExtent: 76,

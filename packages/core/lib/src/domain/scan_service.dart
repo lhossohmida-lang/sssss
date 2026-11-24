@@ -428,15 +428,11 @@ class ScanService {
             )..where((a) => a.workerId.equals(owner.id) & a.date.equals(today)))
             .getSingleOrNull();
 
-    // أول مسح في اليوم = دخول.
+    // العمال بلا وقت دخول وخروج محدد: يُسجَّل وقت كل مسح فقط. أول مسح في اليوم دخول، ثم يتناوب
+    // المسح خروجاً ودخولاً (يخرج العامل ويعود في اليوم نفسه)، ويُحسب يومه من مجموع مدد الدخولات.
     if (existing == null || existing.checkIn == null) {
-      final worker = await (db.select(
-        db.workers,
-      )..where((w) => w.id.equals(owner.id))).getSingle();
-      final late = _lateMinutes(
-        DateKey.minutesOf(now),
-        worker.expectedStartMinutes,
-      );
+      const late = 0;
+      final first = WorkPunches.encode([WorkPunch(stamp)]);
       final row = existing == null
           ? WorkerAttendanceRow(
               id: StableId.workerAttendance(owner.id, today),
@@ -446,10 +442,13 @@ class ScanService {
               date: today,
               checkIn: stamp,
               lateMinutes: late,
+              punches: first,
             )
           : existing.copyWith(
               checkIn: Value(stamp),
+              checkOut: const Value(null),
               lateMinutes: late,
+              punches: Value(first),
               deletedAt: const Value(null),
             );
       await writer.save(db.workerAttendance, row, key: {'id': row.id});
@@ -460,18 +459,36 @@ class ScanService {
       );
     }
 
-    // المسح الثاني وما بعده = خروج (يُحفظ آخر وقت خروج). من وقت خروجه يُحسب يومه: نصف يوم أو كامل.
+    final punches = WorkPunches.parse(
+      existing.punches,
+      existing.checkIn,
+      existing.checkOut,
+    );
+    // آخر دخول مفتوح: هذا المسح خروجه. من مجموع مدد دخولاته يُحسب يومه: نصف يوم أو كامل.
+    if (punches.isNotEmpty && punches.last.isOpen) {
+      punches[punches.length - 1] = WorkPunch(punches.last.inAt, stamp);
+      await writer.save(
+        db.workerAttendance,
+        existing.copyWith(
+          checkOut: Value(stamp),
+          punches: Value(WorkPunches.encode(punches)),
+        ),
+        key: {'id': existing.id},
+      );
+      return ScanResult(
+        outcome: ScanOutcome.workerOut,
+        owner: owner,
+        workedMinutes: WorkPunches.workedMinutes(punches),
+      );
+    }
+    // خرج من قبل ثم عاد: دخول جديد في اليوم نفسه.
+    punches.add(WorkPunch(stamp));
     await writer.save(
       db.workerAttendance,
-      existing.copyWith(checkOut: Value(stamp)),
+      existing.copyWith(punches: Value(WorkPunches.encode(punches))),
       key: {'id': existing.id},
     );
-    return ScanResult(
-      outcome: ScanOutcome.workerOut,
-      owner: owner,
-      lateMinutes: existing.lateMinutes,
-      workedMinutes: WageRules.workedMinutes(existing.checkIn, stamp),
-    );
+    return ScanResult(outcome: ScanOutcome.workerIn, owner: owner);
   }
 
   // ---------------------------------------------------------------------------

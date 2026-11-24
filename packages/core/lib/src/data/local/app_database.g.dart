@@ -12338,6 +12338,17 @@ class $WorkerAttendanceTable extends WorkerAttendance
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _punchesMeta = const VerificationMeta(
+    'punches',
+  );
+  @override
+  late final GeneratedColumn<String> punches = GeneratedColumn<String>(
+    'punches',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -12350,6 +12361,7 @@ class $WorkerAttendanceTable extends WorkerAttendance
     checkOut,
     lateMinutes,
     overrideKind,
+    punches,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -12436,6 +12448,12 @@ class $WorkerAttendanceTable extends WorkerAttendance
         ),
       );
     }
+    if (data.containsKey('punches')) {
+      context.handle(
+        _punchesMeta,
+        punches.isAcceptableOrUnknown(data['punches']!, _punchesMeta),
+      );
+    }
     return context;
   }
 
@@ -12485,6 +12503,10 @@ class $WorkerAttendanceTable extends WorkerAttendance
         DriftSqlType.string,
         data['${effectivePrefix}override_kind'],
       ),
+      punches: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}punches'],
+      ),
     );
   }
 
@@ -12513,6 +12535,11 @@ class WorkerAttendanceRow extends DataClass
 
   /// تعديل المدير اليدوي لليوم: `off` / `half` / `full`، أو `null` دون تعديل.
   final String? overrideKind;
+
+  /// كل دخول وخروج في اليوم بترتيبه: JSON `[[دخول, خروج أو null], …]` بالمللي ثانية (UTC). يدخل العامل
+  /// ويخرج أكثر من مرة في اليوم؛ و[checkIn] أول دخول و[checkOut] آخر خروج. `null` في سجلات ما قبل
+  /// هذا العمود أو من أجهزة لم تُحدَّث: فتُقرأ زوجاً واحداً من [checkIn] إلى [checkOut].
+  final String? punches;
   const WorkerAttendanceRow({
     required this.id,
     required this.createdAt,
@@ -12524,6 +12551,7 @@ class WorkerAttendanceRow extends DataClass
     this.checkOut,
     required this.lateMinutes,
     this.overrideKind,
+    this.punches,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -12545,6 +12573,9 @@ class WorkerAttendanceRow extends DataClass
     map['late_minutes'] = Variable<int>(lateMinutes);
     if (!nullToAbsent || overrideKind != null) {
       map['override_kind'] = Variable<String>(overrideKind);
+    }
+    if (!nullToAbsent || punches != null) {
+      map['punches'] = Variable<String>(punches);
     }
     return map;
   }
@@ -12569,6 +12600,9 @@ class WorkerAttendanceRow extends DataClass
       overrideKind: overrideKind == null && nullToAbsent
           ? const Value.absent()
           : Value(overrideKind),
+      punches: punches == null && nullToAbsent
+          ? const Value.absent()
+          : Value(punches),
     );
   }
 
@@ -12588,6 +12622,7 @@ class WorkerAttendanceRow extends DataClass
       checkOut: serializer.fromJson<int?>(json['checkOut']),
       lateMinutes: serializer.fromJson<int>(json['lateMinutes']),
       overrideKind: serializer.fromJson<String?>(json['overrideKind']),
+      punches: serializer.fromJson<String?>(json['punches']),
     );
   }
   @override
@@ -12604,6 +12639,7 @@ class WorkerAttendanceRow extends DataClass
       'checkOut': serializer.toJson<int?>(checkOut),
       'lateMinutes': serializer.toJson<int>(lateMinutes),
       'overrideKind': serializer.toJson<String?>(overrideKind),
+      'punches': serializer.toJson<String?>(punches),
     };
   }
 
@@ -12618,6 +12654,7 @@ class WorkerAttendanceRow extends DataClass
     Value<int?> checkOut = const Value.absent(),
     int? lateMinutes,
     Value<String?> overrideKind = const Value.absent(),
+    Value<String?> punches = const Value.absent(),
   }) => WorkerAttendanceRow(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -12629,6 +12666,7 @@ class WorkerAttendanceRow extends DataClass
     checkOut: checkOut.present ? checkOut.value : this.checkOut,
     lateMinutes: lateMinutes ?? this.lateMinutes,
     overrideKind: overrideKind.present ? overrideKind.value : this.overrideKind,
+    punches: punches.present ? punches.value : this.punches,
   );
   WorkerAttendanceRow copyWithCompanion(WorkerAttendanceCompanion data) {
     return WorkerAttendanceRow(
@@ -12646,6 +12684,7 @@ class WorkerAttendanceRow extends DataClass
       overrideKind: data.overrideKind.present
           ? data.overrideKind.value
           : this.overrideKind,
+      punches: data.punches.present ? data.punches.value : this.punches,
     );
   }
 
@@ -12661,7 +12700,8 @@ class WorkerAttendanceRow extends DataClass
           ..write('checkIn: $checkIn, ')
           ..write('checkOut: $checkOut, ')
           ..write('lateMinutes: $lateMinutes, ')
-          ..write('overrideKind: $overrideKind')
+          ..write('overrideKind: $overrideKind, ')
+          ..write('punches: $punches')
           ..write(')'))
         .toString();
   }
@@ -12678,6 +12718,7 @@ class WorkerAttendanceRow extends DataClass
     checkOut,
     lateMinutes,
     overrideKind,
+    punches,
   );
   @override
   bool operator ==(Object other) =>
@@ -12692,7 +12733,8 @@ class WorkerAttendanceRow extends DataClass
           other.checkIn == this.checkIn &&
           other.checkOut == this.checkOut &&
           other.lateMinutes == this.lateMinutes &&
-          other.overrideKind == this.overrideKind);
+          other.overrideKind == this.overrideKind &&
+          other.punches == this.punches);
 }
 
 class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
@@ -12706,6 +12748,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
   final Value<int?> checkOut;
   final Value<int> lateMinutes;
   final Value<String?> overrideKind;
+  final Value<String?> punches;
   final Value<int> rowid;
   const WorkerAttendanceCompanion({
     this.id = const Value.absent(),
@@ -12718,6 +12761,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
     this.checkOut = const Value.absent(),
     this.lateMinutes = const Value.absent(),
     this.overrideKind = const Value.absent(),
+    this.punches = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WorkerAttendanceCompanion.insert({
@@ -12731,6 +12775,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
     this.checkOut = const Value.absent(),
     this.lateMinutes = const Value.absent(),
     this.overrideKind = const Value.absent(),
+    this.punches = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -12748,6 +12793,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
     Expression<int>? checkOut,
     Expression<int>? lateMinutes,
     Expression<String>? overrideKind,
+    Expression<String>? punches,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -12761,6 +12807,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
       if (checkOut != null) 'check_out': checkOut,
       if (lateMinutes != null) 'late_minutes': lateMinutes,
       if (overrideKind != null) 'override_kind': overrideKind,
+      if (punches != null) 'punches': punches,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -12776,6 +12823,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
     Value<int?>? checkOut,
     Value<int>? lateMinutes,
     Value<String?>? overrideKind,
+    Value<String?>? punches,
     Value<int>? rowid,
   }) {
     return WorkerAttendanceCompanion(
@@ -12789,6 +12837,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
       checkOut: checkOut ?? this.checkOut,
       lateMinutes: lateMinutes ?? this.lateMinutes,
       overrideKind: overrideKind ?? this.overrideKind,
+      punches: punches ?? this.punches,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -12826,6 +12875,9 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
     if (overrideKind.present) {
       map['override_kind'] = Variable<String>(overrideKind.value);
     }
+    if (punches.present) {
+      map['punches'] = Variable<String>(punches.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -12845,6 +12897,7 @@ class WorkerAttendanceCompanion extends UpdateCompanion<WorkerAttendanceRow> {
           ..write('checkOut: $checkOut, ')
           ..write('lateMinutes: $lateMinutes, ')
           ..write('overrideKind: $overrideKind, ')
+          ..write('punches: $punches, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -40988,6 +41041,7 @@ typedef $$WorkerAttendanceTableCreateCompanionBuilder =
       Value<int?> checkOut,
       Value<int> lateMinutes,
       Value<String?> overrideKind,
+      Value<String?> punches,
       Value<int> rowid,
     });
 typedef $$WorkerAttendanceTableUpdateCompanionBuilder =
@@ -41002,6 +41056,7 @@ typedef $$WorkerAttendanceTableUpdateCompanionBuilder =
       Value<int?> checkOut,
       Value<int> lateMinutes,
       Value<String?> overrideKind,
+      Value<String?> punches,
       Value<int> rowid,
     });
 
@@ -41090,6 +41145,11 @@ class $$WorkerAttendanceTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get punches => $composableBuilder(
+    column: $table.punches,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$WorkersTableFilterComposer get workerId {
     final $$WorkersTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -41168,6 +41228,11 @@ class $$WorkerAttendanceTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get punches => $composableBuilder(
+    column: $table.punches,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WorkersTableOrderingComposer get workerId {
     final $$WorkersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -41231,6 +41296,9 @@ class $$WorkerAttendanceTableAnnotationComposer
     column: $table.overrideKind,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get punches =>
+      $composableBuilder(column: $table.punches, builder: (column) => column);
 
   $$WorkersTableAnnotationComposer get workerId {
     final $$WorkersTableAnnotationComposer composer = $composerBuilder(
@@ -41296,6 +41364,7 @@ class $$WorkerAttendanceTableTableManager
                 Value<int?> checkOut = const Value.absent(),
                 Value<int> lateMinutes = const Value.absent(),
                 Value<String?> overrideKind = const Value.absent(),
+                Value<String?> punches = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkerAttendanceCompanion(
                 id: id,
@@ -41308,6 +41377,7 @@ class $$WorkerAttendanceTableTableManager
                 checkOut: checkOut,
                 lateMinutes: lateMinutes,
                 overrideKind: overrideKind,
+                punches: punches,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -41322,6 +41392,7 @@ class $$WorkerAttendanceTableTableManager
                 Value<int?> checkOut = const Value.absent(),
                 Value<int> lateMinutes = const Value.absent(),
                 Value<String?> overrideKind = const Value.absent(),
+                Value<String?> punches = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkerAttendanceCompanion.insert(
                 id: id,
@@ -41334,6 +41405,7 @@ class $$WorkerAttendanceTableTableManager
                 checkOut: checkOut,
                 lateMinutes: lateMinutes,
                 overrideKind: overrideKind,
+                punches: punches,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

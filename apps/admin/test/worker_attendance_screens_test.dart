@@ -1,6 +1,9 @@
 import 'package:admin/admin_tabs.dart';
+import 'package:admin/screens/worker_attendance_screens.dart'
+    show WorkerMonthGrid;
 import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
-import 'package:flutter/material.dart' show Scaffold;
+import 'package:flutter/material.dart' show Icons, Material, Scaffold;
+import 'package:flutter/widgets.dart' show ValueKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
@@ -41,6 +44,7 @@ Future<AppRuntime> openSheet(
   WidgetTester tester, {
   TestAccount account = _owner,
   bool withWorker = true,
+  String? punches,
 }) async {
   final runtime = await bootApp(
     tester,
@@ -84,6 +88,7 @@ Future<AppRuntime> openSheet(
                 DateTime(2026, 1, 1, 17).toUtc().millisecondsSinceEpoch,
               ),
               lateMinutes: const Value(10),
+              punches: Value(punches),
             ),
           );
     });
@@ -111,6 +116,11 @@ Future<void> reopenWorker(WidgetTester tester) async {
   await settleDb(tester);
 }
 
+/// مربع يوم [day] من الشهر الجاري في تقويم العامل.
+Finder dayCell(int day) => find.byKey(
+  ValueKey('worker-day-${currentMonthKey()}-${day.toString().padLeft(2, '0')}'),
+);
+
 Future<void> openWorker(WidgetTester tester) async {
   await tester.tap(find.text('سمير'));
   await tester.pumpAndSettle();
@@ -123,7 +133,7 @@ void main() {
     expect(find.text(DateKey.monthLabel(currentMonthKey())), findsOneWidget);
   });
 
-  appTest('الكشف الجامع: أيام العامل وأجره وتأخره وإجمالي الشهر', (
+  appTest('الكشف الجامع: أيام العامل وأجره ومدة عمله وإجمالي الشهر', (
     tester,
   ) async {
     await openSheet(tester);
@@ -135,7 +145,9 @@ void main() {
       find.textContaining('1 يوم كامل · 0 نصف · 0 بلا خروج'),
       findsOneWidget,
     );
-    expect(find.textContaining('تأخر 10 د'), findsOneWidget);
+    // العمال بلا وقت دخول محدد: لا تأخر، بل مدة العمل.
+    expect(find.textContaining('تأخر'), findsNothing);
+    expect(find.textContaining('عمل 8 ساعات و50 دقيقة'), findsOneWidget);
     expect(find.text('إجمالي أجور الشهر'), findsOneWidget);
     expect(find.text(Money.format(1000)), findsNWidgets(2));
   });
@@ -182,30 +194,70 @@ void main() {
     );
   });
 
-  appTest('كشف العامل اليومي: يوم الحضور بساعاته وتأخره وأجره', (tester) async {
+  appTest('تقويم العامل: مربع لكل يوم فيه دخوله وخروجه وأجره ولونه', (
+    tester,
+  ) async {
     await openSheet(tester);
     await openWorker(tester);
     expect(
       find.textContaining('أجر الشهر ${Money.format(1000)}'),
       findsOneWidget,
     );
-    // مدة بقائه 8 ساعات و50 دقيقة: يُحسب يوماً كاملاً بالحدّ الافتراضي (8 ساعات).
+    expect(find.byType(WorkerMonthGrid), findsOneWidget);
+    // سبعة أيام في السطر بدءاً من السبت.
+    expect(find.text('السبت'), findsOneWidget);
+    expect(find.text('الجمعة'), findsOneWidget);
+    // مدة بقائه 8 ساعات و50 دقيقة: يوم كامل بالحدّ الافتراضي (8 ساعات)، أخضر.
+    final first = dayCell(1);
     expect(
-      find.textContaining(
-        'حضر 08:10–17:00 · عمل 8 ساعات و50 دقيقة · تأخر 10 د',
-      ),
+      find.descendant(of: first, matching: find.text('08:10–17:00')),
       findsOneWidget,
     );
-    expect(find.text('يوم كامل'), findsWidgets);
+    expect(
+      find.descendant(of: first, matching: find.text(Money.format(1000))),
+      findsOneWidget,
+    );
+    final palette = tester.element(first).palette;
+    final material = tester.widget<Material>(
+      find.descendant(of: first, matching: find.byType(Material)).first,
+    );
+    expect(material.color, palette.status.success.withValues(alpha: 0.16));
+  });
+
+  appTest('دخل وخرج مرتين في اليوم: كل دخول وخروج في مربعه', (tester) async {
+    int at(int h, int m) =>
+        DateTime(2026, 1, 1, h, m).toUtc().millisecondsSinceEpoch;
+    await openSheet(
+      tester,
+      punches: '[[${at(8, 10)},${at(12, 0)}],[${at(13, 0)},${at(17, 0)}]]',
+    );
+    await openWorker(tester);
+    final first = dayCell(1);
+    expect(
+      find.descendant(of: first, matching: find.text('08:10–12:00')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: first, matching: find.text('13:00–17:00')),
+      findsOneWidget,
+    );
+    // 3 ساعات و50 دقيقة + 4 ساعات: أقل من يوم كامل وأكثر من نصفه.
+    expect(
+      find.descendant(of: first, matching: find.text('7 ساعات و50 دقيقة')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: first, matching: find.text(Money.format(600))),
+      findsOneWidget,
+    );
   });
 
   appTest('تعديل يدوي: نصف يوم ثم إلغاؤه', (tester) async {
     final runtime = await openSheet(tester);
     await openWorker(tester);
     // اليوم الثاني من الشهر (لم يحضره): نصف يوم.
-    await tester.tap(
-      find.textContaining('2 ${DateKey.monthName(DateTime.now().month)}'),
-    );
+    await tester.ensureVisible(dayCell(2));
+    await tester.tap(dayCell(2));
     await tester.pumpAndSettle();
     expect(find.text('تعديل يوم ${currentMonthKey()}-02'), findsOneWidget);
     await tester.tap(find.widgetWithText(ClayButton, 'نصف يوم'));
@@ -219,19 +271,24 @@ void main() {
     );
     expect(row.overrideKind, 'half');
     await reopenWorker(tester);
-    expect(find.textContaining('(معدَّل)'), findsOneWidget);
+    Finder edited() => find.descendant(
+      of: dayCell(2),
+      matching: find.byIcon(Icons.edit_rounded),
+    );
+    expect(edited(), findsOneWidget);
     expect(
       find.textContaining('أجر الشهر ${Money.format(1600)}'),
       findsOneWidget,
     );
 
-    await tester.tap(find.textContaining('(معدَّل)'));
+    await tester.ensureVisible(dayCell(2));
+    await tester.tap(dayCell(2));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'إلغاء التعديل'));
     await tester.pumpAndSettle();
     await settleDb(tester);
     await reopenWorker(tester);
-    expect(find.textContaining('(معدَّل)'), findsNothing);
+    expect(edited(), findsNothing);
     expect(
       find.textContaining('أجر الشهر ${Money.format(1000)}'),
       findsOneWidget,
@@ -241,7 +298,7 @@ void main() {
   appTest('تعديل يوم الحضور إلى غائب يلغي أجره', (tester) async {
     await openSheet(tester);
     await openWorker(tester);
-    await tester.tap(find.textContaining('حضر 08:10'));
+    await tester.tap(find.text('08:10–17:00'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'غائب (بلا أجر)'));
     await tester.pumpAndSettle();
@@ -253,7 +310,7 @@ void main() {
   appTest('إغلاق نافذة التعديل لا يغيّر شيئاً', (tester) async {
     final runtime = await openSheet(tester);
     await openWorker(tester);
-    await tester.tap(find.textContaining('حضر 08:10'));
+    await tester.tap(find.text('08:10–17:00'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'إغلاق'));
     await tester.pumpAndSettle();
@@ -283,7 +340,7 @@ void main() {
     await openSheet(tester, account: _viewer);
     expect(find.byTooltip('تسجيل الأجر كمصروف'), findsNothing);
     await openWorker(tester);
-    await tester.tap(find.textContaining('حضر 08:10'));
+    await tester.tap(find.text('08:10–17:00'));
     await tester.pumpAndSettle();
     expect(find.textContaining('تعديل يوم'), findsNothing);
   });

@@ -127,7 +127,8 @@ void main() {
       ScanOutcome.workerOut,
       ScanOutcome.workerIn,
     ]);
-    expect(items.last.result.lateMinutes, 20);
+    // العمال بلا وقت دخول محدد: لا تأخر.
+    expect(items.last.result.lateMinutes, 0);
     expect(items.last.owner.name, 'سمير');
   });
 

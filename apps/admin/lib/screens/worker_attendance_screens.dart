@@ -129,7 +129,7 @@ class _WorkerSheetScreenState extends ConsumerState<WorkerSheetScreen> {
                       subtitle:
                           '${m.fullDays} يوم كامل · ${m.halfDays} نصف · '
                           '${m.openDaysBefore(today)} بلا خروج\n'
-                          'تأخر ${m.totalLateMinutes} د',
+                          'عمل ${durationText(m.totalWorkedMinutes)}',
                       subtitleLines: 2,
                       onTap: () => context.push(
                         '/worker-attendance/${w.workerId}?month=$_month',
@@ -292,27 +292,25 @@ class _WorkerMonthScreenState extends ConsumerState<WorkerMonthScreen> {
                           '${summary.month.fullDays} يوم كامل · '
                           '${summary.month.halfDays} نصف · '
                           '${summary.month.openDaysBefore(today)} بلا خروج · '
-                          'تأخر ${summary.month.totalLateMinutes} د',
+                          'عمل ${durationText(summary.month.totalWorkedMinutes)}',
                           style: text.bodySmall!.copyWith(color: p.textMuted),
                         ),
+                        const SizedBox(height: ClaySpacing.xs),
+                        const _Legend(),
                       ],
                     ),
                   ),
                 ),
                 Expanded(
-                  child: ListView.builder(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(ClaySpacing.screenPadding),
-                    itemCount: summary.month.days.length,
-                    itemExtent: 84,
-                    itemBuilder: (context, i) {
-                      final day = summary.month.days[i];
-                      return _DayTile(
-                        day: day,
-                        today: today,
-                        onTap: canEdit ? () => _edit(day) : null,
-                        time: _time,
-                      );
-                    },
+                    child: WorkerMonthGrid(
+                      month: _month,
+                      days: summary.month.days,
+                      today: today,
+                      time: _time,
+                      onTap: canEdit ? _edit : null,
+                    ),
                   ),
                 ),
               ],
@@ -321,63 +319,205 @@ class _WorkerMonthScreenState extends ConsumerState<WorkerMonthScreen> {
   }
 }
 
-class _DayTile extends StatelessWidget {
-  const _DayTile({
-    required this.day,
-    required this.today,
-    required this.time,
-    this.onTap,
-  });
-
-  final WorkerDay day;
-  final String today;
-  final VoidCallback? onTap;
-  final String Function(int millis) time;
+/// ألوان التقويم وما تعنيه.
+class _Legend extends StatelessWidget {
+  const _Legend();
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final dayNumber = int.parse(day.date.substring(8));
-    final weekday = GroupService.weekdayName(DateKey.weekday(day.date));
-    final worked = day.workedMinutes;
-    final attendance = day.present
-        ? 'حضر ${time(day.checkIn!)}'
-              '${day.checkOut == null ? '' : '–${time(day.checkOut!)}'}'
-              '${worked == null ? '' : ' · عمل ${durationText(worked)}'}'
-              '${day.lateMinutes > 0 ? ' · تأخر ${day.lateMinutes} د' : ''}'
-        : day.date.compareTo(today) > 0
-        ? 'لم يحن بعد'
-        : 'لم يحضر';
-    final stillIn = day.isOpen && day.date == today;
-    final badge = switch (day.paidKind) {
-      WorkDayKind.full => const ClayBadge(
-        label: 'يوم كامل',
-        tone: ClayTone.success,
-      ),
-      WorkDayKind.half => const ClayBadge(
-        label: 'نصف يوم',
-        tone: ClayTone.info,
-      ),
-      WorkDayKind.off =>
-        stillIn
-            ? const ClayBadge(label: 'في العمل', tone: ClayTone.info)
-            : day.isOpen
-            ? const ClayBadge(label: 'بلا خروج', tone: ClayTone.warning)
-            : day.isBelowHalf
-            ? const ClayBadge(label: 'أقل من نصف يوم', tone: ClayTone.danger)
-            : null,
-    };
-    return ClayListTile(
-      title:
-          '$dayNumber ${DateKey.monthName(int.parse(day.date.substring(5, 7)))}'
-          ' · $weekday${day.overridden ? ' (معدَّل)' : ''}',
-      subtitle: attendance,
-      onTap: onTap,
-      trailing: [
-        ?badge,
-        const SizedBox(width: ClaySpacing.xs),
-        Text(Money.format(day.wage), style: text.titleSmall),
+    final p = context.palette;
+    Widget item(Color color, String label) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: text.bodySmall),
       ],
+    );
+    return Wrap(
+      spacing: ClaySpacing.md,
+      runSpacing: ClaySpacing.xs,
+      children: [
+        item(p.status.success, 'أكمل نصف يوم أو يوماً'),
+        item(p.status.warning, 'حضر أقل من ذلك أو بلا خروج'),
+        item(p.status.danger, 'غائب'),
+      ],
+    );
+  }
+}
+
+/// شهر العامل كورقة تقويم: سبعة مربعات في كل سطر بدءاً من السبت. في كل مربع التاريخ وأجر اليوم وكل
+/// دخول وخروج فيه (ولو دخل وخرج أكثر من مرة)، ولونه: أحمر إن غاب، وأخضر إن أكمل نصف يوم أو يوماً
+/// كاملاً، وبرتقالي إن حضر أقل من ذلك أو لم يمسح خروجه.
+class WorkerMonthGrid extends StatelessWidget {
+  const WorkerMonthGrid({
+    required this.month,
+    required this.days,
+    required this.today,
+    required this.time,
+    this.onTap,
+    super.key,
+  });
+
+  /// `YYYY-MM`.
+  final String month;
+  final List<WorkerDay> days;
+  final String today;
+  final String Function(int millis) time;
+  final void Function(WorkerDay day)? onTap;
+
+  /// أقل عرض لمربع اليوم؛ على الشاشة الضيقة يُمرَّر التقويم أفقياً.
+  static const double minCellWidth = 92;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final year = int.parse(month.substring(0, 4));
+    final monthNumber = int.parse(month.substring(5, 7));
+    final blanks = ClayCalendarMath.leadingBlanks(year, monthNumber);
+    final cells = <WorkerDay?>[for (var i = 0; i < blanks; i++) null, ...days];
+    while (cells.length % 7 != 0) {
+      cells.add(null);
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fit = constraints.maxWidth / 7;
+        final cellWidth = fit < minCellWidth ? minCellWidth : fit;
+        final table = Table(
+          defaultColumnWidth: FixedColumnWidth(cellWidth),
+          children: [
+            TableRow(
+              children: [
+                for (final name in ClayCalendarMath.weekdayNames)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: ClaySpacing.xs),
+                    child: Text(
+                      name,
+                      textAlign: TextAlign.center,
+                      style: text.labelMedium,
+                    ),
+                  ),
+              ],
+            ),
+            for (var r = 0; r < cells.length; r += 7)
+              TableRow(
+                children: [
+                  for (final day in cells.sublist(r, r + 7))
+                    Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: day == null
+                          ? const SizedBox.shrink()
+                          : _DayCell(
+                              key: ValueKey('worker-day-${day.date}'),
+                              day: day,
+                              today: today,
+                              time: time,
+                              onTap: onTap == null ? null : () => onTap!(day),
+                            ),
+                    ),
+                ],
+              ),
+          ],
+        );
+        if (cellWidth * 7 <= constraints.maxWidth) return table;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: table,
+        );
+      },
+    );
+  }
+}
+
+class _DayCell extends StatelessWidget {
+  const _DayCell({
+    required this.day,
+    required this.today,
+    required this.time,
+    this.onTap,
+    super.key,
+  });
+
+  final WorkerDay day;
+  final String today;
+  final String Function(int millis) time;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    final status = day.statusOn(today);
+    final color = switch (status) {
+      WorkDayStatus.absent => p.status.danger,
+      WorkDayStatus.complete => p.status.success,
+      WorkDayStatus.short => p.status.warning,
+      WorkDayStatus.working => p.status.info,
+      WorkDayStatus.future => p.textMuted,
+    };
+    final future = status == WorkDayStatus.future;
+    final dayNumber = int.parse(day.date.substring(8));
+    final small = text.bodySmall!.copyWith(fontSize: 11);
+    final worked = day.workedMinutes;
+    return Semantics(
+      label: 'يوم $dayNumber',
+      button: onTap != null,
+      child: Material(
+        color: future ? Colors.transparent : color.withValues(alpha: 0.16),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: color.withValues(alpha: future ? 0.25 : 0.7)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 72),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('$dayNumber', style: text.titleSmall),
+                      const Spacer(),
+                      if (day.overridden)
+                        Icon(Icons.edit_rounded, size: 12, color: p.textMuted),
+                    ],
+                  ),
+                  if (!future || day.present)
+                    Text(
+                      Money.format(day.wage),
+                      style: small.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  for (final punch in day.punches)
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        '${time(punch.inAt)}–'
+                        '${punch.outAt == null ? '…' : time(punch.outAt!)}',
+                        style: small,
+                      ),
+                    ),
+                  if (worked != null && day.punches.length > 1)
+                    Text(durationText(worked), style: small),
+                  if (status == WorkDayStatus.absent && !day.overridden)
+                    Text('غائب', style: small),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

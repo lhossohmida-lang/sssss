@@ -131,6 +131,60 @@ void main() {
     });
   });
 
+  group('CardSheet', () {
+    PrintableCard card(int i) => PrintableCard(
+      schoolName: 'مدرسة النجاح',
+      name: 'تلميذ $i',
+      qrCode: 'S-ABCDEFGH${i.toString().padLeft(2, '0')}',
+      caption: 'يُمسح الرمز عند الدخول',
+      subtitle: '3 متوسط',
+      phone: '0550123456',
+    );
+
+    test('عشر بطاقات في ورقة A4 واحدة، والحادية عشرة في ورقة ثانية', () async {
+      final ten = await CardSheet.build([
+        for (var i = 0; i < 10; i++) card(i),
+      ], fontData: cairo());
+      final text = latin1.decode(ten, allowInvalid: true);
+      expect(RegExp(r'/Type\s*/Page\b').allMatches(text), hasLength(1));
+      final box = RegExp(r'/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]')
+          .firstMatch(text)!;
+      expect(double.parse(box.group(1)!), closeTo(210 * 72 / 25.4, 0.5));
+      expect(double.parse(box.group(2)!), closeTo(297 * 72 / 25.4, 0.5));
+
+      final eleven = await CardSheet.build([
+        for (var i = 0; i < 11; i++) card(i),
+      ], fontData: cairo());
+      expect(
+        RegExp(r'/Type\s*/Page\b')
+            .allMatches(latin1.decode(eleven, allowInvalid: true)),
+        hasLength(2),
+      );
+    });
+
+    test('تلاميذ وأساتذة وعمال معاً في الورقة نفسها', () async {
+      final bytes = await CardSheet.build([
+        card(1),
+        const StaffCardData(
+          schoolName: 'م',
+          name: 'كمال',
+          role: 'أستاذ',
+          qrCode: 'T-ABCDEFGHJK',
+        ).toPrintable(),
+        const StaffCardData(
+          schoolName: 'م',
+          name: 'سمير',
+          role: 'عامل',
+          qrCode: 'W-ABCDEFGHJK',
+        ).toPrintable(),
+      ], fontData: cairo());
+      expect(
+        latin1.decode(bytes, allowInvalid: true).startsWith('%PDF-'),
+        isTrue,
+      );
+    });
+  });
+
   group('LogoService', () {
     late TestEnv env;
     late Directory dir;

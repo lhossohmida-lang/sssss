@@ -786,11 +786,14 @@ void main() {
       expect(day.paidKind, WorkDayKind.half);
       expect(day.wage, 1200);
 
-      // الخروج الأخير يغلب: بقاء أطول يجعله يوماً كاملاً.
+      // عاد بعد الغداء ثم خرج: مجموع المدتين (270 + 255) يجعله يوماً كاملاً.
+      final back = await scanner.scan(code, now: DateTime(2026, 11, 14, 13));
+      expect(back.outcome, ScanOutcome.workerIn);
       final later = await scanner.scan(
         code,
-        now: DateTime(2026, 11, 14, 16, 45),
+        now: DateTime(2026, 11, 14, 17, 15),
       );
+      expect(later.outcome, ScanOutcome.workerOut);
       expect(later.workedMinutes, 525);
       final updated = (await WageService(
         env.db,

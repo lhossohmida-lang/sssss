@@ -276,7 +276,7 @@ class _PhoneListState<T> extends ConsumerState<_PhoneList<T>> {
   Future<void> _pickCount(List<T> shown) async {
     final count = await showDialog<int>(
       context: context,
-      builder: (_) => _CountDialog(max: shown.length),
+      builder: (_) => SelectCountDialog(max: shown.length),
     );
     if (count == null || !mounted) return;
     setState(() {
@@ -291,7 +291,7 @@ class _PhoneListState<T> extends ConsumerState<_PhoneList<T>> {
       for (final item in all)
         if (_selected.contains(widget.idOf(item))) item,
     ];
-    final recipients = <String, _Recipient>{};
+    final recipients = <String, SmsRecipient>{};
     var invalid = 0;
     for (final item in chosen) {
       final phone = widget.phoneOf(item);
@@ -303,7 +303,7 @@ class _PhoneListState<T> extends ConsumerState<_PhoneList<T>> {
       final name = widget.nameOf(item).trim();
       final existing = recipients[key];
       if (existing == null) {
-        recipients[key] = _Recipient(
+        recipients[key] = SmsRecipient(
           phone: phone,
           names: [?name.isEmpty ? null : name],
         );
@@ -313,8 +313,10 @@ class _PhoneListState<T> extends ConsumerState<_PhoneList<T>> {
     }
     final sent = await showDialog<int>(
       context: context,
-      builder: (_) =>
-          _SmsDialog(recipients: recipients.values.toList(), invalid: invalid),
+      builder: (_) => BulkSmsDialog(
+        recipients: recipients.values.toList(),
+        invalid: invalid,
+      ),
     );
     if (sent == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -489,24 +491,24 @@ class _PhoneListState<T> extends ConsumerState<_PhoneList<T>> {
 }
 
 /// مستلم رسالة: رقمه وأسماء أصحابه (إخوة بهاتف وليّ واحد يأخذون رسالة واحدة).
-class _Recipient {
-  _Recipient({required this.phone, required this.names});
+class SmsRecipient {
+  SmsRecipient({required this.phone, required this.names});
 
   final String phone;
   final List<String> names;
 }
 
 /// عدد الأرقام التي تُحدَّد من أول القائمة المعروضة.
-class _CountDialog extends StatefulWidget {
-  const _CountDialog({required this.max});
+class SelectCountDialog extends StatefulWidget {
+  const SelectCountDialog({required this.max, super.key});
 
   final int max;
 
   @override
-  State<_CountDialog> createState() => _CountDialogState();
+  State<SelectCountDialog> createState() => _SelectCountDialogState();
 }
 
-class _CountDialogState extends State<_CountDialog> {
+class _SelectCountDialogState extends State<SelectCountDialog> {
   late final _count = TextEditingController(
     text: '${widget.max < 10 ? widget.max : 10}',
   );
@@ -553,17 +555,21 @@ class _CountDialogState extends State<_CountDialog> {
 
 /// نص الرسالة إلى المحدَّدين: يُضاف لكل رقم صالح رسالة منفصلة إلى طابور الرسائل (تُرسل من هاتف الإرسال
 /// المعيَّن وبساعات الهدوء المعتادة). `{name}` يُستبدل باسم صاحب الرقم و`{school}` باسم المدرسة.
-class _SmsDialog extends ConsumerStatefulWidget {
-  const _SmsDialog({required this.recipients, required this.invalid});
+class BulkSmsDialog extends ConsumerStatefulWidget {
+  const BulkSmsDialog({
+    required this.recipients,
+    required this.invalid,
+    super.key,
+  });
 
-  final List<_Recipient> recipients;
+  final List<SmsRecipient> recipients;
   final int invalid;
 
   @override
-  ConsumerState<_SmsDialog> createState() => _SmsDialogState();
+  ConsumerState<BulkSmsDialog> createState() => _BulkSmsDialogState();
 }
 
-class _SmsDialogState extends ConsumerState<_SmsDialog> {
+class _BulkSmsDialogState extends ConsumerState<BulkSmsDialog> {
   final _message = TextEditingController();
   String? _error;
   bool _saving = false;
@@ -574,7 +580,7 @@ class _SmsDialogState extends ConsumerState<_SmsDialog> {
     super.dispose();
   }
 
-  String _render(String body, _Recipient recipient, String school) =>
+  String _render(String body, SmsRecipient recipient, String school) =>
       SmsTemplateRenderer.fill(body, {
         'school': school.isEmpty ? 'المدرسة' : school,
         'name': recipient.names.join(' و '),

@@ -62,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -119,6 +119,10 @@ class AppDatabase extends _$AppDatabase {
       // أقدم أُنشئ له جدول `contacts` أعلاه بتعريفه الحالي وفيه العمود أصلاً.
       if (from == 6) {
         await m.addColumn(contacts, contacts.levelId);
+      }
+      // 8: كل دخول وخروج للعامل في اليوم (الترحيل 0013 على الخادم).
+      if (from < 8 && to >= 8) {
+        await m.addColumn(workerAttendance, workerAttendance.punches);
       }
     },
     beforeOpen: (details) async {

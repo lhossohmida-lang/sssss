@@ -203,7 +203,12 @@ abstract final class AssistantSchema {
       'worker_attendance',
       'حضور العمال: يومهم ووقت الدخول والخروج وتعديل المدير لليوم.',
       module: PermissionModule.workers,
-      notes: {'override_kind': 'off لا يعمل / half نصف يوم / full يوم كامل'},
+      notes: {
+        'override_kind': 'off لا يعمل / half نصف يوم / full يوم كامل',
+        'punches':
+            'JSON كل دخول وخروج في اليوم [[دخول، خروج أو null]] بالمللي ثانية؛ '
+            'check_in أول دخول وcheck_out آخر خروج',
+      },
     ),
     AssistantTable(
       'waiting_lists',

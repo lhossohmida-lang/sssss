@@ -439,6 +439,30 @@ void main() {
       expect(row.read<String?>('level_id'), isNull);
     });
 
+    test('من الإصدار 7: تضيف عمود دخولات العامل وتبقي سجلاته', () async {
+      await env.db.customStatement(
+        'ALTER TABLE worker_attendance DROP COLUMN punches',
+      );
+      await env.db.customStatement(
+        'INSERT INTO workers (id, created_at, updated_at, name, phone, email, qr_code) '
+        "VALUES ('w1', 1, 1, 'سمير', '0660000000', 'w@school.local', 'W-AAAAAAAAAA')",
+      );
+      await env.db.customStatement(
+        'INSERT INTO worker_attendance (id, created_at, updated_at, worker_id, date, '
+        'check_in, check_out, late_minutes) '
+        "VALUES ('a1', 1, 1, 'w1', '2026-11-14', 1000, 61000, 0)",
+      );
+      await env.db.migration.onUpgrade(Migrator(env.db), 7, 8);
+      expect(await columns('worker_attendance'), contains('punches'));
+      final row = await env.db
+          .customSelect(
+            "SELECT check_in, punches FROM worker_attendance WHERE id = 'a1'",
+          )
+          .getSingle();
+      expect(row.read<int>('check_in'), 1000);
+      expect(row.read<String?>('punches'), isNull);
+    });
+
     test(
       'من الإصدار 5 مباشرة إلى 7: جدول الدليل يُنشأ بعموده ولا يتكرر',
       () async {

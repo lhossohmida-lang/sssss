@@ -846,6 +846,7 @@ create table if not exists public."worker_attendance" (
   "check_out" bigint,
   "late_minutes" bigint not null,
   "override_kind" text,
+  "punches" text,
   "synced_at" bigint not null default 0,
   primary key ("id")
 );

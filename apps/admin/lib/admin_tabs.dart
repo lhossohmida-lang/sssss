@@ -3,6 +3,7 @@ import 'package:school_ui/school_ui.dart';
 
 import 'screens/attendance_screens.dart';
 import 'screens/audit_log_screen.dart';
+import 'screens/bulk_people_screen.dart';
 import 'screens/catalog_screens.dart';
 import 'screens/contacts_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -103,6 +104,24 @@ final List<AppPage> adminPages = [
       teacherId: state.pathParameters['id']!,
       month: state.uri.queryParameters['month'],
     ),
+  ),
+  AppPage(
+    path: '/bulk/students',
+    requires: PermissionModule.students,
+    builder: (context, state) =>
+        const BulkPeopleScreen(kind: PersonKind.student),
+  ),
+  AppPage(
+    path: '/bulk/teachers',
+    requires: PermissionModule.teachers,
+    builder: (context, state) =>
+        const BulkPeopleScreen(kind: PersonKind.teacher),
+  ),
+  AppPage(
+    path: '/bulk/workers',
+    requires: PermissionModule.workers,
+    builder: (context, state) =>
+        const BulkPeopleScreen(kind: PersonKind.worker),
   ),
   AppPage(
     path: '/worker-attendance',

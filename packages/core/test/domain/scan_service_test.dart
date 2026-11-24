@@ -364,18 +364,18 @@ void main() {
   });
 
   group('العامل', () {
-    test('أول مسح دخول مع حساب التأخر، والثاني خروج', () async {
+    test('أول مسح دخول بلا تأخر (لا وقت محدد للعامل)، والثاني خروج', () async {
       final inScan = await scanner.scan(workerQr, now: at(8, 20));
       expect(inScan.outcome, ScanOutcome.workerIn);
       expect(inScan.owner?.name, 'سمير');
-      expect(inScan.lateMinutes, 20);
+      expect(inScan.lateMinutes, 0);
 
       final out = await scanner.scan(workerQr, now: at(17, 0));
       expect(out.outcome, ScanOutcome.workerOut);
 
       final row = await env.db.select(env.db.workerAttendance).getSingle();
       expect(row.date, '2026-11-14');
-      expect(row.lateMinutes, 20);
+      expect(row.lateMinutes, 0);
       expect(row.checkIn, isNotNull);
       expect(row.checkOut, isNotNull);
     });
@@ -387,16 +387,26 @@ void main() {
       expect(early.lateMinutes, 0);
     });
 
-    test('مسح ثالث يحدّث وقت الخروج ولا ينشئ سجلاً جديداً', () async {
+    test('يدخل ويخرج أكثر من مرة: المسح يتناوب في سجل اليوم نفسه', () async {
       await scanner.scan(workerQr, now: at(8, 0));
       await scanner.scan(workerQr, now: at(12, 0));
       final first =
           (await env.db.select(env.db.workerAttendance).getSingle()).checkOut;
-      final third = await scanner.scan(workerQr, now: at(17, 0));
-      expect(third.outcome, ScanOutcome.workerOut);
+      final third = await scanner.scan(workerQr, now: at(13, 0));
+      expect(third.outcome, ScanOutcome.workerIn);
+      final fourth = await scanner.scan(workerQr, now: at(17, 0));
+      expect(fourth.outcome, ScanOutcome.workerOut);
+      expect(fourth.workedMinutes, 240 + 240);
       final rows = await env.db.select(env.db.workerAttendance).get();
       expect(rows, hasLength(1));
       expect(rows.single.checkOut! > first!, isTrue);
+      final punches = WorkPunches.parse(
+        rows.single.punches,
+        rows.single.checkIn,
+        rows.single.checkOut,
+      );
+      expect(punches, hasLength(2));
+      expect(punches.every((p) => !p.isOpen), isTrue);
     });
 
     test('يوم جديد سجل جديد', () async {
