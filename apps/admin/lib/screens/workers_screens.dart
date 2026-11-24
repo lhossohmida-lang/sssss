@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'staff_card_action.dart';
 import 'staff_debts_card.dart';
 import 'teachers_screens.dart' show showCredentialsDialog;
 
@@ -459,6 +460,22 @@ class WorkerProfileScreen extends ConsumerWidget {
                     Directionality(
                       textDirection: TextDirection.ltr,
                       child: SelectableText(w.qrCode, style: text.bodySmall),
+                    ),
+                    const SizedBox(height: ClaySpacing.md),
+                    ClayButton(
+                      label: 'طباعة بطاقة العامل',
+                      icon: ClayIcons.print,
+                      kind: ClayButtonKind.secondary,
+                      expand: true,
+                      onPressed: () => showStaffCard(
+                        context,
+                        ref,
+                        id: w.id,
+                        name: w.name,
+                        role: 'عامل',
+                        qrCode: w.qrCode,
+                        phone: w.phone,
+                      ),
                     ),
                   ],
                 ),

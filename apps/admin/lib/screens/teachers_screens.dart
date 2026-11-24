@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'staff_card_action.dart';
 import 'staff_debts_card.dart';
 
 /// يعرض بيانات دخول حساب أُنشئ أو أُعيد توليده. كلمة السر تظهر هنا مرة
@@ -531,6 +532,25 @@ class TeacherProfileScreen extends ConsumerWidget {
                           child: SelectableText(
                             t.qrCode,
                             style: text.bodySmall,
+                          ),
+                        ),
+                        const SizedBox(height: ClaySpacing.md),
+                        ClayButton(
+                          label: 'طباعة بطاقة الأستاذ',
+                          icon: ClayIcons.print,
+                          kind: ClayButtonKind.secondary,
+                          expand: true,
+                          onPressed: () => showStaffCard(
+                            context,
+                            ref,
+                            id: t.id,
+                            name: t.name,
+                            role: item.subjectNames.isEmpty
+                                ? 'أستاذ'
+                                : 'أستاذ · ${item.subjectNames.join('، ')}',
+                            qrCode: t.qrCode,
+                            phone: t.phone,
+                            photoLocalPath: t.photoLocalPath,
                           ),
                         ),
                       ],

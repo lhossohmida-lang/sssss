@@ -80,6 +80,57 @@ void main() {
     });
   });
 
+  group('StaffCard', () {
+    test('بطاقة الأستاذ والعامل: PDF صالح بحجم بطاقة التلميذ', () async {
+      for (final data in [
+        const StaffCardData(
+          schoolName: 'مدرسة النجاح',
+          name: 'كمال بن علي',
+          role: 'أستاذ · رياضيات',
+          qrCode: 'T-ABCDEFGHJK',
+          phone: '0550123456',
+        ),
+        const StaffCardData(
+          schoolName: 'م',
+          name: 'سمير',
+          role: 'عامل',
+          qrCode: 'W-ABCDEFGHJK',
+        ),
+      ]) {
+        final bytes = await StaffCard.build(data, fontData: cairo());
+        final text = latin1.decode(bytes, allowInvalid: true);
+        expect(text.startsWith('%PDF-'), isTrue);
+        expect(RegExp(r'/Type\s*/Page\b').allMatches(text), hasLength(1));
+        final box = RegExp(r'/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]')
+            .firstMatch(text)!;
+        expect(double.parse(box.group(1)!), closeTo(85.6 * 72 / 25.4, 0.1));
+        expect(double.parse(box.group(2)!), closeTo(54 * 72 / 25.4, 0.1));
+      }
+    });
+
+    test('بالصورة والشعار أكبر من دونهما', () async {
+      const base = StaffCardData(
+        schoolName: 'م',
+        name: 'كمال',
+        role: 'أستاذ',
+        qrCode: 'T-ABCDEFGHJK',
+      );
+      final plain = await StaffCard.build(base, fontData: cairo());
+      final rich = await StaffCard.build(
+        StaffCardData(
+          schoolName: 'م',
+          name: 'كمال',
+          role: 'أستاذ',
+          qrCode: 'T-ABCDEFGHJK',
+          photo: samplePngBytes(width: 220, height: 280),
+          logo: samplePngBytes(width: 90, height: 90),
+        ),
+        fontData: cairo(),
+      );
+      expect(rich.length, greaterThan(plain.length));
+    });
+  });
+
   group('LogoService', () {
     late TestEnv env;
     late Directory dir;

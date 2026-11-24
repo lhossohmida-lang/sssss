@@ -34,6 +34,7 @@ class Opened {
 Future<Opened> openWorkers(
   WidgetTester tester, {
   TestAccount account = _owner,
+  FakePdfPresenter? presenter,
 }) async {
   final provisioner = FakeAccountProvisioner();
   final runtime = await bootApp(
@@ -43,10 +44,28 @@ Future<Opened> openWorkers(
     accounts: [account],
     pages: adminPages,
     provisioner: provisioner,
+    pdfPresenter: presenter,
   );
   await loginWith(tester, account.email, account.password);
   await openMoreEntry(tester, 'العمال');
   return Opened(runtime, provisioner);
+}
+
+/// يضغط زر البطاقة وينتظر بناء الملف (قراءة الخط في الزمن الحقيقي).
+Future<void> tapCardButton(
+  WidgetTester tester,
+  String label,
+  FakePdfPresenter presenter,
+) async {
+  await tester.ensureVisible(find.widgetWithText(ClayButton, label));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(ClayButton, label));
+  for (var i = 0; i < 40 && presenter.shown.isEmpty; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+  }
 }
 
 Finder fieldOf(String label) => find.descendant(
@@ -233,6 +252,23 @@ void main() {
     // الملف يعرض الوحدات المفعَّلة.
     expect(find.widgetWithText(ClayChip, 'التلاميذ'), findsOneWidget);
     expect(find.widgetWithText(ClayChip, 'الماسح'), findsOneWidget);
+  });
+
+  appTest('طباعة بطاقة العامل: PDF برمزه يُعرض للطباعة', (tester) async {
+    final presenter = FakePdfPresenter();
+    final o = await openWorkers(tester, presenter: presenter);
+    await addWorker(tester);
+    await tapCardButton(tester, 'طباعة بطاقة العامل', presenter);
+    expect(presenter.shown, hasLength(1));
+    final shown = presenter.shown.single;
+    expect(shown.title, 'بطاقة سمير حداد');
+    final worker = await runDb(
+      tester,
+      () => o.runtime.db.select(o.runtime.db.workers).getSingle(),
+    );
+    expect(shown.fileName, 'staff-card-${worker.id}.pdf');
+    expect(worker.qrCode.startsWith('W-'), isTrue);
+    expect(String.fromCharCodes(shown.bytes.take(5)), '%PDF-');
   });
 
   appTest('إعادة توليد كلمة السر والحذف', (tester) async {

@@ -38,6 +38,7 @@ Future<Opened> openTeachers(
   WidgetTester tester, {
   TestAccount account = owner,
   FakePhotoSource? photoSource,
+  FakePdfPresenter? presenter,
 }) async {
   final provisioner = FakeAccountProvisioner();
   final runtime = await bootApp(
@@ -48,10 +49,28 @@ Future<Opened> openTeachers(
     pages: adminPages,
     provisioner: provisioner,
     photoSource: photoSource,
+    pdfPresenter: presenter,
   );
   await loginWith(tester, account.email, account.password);
   await openMoreEntry(tester, 'الأساتذة');
   return Opened(runtime, provisioner);
+}
+
+/// يضغط زر البطاقة وينتظر بناء الملف (قراءة الخط في الزمن الحقيقي).
+Future<void> tapCardButton(
+  WidgetTester tester,
+  String label,
+  FakePdfPresenter presenter,
+) async {
+  await tester.ensureVisible(find.widgetWithText(ClayButton, label));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(ClayButton, label));
+  for (var i = 0; i < 40 && presenter.shown.isEmpty; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+  }
 }
 
 Finder fieldOf(String label) => find.descendant(
@@ -250,8 +269,11 @@ void main() {
   });
 
   group('ملف الأستاذ', () {
-    Future<(Opened, TeacherRow)> withTeacher(WidgetTester tester) async {
-      final o = await openTeachers(tester);
+    Future<(Opened, TeacherRow)> withTeacher(
+      WidgetTester tester, {
+      FakePdfPresenter? presenter,
+    }) async {
+      final o = await openTeachers(tester, presenter: presenter);
       final created = await runDb(
         tester,
         () =>
@@ -284,6 +306,17 @@ void main() {
       expect(find.byType(ClayQrCode), findsOneWidget);
       expect(find.text(teacher.qrCode), findsOneWidget);
       expect(teacher.qrCode.startsWith('T-'), isTrue);
+    });
+
+    appTest('طباعة بطاقة الأستاذ: PDF برمزه يُعرض للطباعة', (tester) async {
+      final presenter = FakePdfPresenter();
+      final (_, teacher) = await withTeacher(tester, presenter: presenter);
+      await tapCardButton(tester, 'طباعة بطاقة الأستاذ', presenter);
+      expect(presenter.shown, hasLength(1));
+      final shown = presenter.shown.single;
+      expect(shown.title, 'بطاقة كمال بن علي');
+      expect(shown.fileName, 'staff-card-${teacher.id}.pdf');
+      expect(String.fromCharCodes(shown.bytes.take(5)), '%PDF-');
     });
 
     appTest('تعديل البيانات', (tester) async {

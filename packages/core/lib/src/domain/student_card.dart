@@ -28,6 +28,66 @@ class StudentCardData {
   final Uint8List? logo;
 }
 
+/// بيانات بطاقة الأستاذ أو العامل.
+class StaffCardData {
+  const StaffCardData({
+    required this.schoolName,
+    required this.name,
+    required this.role,
+    required this.qrCode,
+    this.phone,
+    this.photo,
+    this.logo,
+  });
+
+  final String schoolName;
+  final String name;
+
+  /// ما يظهر تحت الاسم: «أستاذ · رياضيات» أو «عامل».
+  final String role;
+
+  /// نص رمز QR كما يُمسح (`T-…` للأستاذ و`W-…` للعامل).
+  final String qrCode;
+  final String? phone;
+  final Uint8List? photo;
+  final Uint8List? logo;
+}
+
+/// بطاقة الأستاذ أو العامل PDF بالحجم والتصميم نفسيهما لبطاقة التلميذ؛ مسح
+/// رمزها في ماسح المدخل يسجّل الدخول ثم الخروج.
+abstract final class StaffCard {
+  /// يبني ملف PDF لبطاقة واحدة.
+  static Future<Uint8List> build(
+    StaffCardData data, {
+    required Uint8List fontData,
+  }) async {
+    final font = pw.Font.ttf(ByteData.sublistView(fontData));
+    final theme = pw.ThemeData.withFont(base: font, bold: font);
+    final doc = pw.Document(
+      title: 'بطاقة ${data.name}',
+      author: data.schoolName,
+      theme: theme,
+    );
+    doc.addPage(
+      pw.Page(
+        pageFormat: StudentCard.format,
+        textDirection: pw.TextDirection.rtl,
+        build: (context) => StudentCard._card(
+          schoolName: data.schoolName,
+          name: data.name,
+          qrCode: data.qrCode,
+          subtitle: data.role,
+          phone: data.phone,
+          caption: 'يُمسح الرمز عند الدخول والخروج',
+          photo: data.photo,
+          logo: data.logo,
+        ),
+      ),
+    );
+    return doc.save();
+  }
+}
+
 /// بطاقة التلميذ PDF بحجم بطاقة الائتمان 85×54 مم، بالعربية من اليمين إلى
 /// اليسار، جاهزة للطباعة والمشاركة.
 ///
@@ -60,7 +120,16 @@ abstract final class StudentCard {
       pw.Page(
         pageFormat: format,
         textDirection: pw.TextDirection.rtl,
-        build: (context) => _card(data),
+        build: (context) => _card(
+          schoolName: data.schoolName,
+          name: data.studentName,
+          qrCode: data.qrCode,
+          subtitle: data.levelName,
+          phone: data.parentPhone,
+          caption: 'يُمسح الرمز عند الدخول',
+          photo: data.photo,
+          logo: data.logo,
+        ),
       ),
     );
     return doc.save();
@@ -70,14 +139,23 @@ abstract final class StudentCard {
   static final PdfColor _accent = PdfColor.fromHex('#4F52C9');
   static final PdfColor _muted = PdfColor.fromHex('#5A6378');
 
-  static pw.Widget _card(StudentCardData data) {
-    final photo = data.photo == null
-        ? _initials(data.studentName)
+  static pw.Widget _card({
+    required String schoolName,
+    required String name,
+    required String qrCode,
+    required String caption,
+    String? subtitle,
+    String? phone,
+    Uint8List? photo,
+    Uint8List? logo,
+  }) {
+    final picture = photo == null
+        ? _initials(name)
         : pw.ClipRRect(
             horizontalRadius: 5,
             verticalRadius: 5,
             child: pw.Image(
-              pw.MemoryImage(data.photo!),
+              pw.MemoryImage(photo),
               width: 22 * PdfPageFormat.mm,
               height: 28 * PdfPageFormat.mm,
               fit: pw.BoxFit.cover,
@@ -96,9 +174,9 @@ abstract final class StudentCard {
             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             child: pw.Row(
               children: [
-                if (data.logo != null) ...[
+                if (logo != null) ...[
                   pw.Image(
-                    pw.MemoryImage(data.logo!),
+                    pw.MemoryImage(logo),
                     width: 9 * PdfPageFormat.mm,
                     height: 9 * PdfPageFormat.mm,
                     fit: pw.BoxFit.contain,
@@ -107,7 +185,7 @@ abstract final class StudentCard {
                 ],
                 pw.Expanded(
                   child: pw.Text(
-                    data.schoolName,
+                    schoolName,
                     maxLines: 1,
                     style: const pw.TextStyle(
                       color: PdfColors.white,
@@ -125,7 +203,7 @@ abstract final class StudentCard {
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  photo,
+                  picture,
                   pw.SizedBox(width: 8),
                   pw.Expanded(
                     child: pw.Column(
@@ -133,7 +211,7 @@ abstract final class StudentCard {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text(
-                          data.studentName,
+                          name,
                           maxLines: 2,
                           style: pw.TextStyle(
                             color: _ink,
@@ -141,22 +219,22 @@ abstract final class StudentCard {
                             fontWeight: pw.FontWeight.bold,
                           ),
                         ),
-                        if (data.levelName != null)
+                        if (subtitle != null)
                           pw.Text(
-                            data.levelName!,
+                            subtitle,
                             style: pw.TextStyle(color: _muted, fontSize: 9),
                           ),
-                        if (data.parentPhone != null)
+                        if (phone != null && phone.isNotEmpty)
                           pw.Directionality(
                             textDirection: pw.TextDirection.ltr,
                             child: pw.Text(
-                              data.parentPhone!,
+                              phone,
                               style: pw.TextStyle(color: _muted, fontSize: 8),
                             ),
                           ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          'يُمسح الرمز عند الدخول',
+                          caption,
                           style: pw.TextStyle(color: _accent, fontSize: 7),
                         ),
                       ],
@@ -173,7 +251,7 @@ abstract final class StudentCard {
                       barcode: pw.Barcode.qrCode(
                         errorCorrectLevel: pw.BarcodeQRCorrectionLevel.medium,
                       ),
-                      data: data.qrCode,
+                      data: qrCode,
                       width: 26 * PdfPageFormat.mm,
                       height: 26 * PdfPageFormat.mm,
                       drawText: false,
