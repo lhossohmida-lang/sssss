@@ -254,7 +254,8 @@ class SmokeAppTest(unittest.TestCase):
         adb = FakeAdb(xml=[dialog, XML])
         outcome = self.smoke(adb)
         self.assertTrue(outcome.ok, outcome.problems)
-        self.assertIn(("shell", "input", "tap", "540", "1150"), adb.calls)
+        # «Close app» يُنهي التطبيق العالق فلا تعود نافذته (أفضل من «Wait»).
+        self.assertIn(("shell", "input", "tap", "540", "1000"), adb.calls)
         self.assertEqual(outcome.texts, ["ربط التطبيق بمدرستك", "الصق الرمز"])
         self.assertTrue(any("Pixel Launcher" in note for note in outcome.notes))
 
@@ -334,6 +335,13 @@ class RunAndReportTest(unittest.TestCase):
         self.assertEqual([item["app"] for item in data], ["admin", "teacher", "student"])
         self.assertEqual(data[0]["problems"], [])
         self.assertIn("school-teacher.apk", data[1]["problems"][0])
+
+    def test_run_quiets_system_error_dialogs_first(self):
+        adb = FakeAdb()
+        with contextlib.redirect_stdout(io.StringIO()):
+            smoke.run(self.apks, self.root / "out", adb=adb, sleep=lambda _s: None, settle=5)
+        self.assertEqual(adb.calls[0], ("shell", "settings", "put", "global", "hide_error_dialogs", "1"))
+        self.assertIn(("shell", "settings", "put", "secure", "anr_show_background", "0"), adb.calls)
 
     def test_run_succeeds_when_every_app_is_healthy(self):
         for name in ("school-admin.apk", "school-teacher.apk", "school-student.apk"):

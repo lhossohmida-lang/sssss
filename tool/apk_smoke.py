@@ -120,7 +120,16 @@ def crash_reasons(logcat: str, package: str) -> list[str]:
 
 # نافذة نظام تغطي التطبيق في المحاكي (تطبيق آخر لا يستجيب، مثل الواجهة الرئيسية للمحاكي البطيء): ليست من تطبيقنا.
 _SYSTEM_DIALOG = re.compile(r"isn't responding|is not responding|keeps stopping|لا يستجيب|يتوقف باستمرار")
+# «إغلاق التطبيق» يُنهي التطبيق العالق (الواجهة الرئيسية للمحاكي) فلا تعود نافذته؛ «انتظار» تعود معه.
+_CLOSE_LABELS = ("Close app", "إغلاق التطبيق")
 _WAIT_LABELS = ("Wait", "انتظار")
+
+# إعدادات المحاكي قبل الفحص: لا نوافذ «لا يستجيب» ولا انهيار لتطبيقات النظام في الخلفية فوق التطبيق. انهيار
+# تطبيقنا يُكشف من سجل النظام (crash_reasons) لا من هذه النوافذ.
+QUIET_SETTINGS = (
+    ("global", "hide_error_dialogs", "1"),
+    ("secure", "anr_show_background", "0"),
+)
 _BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
 
@@ -129,21 +138,22 @@ def system_dialog(texts: list[str]) -> bool:
     return any(_SYSTEM_DIALOG.search(text) for text in texts)
 
 
-def wait_button_center(xml: str) -> Optional[tuple[int, int]]:
-    """وسط زر «Wait» في نافذة النظام من ناتج `uiautomator dump`، أو None."""
+def dialog_button_center(xml: str) -> Optional[tuple[int, int]]:
+    """وسط زر «Close app» في نافذة النظام (وإلا «Wait») من ناتج `uiautomator dump`، أو None."""
     if not xml.strip():
         return None
     try:
         root = ElementTree.fromstring(xml)
     except ElementTree.ParseError:
         return None
+    centers: dict[str, tuple[int, int]] = {}
     for node in root.iter("node"):
-        if node.get("text", "").strip() in _WAIT_LABELS:
-            match = _BOUNDS.fullmatch(node.get("bounds", ""))
-            if match:
-                x1, y1, x2, y2 = (int(v) for v in match.groups())
-                return ((x1 + x2) // 2, (y1 + y2) // 2)
-    return None
+        label = node.get("text", "").strip()
+        match = _BOUNDS.fullmatch(node.get("bounds", ""))
+        if match and label in _CLOSE_LABELS + _WAIT_LABELS:
+            x1, y1, x2, y2 = (int(v) for v in match.groups())
+            centers.setdefault("close" if label in _CLOSE_LABELS else "wait", ((x1 + x2) // 2, (y1 + y2) // 2))
+    return centers.get("close") or centers.get("wait")
 
 
 def extract_hierarchy(output: str) -> str:
@@ -298,7 +308,7 @@ def smoke_app(
         if not system_dialog(ui_texts(xml)):
             break
         outcome.notes.append("أُغلقت نافذة نظام: " + one_line(" | ".join(ui_texts(xml)[:3])))
-        center = wait_button_center(xml)
+        center = dialog_button_center(xml)
         if center:
             adb.shell("input", "tap", str(center[0]), str(center[1]))
         else:
@@ -344,6 +354,8 @@ def run(
     directory: Optional[bool] = None,
 ) -> int:
     adb = adb or Adb()
+    for namespace, key, value in QUIET_SETTINGS:
+        adb.shell("settings", "put", namespace, key, value)
     outcomes: list[Outcome] = []
     for app, package, name in APPS:
         apk = apk_dir / name
