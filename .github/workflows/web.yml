@@ -112,4 +112,6 @@ jobs:
           fi
           npx --yes wrangler@3 pages project create "$PROJECT" --production-branch main >/dev/null 2>&1 || true
           npx --yes wrangler@3 pages deploy site --project-name "$PROJECT" --branch main --commit-dirty=true
-          echo "::notice title=web-deploy::https://$PROJECT.pages.dev/admin/ و/teacher/ و/student/"
+          for app in admin teacher student; do
+            echo "::notice title=web-url-$app::https://$PROJECT.pages.dev/$app/"
+          done
