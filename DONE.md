@@ -64,7 +64,7 @@
 
 ## نسخة الويب (PWA) — بعد `preview-17`
 
-- **رابط لكل تطبيق** يُفتح في المتصفح ويُثبَّت على الشاشة الرئيسية مجاناً، وهو طريق iPhone المجاني: الإدارة والأستاذ ووليّ التلميذ. فيه بطاقة «تثبيت» (بضغطة على Android والحاسوب، وبخطوتين مرسومتين على iPhone)، ويعمل دون إنترنت بعد أول فتح بالقاعدة نفسها التي على الهاتف. التفاصيل والحدود وخطوات النشر في `WEB.md`؛ والنشر ينتظر حساب Cloudflare.
+- **رابط لكل تطبيق** يُفتح في المتصفح ويُثبَّت على الشاشة الرئيسية مجاناً، وهو طريق iPhone المجاني: الإدارة والأستاذ ووليّ التلميذ. فيه بطاقة «تثبيت» (بضغطة على Android والحاسوب، وبخطوتين مرسومتين على iPhone)، ويعمل دون إنترنت بعد أول فتح بالقاعدة نفسها التي على الهاتف. التفاصيل والحدود وخطوات النشر في `WEB.md`؛ والنشر ينتظر حساب Cloudflare. فحص Chrome في مسار `web` نجح للثلاثة على `a5fc236`: أول فتح 0.7–1.2 ثانية ودون إنترنت نحو 0.56 ثانية (خادم محلي في CI، لا هاتف ولا شبكة حقيقية).
 
 ## ما أُضيف في `preview-17` (بعد `preview-16`)
 
@@ -98,21 +98,21 @@
 
 ## 2. روابط التحميل
 
-صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-16`**
-(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-16>):
+صفحة كل الإصدارات: <https://github.com/lhossohmida-lang/sssss/releases>. **الإصدار المنشور الآن `preview-17`**
+(<https://github.com/lhossohmida-lang/sssss/releases/tag/preview-17>):
 
 | الملف | الرابط المباشر |
 | --- | --- |
-| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-admin.apk> |
-| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-teacher.apk> |
-| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-student.apk> |
-| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-admin-setup.exe> |
-| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-admin-windows.zip> |
-| الإدارة لـiPhone (يُثبَّت بـSideloadly، `IOS.md`) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-admin.ipa> |
-| الأستاذ لـiPhone | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-teacher.ipa> |
-| الوليّ والتلميذ لـiPhone | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-16/school-student.ipa> |
+| تطبيق الإدارة (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-admin.apk> |
+| تطبيق الأستاذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-teacher.apk> |
+| تطبيق الوليّ والتلميذ (Android) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-student.apk> |
+| مثبّت الإدارة لـWindows (الأسهل) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-admin-setup.exe> |
+| الإدارة لـWindows (نسخة محمولة) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-admin-windows.zip> |
+| الإدارة لـiPhone (يُثبَّت بـSideloadly، `IOS.md`) | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-admin.ipa> |
+| الأستاذ لـiPhone | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-teacher.ipa> |
+| الوليّ والتلميذ لـiPhone | <https://github.com/lhossohmida-lang/sssss/releases/download/preview-17/school-student.ipa> |
 
-**`preview-16`** (`4dae488`) يضيف بطاقة الأستاذ والعامل برمز QR؛ نجحت كل مهام `build` و`release-check: ok tag=preview-16 assets=8`. قبله **`preview-15`** (`9585fa0`) يحمل ما في «ما أُضيف في `preview-15`»: نجحت كل مهام `build` (Android ×3 وWindows ومثبّته وiPhone ×3 وبوابة `smoke`) و`release-check: ok tag=preview-15 assets=8` (لا لقطات مرفقة بعد الآن)، ولم يُجرَّب على جهاز حقيقي. قبله **`preview-14`** (`0b9473a`) يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء) ويحمل كل ما في الأقسام أعلاه «ما أُضيف في `preview-14`» و«`preview-13`» و«`preview-12`» و«`preview-11`» و«`preview-10`». نجحت بوابة محاكي Android `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط)، ونجحت نسخ iPhone الثلاث على محاكي iPhone 17 Pro (`ios-smoke`: «أدخل رقم هاتفك وكلمة السر» و«اختر مدرستك» مرتين) وفحص ملفاتها (`ipa_check`)؛ وفشل `release-check` على اللقطات المرفقة وحدها (انظر أعلاه)، والملفات الثمانية مرفوعة ببصماتها. قبله **`preview-13`** (`release-check: ok assets=5`)؛ وتحتاج خادم المدرسة بالترحيلين `0010` و`0011` (طُبّقا على demo). **`preview-10`** سبقه بالدليل المضمَّن. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
+**`preview-17`** (`39e62fc`) يضيف التحديد الجماعي (طباعة البطاقات في ورقة واحدة وإرسال بيانات الدخول والرسائل) وتقويم حضور العمال بكل دخول وخروج؛ نجحت كل مهام `build` و`release-check: ok tag=preview-17 assets=8`. فشلت بوابة المحاكي مرتين قبله لأن الواجهة الرئيسية للمحاكي عرضت «Pixel Launcher isn't responding» فوق التطبيقات (لا عيب فيها)، فصار الفحص يخفي نوافذ أخطاء النظام ويغلق التطبيق العالق. قبله **`preview-16`** (`4dae488`) يضيف بطاقة الأستاذ والعامل برمز QR؛ نجحت كل مهام `build` و`release-check: ok tag=preview-16 assets=8`. قبله **`preview-15`** (`9585fa0`) يحمل ما في «ما أُضيف في `preview-15`»: نجحت كل مهام `build` (Android ×3 وWindows ومثبّته وiPhone ×3 وبوابة `smoke`) و`release-check: ok tag=preview-15 assets=8` (لا لقطات مرفقة بعد الآن)، ولم يُجرَّب على جهاز حقيقي. قبله **`preview-14`** (`0b9473a`) يضمّن دليل المدارس (إشعار `build-directory: directory=embedded` في مهام البناء) ويحمل كل ما في الأقسام أعلاه «ما أُضيف في `preview-14`» و«`preview-13`» و«`preview-12`» و«`preview-11`» و«`preview-10`». نجحت بوابة محاكي Android `smoke` على ملفاته الثلاثة (تظهر شاشات الدليل لا شاشة رمز الربط)، ونجحت نسخ iPhone الثلاث على محاكي iPhone 17 Pro (`ios-smoke`: «أدخل رقم هاتفك وكلمة السر» و«اختر مدرستك» مرتين) وفحص ملفاتها (`ipa_check`)؛ وفشل `release-check` على اللقطات المرفقة وحدها (انظر أعلاه)، والملفات الثمانية مرفوعة ببصماتها. قبله **`preview-13`** (`release-check: ok assets=5`)؛ وتحتاج خادم المدرسة بالترحيلين `0010` و`0011` (طُبّقا على demo). **`preview-10`** سبقه بالدليل المضمَّن. وفي صفحة الإصدار ملفات لقطات الشاشة (`admin.png` و`teacher.png` و`student.png` و`summary.json`) من بوابة المحاكي، وهي من الإصدارات السابقة كذلك ولا تُستعمل. **ملاحظة:** مدرسة العرض سُجّلت في الدليل بعد النشر (قبل التسجيل كان تطبيق الإدارة يجيب «هذا الرقم غير مسجّل في أي مدرسة»)؛ والأجهزة المربوطة قبله تحتفظ بمدرستها كما صُمِّم (لم يُجرَّب على جهاز حقيقي).
 
 الروابط تتغيّر باسم كل إصدار. **`preview-9`** يحمل الحضور السابق وديون الأساتذة والعمال وبوابة فحص الإصدار والدخول برقم الهاتف وتغيير رقم
 الدخول من «حسابي» والإرسال التلقائي للرسائل وإعداد الفوج من صفحة واحدة ودليل الاستخدام (وهذا كله في `preview-8`)، ويزيد: تمييز أخطاء
