@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -47,5 +48,6 @@ class MobileScannerSource implements QrCodeSource {
   Future<void> dispose() => _controller.dispose();
 }
 
-/// هل يُفعَّل مسح الكاميرا على هذا النظام؟ (Android وiPhone؛ على Windows قارئ USB.)
-bool get cameraScanningSupported => Platform.isAndroid || Platform.isIOS;
+/// هل يُفعَّل مسح الكاميرا على هذا النظام؟ (Android وiPhone ونسخة الويب على الهاتف؛ على Windows قارئ USB.)
+bool get cameraScanningSupported =>
+    kIsWeb || Platform.isAndroid || Platform.isIOS;

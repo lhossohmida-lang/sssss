@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,9 +185,9 @@ class GoogleDriveController implements DriveController {
   @override
   bool get isConfigured =>
       _ownerEmail.trim().isNotEmpty &&
-      (Platform.isAndroid ||
-          (Platform.isIOS && _iosClientId.trim().isNotEmpty) ||
-          (Platform.isWindows &&
+      (_isAndroid ||
+          (_isIOS && _iosClientId.trim().isNotEmpty) ||
+          (_isWindows &&
               _windowsClientId.trim().isNotEmpty &&
               _windowsClientSecret.trim().isNotEmpty));
 
@@ -198,16 +199,17 @@ class GoogleDriveController implements DriveController {
     if (_ownerEmail.trim().isEmpty) {
       return 'أدخل بريد حساب Google المالك (زر «ضبط البريد») لتفعيل الربط.';
     }
-    if (Platform.isWindows &&
+    if (_isWindows &&
         (_windowsClientId.trim().isEmpty ||
             _windowsClientSecret.trim().isEmpty)) {
       return 'بيانات OAuth لنسخة Windows لم تُضبط بعد.';
     }
-    if (Platform.isIOS && _iosClientId.trim().isEmpty) {
+    if (_isIOS && _iosClientId.trim().isEmpty) {
       return 'معرّف عميل iOS لـGoogle (GOOGLE_DRIVE_IOS_CLIENT_ID) لم يُضبط في هذا البناء.';
     }
-    if (!Platform.isWindows && !Platform.isAndroid && !Platform.isIOS) {
-      return 'Google Drive متاح في تطبيق الإدارة على Android وiPhone وWindows.';
+    if (!_isWindows && !_isAndroid && !_isIOS) {
+      return 'Google Drive متاح في تطبيق الإدارة المثبّت على Android وiPhone '
+          'وWindows، لا في نسخة المتصفح.';
     }
     return 'أضف إعداد OAuth الخاص بتطبيق Android إلى بناء الإدارة.';
   }
@@ -269,7 +271,7 @@ class GoogleDriveController implements DriveController {
 
   Future<void> _initializeGoogle() async {
     final google = GoogleSignIn.instance;
-    if (Platform.isWindows) {
+    if (_isWindows) {
       final platform = GoogleSignInPlatform.instance;
       if (platform is! GoogleSignInDesktop) {
         throw StateError('مكوّن Google Sign-In لنسخة Windows غير مسجّل.');
@@ -282,12 +284,12 @@ class GoogleDriveController implements DriveController {
         );
     }
     await google.initialize(
-      clientId: Platform.isWindows
+      clientId: _isWindows
           ? _windowsClientId
-          : Platform.isIOS
+          : _isIOS
           ? _iosClientId
           : null,
-      serverClientId: Platform.isAndroid && _serverClientId.isNotEmpty
+      serverClientId: _isAndroid && _serverClientId.isNotEmpty
           ? _serverClientId
           : null,
     );
@@ -737,9 +739,9 @@ class _DriveScreenState extends ConsumerState<DriveScreen> {
           ],
         ),
       );
-      if (Platform.isAndroid) {
+      if (_isAndroid) {
         await SystemNavigator.pop();
-      } else if (Platform.isWindows || Platform.isIOS) {
+      } else if (_isWindows || _isIOS) {
         exit(0);
       }
     });
@@ -1101,3 +1103,8 @@ class _OwnerEmailDialogState extends State<_OwnerEmailDialog> {
     ],
   );
 }
+
+/// المنصة دون `Platform` في المتصفح (نسخة الويب: لا Drive فيها).
+bool get _isAndroid => !kIsWeb && Platform.isAndroid;
+bool get _isIOS => !kIsWeb && Platform.isIOS;
+bool get _isWindows => !kIsWeb && Platform.isWindows;

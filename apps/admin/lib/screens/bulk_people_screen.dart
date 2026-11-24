@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,7 +109,10 @@ class _BulkPeopleScreenState extends ConsumerState<BulkPeopleScreen> {
     setState(() => _busy = true);
     try {
       final settings = await ref.read(settingsServiceProvider).load();
-      final logoFile = await ref.read(logoServiceProvider).resolve();
+      // نسخة الويب بلا ملفات محلية: البطاقات دون الشعار والصور.
+      final logoFile = kIsWeb
+          ? null
+          : await ref.read(logoServiceProvider).resolve();
       final logo = logoFile == null ? null : await logoFile.readAsBytes();
       final school = settings.schoolName.isEmpty
           ? 'المدرسة'
@@ -116,7 +120,9 @@ class _BulkPeopleScreenState extends ConsumerState<BulkPeopleScreen> {
       final cards = <PrintableCard>[];
       for (final person in chosen) {
         final path = person.photoLocalPath;
-        final photo = path == null || path.isEmpty ? null : File(path);
+        final photo = kIsWeb || path == null || path.isEmpty
+            ? null
+            : File(path);
         cards.add(
           PrintableCard(
             schoolName: school,

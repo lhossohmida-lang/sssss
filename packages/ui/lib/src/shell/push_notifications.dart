@@ -179,7 +179,7 @@ class PushNotificationCoordinator {
   Future<PushMessagingClient?> _client() async {
     final current = _messaging;
     if (current != null) return current;
-    if (!enabled || defaultTargetPlatform != TargetPlatform.android) {
+    if (!enabled || kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return null;
     }
     try {

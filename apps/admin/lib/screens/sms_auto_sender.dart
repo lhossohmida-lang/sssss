@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:school_core/school_core.dart';
@@ -26,7 +27,7 @@ final Provider<SmsQueueService> smsQueueServiceProvider =
 /// تستبدلها الاختبارات بمنصة وهمية.
 final Provider<SmsDispatchPlatform?> smsPlatformProvider =
     Provider<SmsDispatchPlatform?>(
-      (ref) => Platform.isAndroid ? AndroidSmsPlatform() : null,
+      (ref) => !kIsWeb && Platform.isAndroid ? AndroidSmsPlatform() : null,
     );
 
 final Provider<SmsSenderDevice> smsSenderDeviceProvider =

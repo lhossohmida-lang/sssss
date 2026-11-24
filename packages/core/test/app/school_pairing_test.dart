@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _url = 'https://abcdefghijklmnopqrst.supabase.co';
 const _key = 'sb_publishable_abcdefghijklmnopqrstuvwxyz012345';
@@ -277,6 +278,37 @@ void main() {
       );
       expect(await store.load(), isNull);
       expect(await store.isLocalPreview(), isFalse);
+    });
+  });
+
+  group('PreferencesPairingStore (نسخة الويب)', () {
+    test('يحفظ الربط ويقرؤه ويفكّه في تخزين المتصفح', () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = PreferencesPairingStore(
+        await SharedPreferences.getInstance(),
+        'pairing_admin',
+      );
+      expect(await store.load(), isNull);
+      expect(await store.isLocalPreview(), isFalse);
+      await store.chooseLocalPreview();
+      expect(await store.isLocalPreview(), isTrue);
+      final pairing = SchoolPairing.parse(
+        _code({'v': 1, 'u': _url, 'k': _key}),
+      );
+      await store.save(pairing);
+      expect((await store.load())?.url, pairing.url);
+      expect(await store.isLocalPreview(), isFalse);
+      await store.clear();
+      expect(await store.load(), isNull);
+    });
+
+    test('قيمة تالفة تُقرأ «غير مربوط»', () async {
+      SharedPreferences.setMockInitialValues({'pairing_admin': 'not json'});
+      final store = PreferencesPairingStore(
+        await SharedPreferences.getInstance(),
+        'pairing_admin',
+      );
+      expect(await store.load(), isNull);
     });
   });
 

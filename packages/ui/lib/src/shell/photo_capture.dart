@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,7 +15,8 @@ import '../theme/clay_tokens.dart';
 
 /// الصورة المحفوظة على الجهاز من مسارها المحلي؛ `null` إن لم توجد صورة.
 ImageProvider? localPhoto(String? path) =>
-    path == null || path.isEmpty ? null : FileImage(File(path));
+    // نسخة الويب بلا ملفات محلية: الأحرف الأولى بدل الصورة.
+    kIsWeb || path == null || path.isEmpty ? null : FileImage(File(path));
 
 /// مصدر الصور: يلتقط صورة ويعيد بياناتها الخام (قبل الضغط)، أو `null` عند
 /// الإلغاء. التطبيق الحقيقي كاميرا الهاتف أو كاميرا الحاسوب، وتُستبدل في
@@ -260,31 +262,36 @@ class ClayPhotoField extends ConsumerWidget {
         ClayAvatar(name: name, image: image, size: 72),
         const SizedBox(width: ClaySpacing.lg),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClayButton(
-                label: image == null ? 'التقاط صورة' : 'تغيير الصورة',
-                icon: ClayIcons.camera,
-                kind: ClayButtonKind.secondary,
-                expand: true,
-                onPressed: enabled
-                    ? () async {
-                        final bytes = await ref
-                            .read(photoSourceProvider)
-                            .capture(context);
-                        if (bytes != null) onChanged(bytes);
-                      }
-                    : null,
-              ),
-              if (pending != null)
-                TextButton(
-                  onPressed: enabled ? () => onChanged(null) : null,
-                  child: const Text('إلغاء الصورة الملتقطة'),
+          child: kIsWeb
+              ? Text(
+                  'تُلتقط الصورة من التطبيق المثبّت (Android أو iPhone أو Windows)',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClayButton(
+                      label: image == null ? 'التقاط صورة' : 'تغيير الصورة',
+                      icon: ClayIcons.camera,
+                      kind: ClayButtonKind.secondary,
+                      expand: true,
+                      onPressed: enabled
+                          ? () async {
+                              final bytes = await ref
+                                  .read(photoSourceProvider)
+                                  .capture(context);
+                              if (bytes != null) onChanged(bytes);
+                            }
+                          : null,
+                    ),
+                    if (pending != null)
+                      TextButton(
+                        onPressed: enabled ? () => onChanged(null) : null,
+                        child: const Text('إلغاء الصورة الملتقطة'),
+                      ),
+                  ],
                 ),
-            ],
-          ),
         ),
       ],
     );

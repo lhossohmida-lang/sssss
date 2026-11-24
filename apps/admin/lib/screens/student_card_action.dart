@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,9 +14,12 @@ Future<StudentCardData> studentCardData(
   StudentProfile profile,
 ) async {
   final settings = await ref.read(settingsServiceProvider).load();
-  final logoFile = await ref.read(logoServiceProvider).resolve();
+  // نسخة الويب بلا ملفات محلية: البطاقة دون الشعار والصورة.
+  final logoFile = kIsWeb
+      ? null
+      : await ref.read(logoServiceProvider).resolve();
   final photoPath = profile.student.photoLocalPath;
-  final photoFile = photoPath == null || photoPath.isEmpty
+  final photoFile = kIsWeb || photoPath == null || photoPath.isEmpty
       ? null
       : File(photoPath);
   return StudentCardData(

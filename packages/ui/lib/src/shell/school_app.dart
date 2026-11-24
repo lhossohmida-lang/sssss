@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,7 @@ import 'assistant_screens.dart';
 import 'auth_screens.dart';
 import 'notifications_screen.dart';
 import 'providers.dart';
+import 'pwa_install.dart';
 
 /// ينبّه الموجِّه عند تغيّر الجلسة ليعيد حساب إعادة التوجيه.
 class _AuthRefresh extends ChangeNotifier {
@@ -336,11 +338,12 @@ class _SchoolAppState extends ConsumerState<SchoolApp> {
     ref.watch(pushNotificationsProvider);
     // يبدأ فحص النسخ الجديدة وتنزيلها في الخلفية ما دام التطبيق مفتوحاً (معطَّل في بناء التطوير).
     ref.watch(updateControllerProvider);
-    // بطاقة التحديث فوق كل شيء، من شاشة الدخول إلى الصفحات المفتوحة.
+    // بطاقة التحديث فوق كل شيء، من شاشة الدخول إلى الصفحات المفتوحة. وفي نسخة الويب يتحدّث التطبيق وحده
+    // (عامل الخدمة)، فتحل محلها بطاقة التثبيت على الشاشة الرئيسية.
     return ClayApp(
       app: _runtime.app,
       routerConfig: _router,
-      overlay: const UpdateOverlay(),
+      overlay: kIsWeb ? const PwaInstallOverlay() : const UpdateOverlay(),
     );
   }
 }

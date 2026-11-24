@@ -99,6 +99,8 @@ Uri iosInstallGuide(String repo) =>
 /// متحكم التحديث التلقائي لهذا التطبيق، أو `null` إن كان معطّلاً (بناء تطوير/خاص أو نظام بلا تحديث).
 final Provider<UpdateController?>
 updateControllerProvider = Provider<UpdateController?>((ref) {
+  // نسخة الويب يحدّثها عامل الخدمة عند الفتح (ملفات الموقع الجديدة)، لا ملف تثبيت.
+  if (kIsWeb) return null;
   final runtime = ref.watch(runtimeProvider);
   final asset = updateAssetName(runtime.app);
   if (asset == null ||

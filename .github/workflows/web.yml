@@ -1,0 +1,115 @@
+name: web
+
+# نسخة الويب (PWA) للتطبيقات الثلاثة: رابط يُفتح في المتصفح ويُثبَّت على الشاشة الرئيسية (iPhone وAndroid والحاسوب) مجاناً.
+# تُبنى بـWebAssembly (أسرع ما في Flutter للويب) ومحرّك الرسم من الموقع نفسه لا من شبكة Google، ومعها SQLite مترجماً
+# (sqlite3.wasm من إصدار حزمة sqlite3 نفسه) وعامل قاعدة drift مترجماً من الكود، وعامل خدمة (tool/pwa_sw.py) يحفظ كل
+# ذلك في الجهاز فيعمل التطبيق دون إنترنت. ثم يُفتح كل تطبيق في Chrome دون واجهة: يجب أن يصل شاشته الأولى، ثم يصلها
+# دون إنترنت (tool/web_smoke.py). ويُنشر الموقع على Cloudflare Pages متى وُجد سرّا CLOUDFLARE_API_TOKEN وCLOUDFLARE_ACCOUNT_ID
+# (الخطوات في WEB.md)، وإلا يبقى أرتيفاكتاً.
+#
+# يستدعيه build عند كل إصدار، ويُشغَّل وحده عند تغيير ملفات الويب أو يدوياً.
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/*/web/**"
+      - "web_site/**"
+      - "packages/core/web/**"
+      - "packages/core/lib/src/data/local/open_database*.dart"
+      - "packages/ui/lib/src/shell/pwa_*.dart"
+      - "tool/pwa_sw.py"
+      - "tool/web_smoke.py"
+      - ".github/workflows/web.yml"
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.47.9"
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Resolve the school directory
+        env:
+          DIRECTORY_URL: ${{ vars.DIRECTORY_URL }}
+          DIRECTORY_ANON_KEY: ${{ vars.DIRECTORY_ANON_KEY }}
+        run: python3 tool/directory_setup.py public
+      # SQLite للمتصفح من إصدار حزمة sqlite3 المستعملة نفسه (إصدارات sqlite3.dart الرسمية على GitHub)، وعامل
+      # القاعدة يُترجم من drift المستعمل نفسه، فلا يختلف إصداران.
+      - name: Browser database files
+        run: |
+          version="$(python3 - <<'PY'
+          import re
+          lock = open("pubspec.lock", encoding="utf-8").read()
+          print(re.search(r'\n  sqlite3:\n(?:    .*\n)*?    version: "([^"]+)"', lock).group(1))
+          PY
+          )"
+          mkdir -p "$RUNNER_TEMP/webdb"
+          curl -fsSL -o "$RUNNER_TEMP/webdb/sqlite3.wasm" \
+            "https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-$version/sqlite3.wasm"
+          (cd packages/core && dart compile js -O4 -o "$RUNNER_TEMP/webdb/drift_worker.js" web/drift_worker.dart)
+          rm -f "$RUNNER_TEMP/webdb/"*.map "$RUNNER_TEMP/webdb/"*.deps
+          echo "::notice title=web-sqlite::sqlite3 $version ($(stat -c %s "$RUNNER_TEMP/webdb/sqlite3.wasm") bytes)"
+      - name: Build the three apps
+        shell: bash
+        run: |
+          tag="$(head -n 1 RELEASE_VERSION | tr -d '[:space:]')"
+          mkdir -p site
+          cp -r web_site/. site/
+          for app in admin teacher student; do
+            defines=("--dart-define=APP_RELEASE=$tag")
+            if [ -n "${DIRECTORY_URL:-}" ] && [ -n "${DIRECTORY_KEY:-}" ]; then
+              defines+=("--dart-define=DIRECTORY_URL=$DIRECTORY_URL" "--dart-define=DIRECTORY_KEY=$DIRECTORY_KEY")
+            fi
+            (cd "apps/$app" && flutter build web --release --wasm --no-web-resources-cdn \
+              --base-href "/$app/" "${defines[@]}")
+            cp "$RUNNER_TEMP/webdb/sqlite3.wasm" "$RUNNER_TEMP/webdb/drift_worker.js" "apps/$app/build/web/"
+            rm -f "apps/$app/build/web/flutter_service_worker.js"
+            find "apps/$app/build/web" -name "*.symbols" -delete
+            python3 tool/pwa_sw.py "apps/$app/build/web" "$app"
+            cp -r "apps/$app/build/web" "site/$app"
+            echo "::notice title=web-size-$app::$(du -sh "site/$app" | cut -f1)"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-site
+          path: site
+          if-no-files-found: error
+      - name: Smoke test in Chrome (online, then offline)
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install --with-deps chromium >/dev/null
+          python3 tool/web_smoke.py site web-smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-smoke
+          path: web-smoke
+          if-no-files-found: ignore
+      # النشر على Cloudflare Pages (مجاني، بلا حد للتنزيل، ويسمح بالاستعمال التجاري) متى وُضع السرّان.
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'school-apps' }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice title=web-deploy::لم يُنشر: ضع CLOUDFLARE_API_TOKEN وCLOUDFLARE_ACCOUNT_ID (WEB.md). الموقع في أرتيفاكت web-site."
+            exit 0
+          fi
+          npx --yes wrangler@3 pages project create "$PROJECT" --production-branch main >/dev/null 2>&1 || true
+          npx --yes wrangler@3 pages deploy site --project-name "$PROJECT" --branch main --commit-dirty=true
+          echo "::notice title=web-deploy::https://$PROJECT.pages.dev/admin/ و/teacher/ و/student/"

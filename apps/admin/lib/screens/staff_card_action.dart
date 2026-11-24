@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,8 +21,11 @@ Future<void> showStaffCard(
   String? photoLocalPath,
 }) async {
   final settings = await ref.read(settingsServiceProvider).load();
-  final logoFile = await ref.read(logoServiceProvider).resolve();
-  final photoFile = photoLocalPath == null || photoLocalPath.isEmpty
+  // نسخة الويب بلا ملفات محلية: البطاقة دون الشعار والصورة.
+  final logoFile = kIsWeb
+      ? null
+      : await ref.read(logoServiceProvider).resolve();
+  final photoFile = kIsWeb || photoLocalPath == null || photoLocalPath.isEmpty
       ? null
       : File(photoLocalPath);
   final data = StaffCardData(

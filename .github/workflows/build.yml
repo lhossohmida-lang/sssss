@@ -214,6 +214,12 @@ jobs:
       school: ${{ inputs.school || '' }}
     secrets: inherit
 
+  # نسخة الويب (PWA) للبناء العام: تُبنى وتُختبر في Chrome وتُنشر على Cloudflare Pages متى ضُبط (WEB.md). لا تؤخّر الإصدار.
+  web:
+    if: ${{ !inputs.school }}
+    uses: ./.github/workflows/web.yml
+    secrets: inherit
+
   # بوابة قبل النشر: الملفات الثلاثة تُثبَّت على محاكي Android وتبدأ بلا انهيار (tool/apk_smoke.py)، وإلا لا يُنشر شيء.
   smoke:
     needs: android

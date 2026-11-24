@@ -1,0 +1,12 @@
+# رؤوس Cloudflare Pages. الصفحة وعامل الخدمة لا يُخزَّنان في ذاكرة المتصفح العادية: يجلب المتصفح عامل الخدمة الجديد
+# عند كل فتح فيصل الإصدار الجديد، وما عداهما يحفظه عامل الخدمة نفسه.
+/*/sw.js
+  Cache-Control: no-cache
+/*/index.html
+  Cache-Control: no-cache
+/*/
+  Cache-Control: no-cache
+/*/manifest.json
+  Cache-Control: no-cache
+/*.wasm
+  Content-Type: application/wasm

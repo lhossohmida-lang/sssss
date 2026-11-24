@@ -323,8 +323,10 @@ void main() {
     await tester.tap(find.widgetWithText(ClayButton, 'تأكيد'));
     await tester.pumpAndSettle();
 
+    // النافذة تفتح على شهر أول حصة (بعد ستة أيام، قد تقع في الشهر التالي آخر الشهر)، و«الشهر السابق» يسبقه.
     final now = DateTime.now();
-    final picked = DateTime(now.year, now.month - 1, 15);
+    final first = DateTime(now.year, now.month, now.day + 6);
+    final picked = DateTime(first.year, first.month - 1, 15);
     expect(find.text(DateKey.of(picked)), findsWidgets);
     // الحصص الماضية من ذلك التاريخ إلى أمس محدَّدة، والمجموع ثمانٍ دائماً.
     final past = tester.widgetList<ClayCheckbox>(find.byType(ClayCheckbox));

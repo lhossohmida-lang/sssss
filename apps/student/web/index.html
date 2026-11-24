@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="تطبيق الوليّ والتلميذ: الحضور والمدفوعات والنتائج">
+  <meta name="theme-color" content="#4F52C9">
+
+  <!-- يُفتح من الشاشة الرئيسية كتطبيق كامل بلا شريط المتصفح (iPhone وAndroid). -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="وليّ التلميذ">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>وليّ التلميذ</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #EEF1F8; }
+    #splash { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 16px; font-family: system-ui, sans-serif; color: #5A6378; }
+    #splash img { width: 112px; height: 112px; border-radius: 24px; }
+  </style>
+</head>
+<body>
+  <div id="splash"><img src="icons/Icon-192.png" alt=""><div>وليّ التلميذ</div></div>
+  <script>
+    // التثبيت بضغطة (Chrome وEdge): يُحفظ عرض المتصفح ليستعمله زر «تثبيت» في التطبيق.
+    window.addEventListener('beforeinstallprompt', function (event) {
+      event.preventDefault();
+      window.__pwaInstallPrompt = event;
+      window.dispatchEvent(new Event('pwa-install-available'));
+    });
+    // الشاشة الأولى ظهرت: تُزال شاشة البداية.
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('splash');
+      if (splash) splash.remove();
+    });
+    // عامل الخدمة: يحفظ ملفات التطبيق في الجهاز فيُفتح فوراً ودون إنترنت، ويجلب النسخة الجديدة وحده.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js');
+        // أول زيارة تُحمَّل قبل أن يتحكم العامل بالصفحة: يُعاد طلب ما حُمّل (كود التطبيق ومحرّك الرسم) عبره
+        // فيُحفظ، فيعمل الفتح التالي دون إنترنت.
+        function warm() {
+          performance.getEntriesByType('resource')
+            .map(function (entry) { return entry.name; })
+            .filter(function (url) { return url.indexOf(location.origin) === 0; })
+            .forEach(function (url) { fetch(url).catch(function () {}); });
+        }
+        if (navigator.serviceWorker.controller) {
+          warm();
+        } else {
+          navigator.serviceWorker.addEventListener('controllerchange', warm, { once: true });
+        }
+      });
+    }
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

@@ -35,6 +35,7 @@ dependencies:
     path: ../assistant
   speech_to_text: ^7.5.0
   url_launcher: ^6.3.3
+  web: ^1.1.1
 
 dev_dependencies:
   drift: ^2.35.4
