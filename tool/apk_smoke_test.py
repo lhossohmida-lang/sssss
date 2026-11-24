@@ -74,7 +74,8 @@ class FakeAdb:
         self.logcat = logcat
         self.dumpsys = dumpsys
         self.raw = raw if raw is not None else raw_screen(8)
-        self.xml = xml
+        # قائمة: كل قراءة للشاشة تأخذ التالية، وتبقى الأخيرة.
+        self.xml = list(xml) if isinstance(xml, (list, tuple)) else [xml]
         self.calls = []
 
     def uninstall(self, package):
@@ -100,7 +101,7 @@ class FakeAdb:
         if head == "dumpsys":
             return self.dumpsys
         if head == "cat":
-            return self.xml
+            return self.xml.pop(0) if len(self.xml) > 1 else self.xml[0]
         return ""
 
     def screencap_raw(self):
@@ -241,6 +242,34 @@ class SmokeAppTest(unittest.TestCase):
     def test_blank_screen(self):
         outcome = self.smoke(FakeAdb(raw=raw_screen(1)))
         self.assertTrue(any("فارغة" in p for p in outcome.problems))
+
+    def test_a_system_not_responding_dialog_is_closed_then_the_app_is_checked(self):
+        dialog = (
+            "<?xml version='1.0' ?><hierarchy>"
+            '<node text="Pixel Launcher isn\'t responding" content-desc="" bounds="[60,800][1020,900]"/>'
+            '<node text="Close app" content-desc="" bounds="[60,950][1020,1050]"/>'
+            '<node text="Wait" content-desc="" bounds="[60,1100][1020,1200]"/>'
+            "</hierarchy>"
+        )
+        adb = FakeAdb(xml=[dialog, XML])
+        outcome = self.smoke(adb)
+        self.assertTrue(outcome.ok, outcome.problems)
+        self.assertIn(("shell", "input", "tap", "540", "1150"), adb.calls)
+        self.assertEqual(outcome.texts, ["ربط التطبيق بمدرستك", "الصق الرمز"])
+        self.assertTrue(any("Pixel Launcher" in note for note in outcome.notes))
+
+    def test_a_dialog_that_never_closes_still_fails(self):
+        stuck = (
+            "<?xml version='1.0' ?><hierarchy>"
+            '<node text="System UI isn\'t responding" content-desc=""/>'
+            "</hierarchy>"
+        )
+        adb = FakeAdb(xml=stuck)
+        outcome = self.smoke(adb)
+        self.assertFalse(outcome.ok)
+        self.assertEqual(
+            sum(1 for c in adb.calls if c[:3] == ("shell", "am", "broadcast")), 3
+        )
 
     def test_an_unexpected_first_screen_fails(self):
         error_screen = (

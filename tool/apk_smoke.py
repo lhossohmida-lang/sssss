@@ -118,6 +118,34 @@ def crash_reasons(logcat: str, package: str) -> list[str]:
     return reasons
 
 
+# نافذة نظام تغطي التطبيق في المحاكي (تطبيق آخر لا يستجيب، مثل الواجهة الرئيسية للمحاكي البطيء): ليست من تطبيقنا.
+_SYSTEM_DIALOG = re.compile(r"isn't responding|is not responding|keeps stopping|لا يستجيب|يتوقف باستمرار")
+_WAIT_LABELS = ("Wait", "انتظار")
+_BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+
+
+def system_dialog(texts: list[str]) -> bool:
+    """هل تغطي الشاشةَ نافذةُ نظام «… لا يستجيب»؟"""
+    return any(_SYSTEM_DIALOG.search(text) for text in texts)
+
+
+def wait_button_center(xml: str) -> Optional[tuple[int, int]]:
+    """وسط زر «Wait» في نافذة النظام من ناتج `uiautomator dump`، أو None."""
+    if not xml.strip():
+        return None
+    try:
+        root = ElementTree.fromstring(xml)
+    except ElementTree.ParseError:
+        return None
+    for node in root.iter("node"):
+        if node.get("text", "").strip() in _WAIT_LABELS:
+            match = _BOUNDS.fullmatch(node.get("bounds", ""))
+            if match:
+                x1, y1, x2, y2 = (int(v) for v in match.groups())
+                return ((x1 + x2) // 2, (y1 + y2) // 2)
+    return None
+
+
 def extract_hierarchy(output: str) -> str:
     """مقطع XML من ناتج `uiautomator dump` (يسبقه ويليه نص آخر أحياناً)."""
     start = output.find("<?xml")
@@ -169,6 +197,8 @@ class Outcome:
     colors: int = 0
     texts: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    # ما عولج في المحاكي دون أن يكون عيباً في التطبيق (نافذة نظام أُغلقت).
+    notes: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -257,6 +287,25 @@ def smoke_app(
         if crashes or parse_pid(adb.shell("pidof", package)) is None:
             break
     outcome.problems.extend(crashes)
+
+    def screen_xml() -> str:
+        adb.shell("uiautomator", "dump", "/sdcard/smoke_ui.xml", timeout=60)
+        return extract_hierarchy(adb.shell("cat", "/sdcard/smoke_ui.xml"))
+
+    # نافذة «… لا يستجيب» لتطبيق آخر في المحاكي تغطي التطبيق: تُغلق («Wait») ويُعاد النظر، حتى 3 مرات.
+    xml = screen_xml()
+    for _ in range(3):
+        if not system_dialog(ui_texts(xml)):
+            break
+        outcome.notes.append("أُغلقت نافذة نظام: " + one_line(" | ".join(ui_texts(xml)[:3])))
+        center = wait_button_center(xml)
+        if center:
+            adb.shell("input", "tap", str(center[0]), str(center[1]))
+        else:
+            adb.shell("am", "broadcast", "-a", "android.intent.action.CLOSE_SYSTEM_DIALOGS")
+        sleep(poll)
+        xml = screen_xml()
+
     outcome.pid = parse_pid(adb.shell("pidof", package))
     if outcome.pid is None:
         outcome.problems.append("العملية انتهت بعد التشغيل (انهيار أو إغلاق)")
@@ -271,8 +320,7 @@ def smoke_app(
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{app}.png").write_bytes(adb.screencap_png())
 
-    adb.shell("uiautomator", "dump", "/sdcard/smoke_ui.xml", timeout=60)
-    texts = ui_texts(extract_hierarchy(adb.shell("cat", "/sdcard/smoke_ui.xml")))
+    texts = ui_texts(xml)
     outcome.texts = texts[:12]
     expected = first_screens(app, directory)
     if texts and not any(screen in text for text in texts for screen in expected):
