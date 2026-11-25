@@ -18,6 +18,8 @@ on:
       - "packages/core/web/**"
       - "packages/core/lib/src/data/local/open_database*.dart"
       - "packages/ui/lib/src/shell/pwa_*.dart"
+      - "packages/ui/lib/src/shell/school_app.dart"
+      - "packages/ui/lib/src/shell/school_bootstrap.dart"
       - "tool/pwa_sw.py"
       - "tool/web_smoke.py"
       - ".github/workflows/web.yml"

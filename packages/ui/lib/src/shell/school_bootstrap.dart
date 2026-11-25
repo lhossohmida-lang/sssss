@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -16,6 +17,7 @@ import 'device_reset.dart';
 import 'directory_screens.dart';
 import 'pairing_screens.dart';
 import 'providers.dart';
+import 'pwa_install.dart';
 import 'qr_scanning.dart';
 import 'school_app.dart';
 
@@ -398,8 +400,10 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
         ),
       );
     }
+    // قبل الاتصال بالمدرسة (الربط ودليل المدارس واختيار المدرسة): بطاقة التثبيت على الشاشة الرئيسية في نسخة الويب.
     return ClayApp(
       app: widget.app,
+      overlay: kIsWeb ? const PwaInstallOverlay() : null,
       home: switch (_phase) {
         _Phase.pairing => PairingScreen(
           app: widget.app,
