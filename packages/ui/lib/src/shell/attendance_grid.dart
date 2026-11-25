@@ -9,17 +9,36 @@ import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import 'providers.dart';
 
+/// ضغطة على خانة تلميذ في حصة (لتغيير حضوره).
+typedef GridCellTap = void Function(SessionRow session, GridStudent student);
+
+/// ضغطة على عنوان حصة (لفتح ورقة حضورها).
+typedef GridSessionTap = void Function(SessionRow session);
+
+/// هل تُعدَّل خانات هذه الحصة؟ حصة غير ملغاة تاريخها اليوم أو قبله.
+bool gridSessionEditable(SessionRow s, String today) =>
+    SessionStatus.fromCode(s.status).countsInCycle &&
+    s.date.compareTo(today) <= 0;
+
 /// شبكة حضور دورة مجموعة بتنقل بين الدورات وتقدّم حصصها ودليل الألوان، تُعرض
 /// تحت [header] (بطاقة معلومات المجموعة). مشتركة بين الإدارة والأستاذ.
 class GroupGridView extends ConsumerStatefulWidget {
   const GroupGridView({
     required this.groupId,
     this.header = const [],
+    this.onCellTap,
+    this.onSessionTap,
     super.key,
   });
 
   final String groupId;
   final List<Widget> header;
+
+  /// الإدارة: تغيير حضور تلميذ في حصة مضت أو حصة اليوم بضغط خانته. `null` (الأستاذ): للعرض فقط.
+  final GridCellTap? onCellTap;
+
+  /// الإدارة: فتح ورقة حضور الحصة بضغط عنوانها.
+  final GridSessionTap? onSessionTap;
 
   @override
   ConsumerState<GroupGridView> createState() => _GroupGridViewState();
@@ -67,8 +86,22 @@ class _GroupGridViewState extends ConsumerState<GroupGridView> {
                 message: 'يُنسب التلاميذ إليها من استمارة التسجيل أو ملفهم',
                 icon: ClayIcons.students,
               )
-            else
-              AttendanceGridTable(grid: g),
+            else ...[
+              if (widget.onCellTap != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
+                  child: Text(
+                    'اضغط خانة تلميذ لتغيير حضوره في حصة مضت (ولو أُغلقت)، أو رقم '
+                    'الحصة لفتح ورقة حضورها.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              AttendanceGridTable(
+                grid: g,
+                onCellTap: widget.onCellTap,
+                onSessionTap: widget.onSessionTap,
+              ),
+            ],
             const SizedBox(height: ClaySpacing.lg),
             _Legend(
               showPayment: g.students.any((s) => s.coveredSessions != null),
@@ -138,9 +171,16 @@ class _CycleBar extends StatelessWidget {
 /// جدول الحضور: عمود للتلميذ وعمود لكل حصة، وخلية بحالته. يتمرر أفقياً إن
 /// ضاق العرض، والصفوف في `ListView.builder` بارتفاع ثابت.
 class AttendanceGridTable extends StatelessWidget {
-  const AttendanceGridTable({required this.grid, super.key});
+  const AttendanceGridTable({
+    required this.grid,
+    this.onCellTap,
+    this.onSessionTap,
+    super.key,
+  });
 
   final GroupGrid grid;
+  final GridCellTap? onCellTap;
+  final GridSessionTap? onSessionTap;
 
   static const double nameWidth = 150;
   static const double cellWidth = 56;
@@ -175,10 +215,12 @@ class AttendanceGridTable extends StatelessWidget {
     // دورتهم فتقع بين حصصها بحسب تاريخها).
     final columns = _GridColumn.merge(sessions, grid.reviewSessions);
     final tableWidth = nameWidth + columns.length * cellWidth + totalsWidth;
+    final today = DateKey.of(DateTime.now());
 
     Widget header(SessionRow s) {
       final cancelled = !SessionStatus.fromCode(s.status).countsInCycle;
-      return SizedBox(
+      final open = onSessionTap;
+      final box = SizedBox(
         width: cellWidth,
         height: headerHeight,
         child: Semantics(
@@ -207,6 +249,12 @@ class AttendanceGridTable extends StatelessWidget {
             ],
           ),
         ),
+      );
+      if (open == null || !gridSessionEditable(s, today)) return box;
+      return InkWell(
+        key: ValueKey('grid-session-${s.id}'),
+        onTap: () => open(s),
+        child: box,
       );
     }
 
@@ -277,6 +325,8 @@ class AttendanceGridTable extends StatelessWidget {
                     sessions: sessions,
                     columns: columns,
                     cellWidth: cellWidth,
+                    today: today,
+                    onCellTap: onCellTap,
                   ),
                 ),
               ),
@@ -321,9 +371,13 @@ class _GridRow extends StatelessWidget {
     required this.sessions,
     required this.columns,
     required this.cellWidth,
+    required this.today,
+    this.onCellTap,
   });
 
   final GridStudent student;
+  final String today;
+  final GridCellTap? onCellTap;
 
   /// حصص الدورة العامة (للمجموع)، و[columns] كل أعمدة الشبكة بترتيبها الزمني.
   final List<SessionRow> sessions;
@@ -341,16 +395,33 @@ class _GridRow extends StatelessWidget {
     // خلية لمن هو ضيف فيها (حصة من دورته)، وفراغ لغيره، ولا تدخل ترتيب التسديد.
     var position = 0;
     final cells = <Widget>[];
+    // خانة تُضغط لتغيير الحضور (الإدارة): حصة اليوم أو ما قبله غير ملغاة.
+    Widget tappable(SessionRow s, Widget cell) {
+      final tap = onCellTap;
+      if (tap == null || !gridSessionEditable(s, today)) return cell;
+      // الصف يبقى وحدة واحدة لقارئ الشاشة؛ وتغيير الحضور له من ورقة الحصة (عنوان العمود).
+      return GestureDetector(
+        key: ValueKey('grid-cell-${s.id}-${student.studentId}'),
+        behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
+        onTap: () => tap(s, student),
+        child: cell,
+      );
+    }
+
     for (final c in columns) {
       final s = c.session;
       if (c.review) {
         cells.add(
           student.reviewSessionIds.contains(s.id)
-              ? _Cell(
-                  width: cellWidth,
-                  status: student.cells[s.id],
-                  cancelled: false,
-                  review: true,
+              ? tappable(
+                  s,
+                  _Cell(
+                    width: cellWidth,
+                    status: student.cells[s.id],
+                    cancelled: false,
+                    review: true,
+                  ),
                 )
               : SizedBox(width: cellWidth),
         );
@@ -358,11 +429,14 @@ class _GridRow extends StatelessWidget {
       }
       final cancelled = !SessionStatus.fromCode(s.status).countsInCycle;
       cells.add(
-        _Cell(
-          width: cellWidth,
-          status: student.cells[s.id],
-          cancelled: cancelled,
-          paid: cancelled ? null : student.paidAt(position),
+        tappable(
+          s,
+          _Cell(
+            width: cellWidth,
+            status: student.cells[s.id],
+            cancelled: cancelled,
+            paid: cancelled ? null : student.paidAt(position),
+          ),
         ),
       );
       if (!cancelled) position++;

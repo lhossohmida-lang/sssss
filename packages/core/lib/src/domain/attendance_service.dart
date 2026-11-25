@@ -581,10 +581,17 @@ class AttendanceService {
     String studentId,
     AttendanceStatus status,
   ) async {
-    final id = StableId.attendance(session.id, studentId);
-    final existing = await (db.select(
-      db.attendance,
-    )..where((a) => a.id.equals(id))).getSingleOrNull();
+    // الصف الموجود بالحصة والتلميذ (فريد بهما) ولو كان معرّفه غير المعرّف الثابت (صف قديم أو مستورد).
+    final existing =
+        await (db.select(db.attendance)
+              ..where(
+                (a) =>
+                    a.sessionId.equals(session.id) &
+                    a.studentId.equals(studentId),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    final id = existing?.id ?? StableId.attendance(session.id, studentId);
     if (existing != null &&
         existing.deletedAt == null &&
         existing.status == status.code) {

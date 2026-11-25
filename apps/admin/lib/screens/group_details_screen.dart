@@ -79,6 +79,70 @@ class GroupDetailsScreen extends ConsumerWidget {
     );
   }
 
+  /// يغيّر حضور تلميذ في حصة مضت أو حصة اليوم من شبكة الدورة، ولو أُغلقت الحصة (المدير ومن يملك
+  /// تعديل الحضور). لا رسالة غياب: يُلغى ما ينتظر منها إن صار حاضراً أو برخصة.
+  Future<void> _editCell(
+    BuildContext context,
+    WidgetRef ref,
+    SessionRow session,
+    GridStudent student,
+  ) async {
+    final current = student.cells[session.id];
+    final status = await showClayBottomSheet<AttendanceStatus>(
+      context,
+      title: student.name,
+      builder: (sheet) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '${GroupService.weekdayName(DateKey.weekday(session.date))} '
+            '${session.date} · '
+            '${DateKey.formatMinutes(session.startMinutes)}'
+            '${session.sessionNumber == null ? '' : ' · الحصة ${session.sessionNumber}'}',
+            style: Theme.of(sheet).textTheme.bodySmall,
+          ),
+          const SizedBox(height: ClaySpacing.md),
+          for (final option in AttendanceStatus.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
+              child: ClayListTile(
+                title: option.label,
+                trailing: [
+                  if (option == current)
+                    const ClayBadge(label: 'الحالي', tone: ClayTone.info),
+                ],
+                onTap: () => Navigator.of(sheet).pop(option),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (status == null || status == current || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(attendanceServiceProvider)
+          .mark(
+            sessionId: session.id,
+            studentId: student.studentId,
+            status: status,
+            canExcuse: true,
+          );
+      messenger.showSnackBar(
+        SnackBar(content: Text('${student.name}: ${status.label}')),
+      );
+    } on ValidationException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.errors.values.isEmpty ? 'تعذّر التغيير' : e.errors.values.first,
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final text = Theme.of(context).textTheme;
@@ -128,6 +192,12 @@ class GroupDetailsScreen extends ConsumerWidget {
       ),
       body: GroupGridView(
         groupId: groupId,
+        onCellTap: canPast
+            ? (session, student) => _editCell(context, ref, session, student)
+            : null,
+        onSessionTap: canRoster
+            ? (session) => context.push('/attendance/${session.id}')
+            : null,
         header: [
           if (item != null)
             Padding(
