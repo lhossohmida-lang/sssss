@@ -124,4 +124,53 @@ void main() {
     expect(left, isEmpty);
     expect(find.textContaining('بلا تسجيل 2'), findsOneWidget);
   });
+
+  appTest('الضغط الثاني على دفع الحصة يلغي دفعها', (tester) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    final runtime = await openDetails(tester);
+    await tester.pumpAndSettle();
+    final db = runtime.db;
+    final first = await runDb(
+      tester,
+      () =>
+          (db.select(db.sessions)
+                ..orderBy([(s) => OrderingTerm(expression: s.date)])
+                ..limit(1))
+              .getSingle(),
+    );
+    final cell = find.byKey(ValueKey('grid-cell-${first.id}-s1'));
+    await tester.tap(cell);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'دفع هذه الحصة'));
+    await tester.pumpAndSettle();
+    await tester.tap(cell);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'إلغاء دفع هذه الحصة'));
+    await tester.pumpAndSettle();
+    final paid = await runDb(
+      tester,
+      () => (db.select(db.payments)..where((p) => p.deletedAt.isNull())).get(),
+    );
+    expect(paid, isEmpty);
+  });
+
+  appTest('حذف حضور الفوج كله من الشبكة', (tester) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    final runtime = await openDetails(tester);
+    await tester.pumpAndSettle();
+    final db = runtime.db;
+    await tester.ensureVisible(
+      find.widgetWithText(ClayButton, 'حذف حضور الفوج'),
+    );
+    await tester.tap(find.widgetWithText(ClayButton, 'حذف حضور الفوج'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'كل الدورات'));
+    await tester.pumpAndSettle();
+    final left = await runDb(
+      tester,
+      () =>
+          (db.select(db.attendance)..where((a) => a.deletedAt.isNull())).get(),
+    );
+    expect(left, isEmpty);
+  });
 }

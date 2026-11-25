@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
-import 'registration_screen.dart' show ChoiceDraft, SubjectChoiceCard;
+import 'registration_screen.dart'
+    show ChoiceDraft, FreeModeField, SubjectChoiceCard;
 import 'student_card_action.dart';
 import 'teachers_screens.dart' show showCredentialsDialog;
 
@@ -222,6 +223,13 @@ class StudentProfileScreen extends ConsumerWidget {
                         onLeave: canEdit
                             ? () => _leaveGroup(context, ref, info)
                             : null,
+                        onTerms: canEdit
+                            ? () => showClayDialog<void>(
+                                context,
+                                title: 'يدفع أم يدرس مجاناً؟',
+                                content: EnrolmentTermsForm(info: info),
+                              )
+                            : null,
                       ),
                   ]),
                   if (profile.waiting.isNotEmpty)
@@ -396,10 +404,14 @@ class _EnrolmentTile extends StatelessWidget {
     required this.info,
     required this.onLeave,
     required this.showMoney,
+    this.onTerms,
   });
 
   final EnrolmentInfo info;
   final VoidCallback? onLeave;
+
+  /// تغيير «يدفع / مجاني» لهذا الانتساب.
+  final VoidCallback? onTerms;
 
   /// هل تُعرض الأسعار والباقي؟ (لمن يملك عرض المدفوعات).
   final bool showMoney;
@@ -423,6 +435,12 @@ class _EnrolmentTile extends StatelessWidget {
                     style: text.titleSmall,
                   ),
                 ),
+                if (onTerms != null)
+                  IconButton(
+                    tooltip: 'يدفع أم مجاني في ${info.subjectName}',
+                    icon: const Icon(ClayIcons.edit),
+                    onPressed: onTerms,
+                  ),
                 if (onLeave != null)
                   IconButton(
                     tooltip: 'مغادرة فوج ${info.subjectName}',
@@ -451,6 +469,11 @@ class _EnrolmentTile extends StatelessWidget {
                   label: 'برخصة ${info.excused}',
                   tone: ClayTone.excused,
                 ),
+                if (info.enrolment.discountType == DiscountType.exempt.code)
+                  ClayBadge(
+                    label: EnrolmentTermsForm.freeLabel(info.enrolment),
+                    tone: ClayTone.info,
+                  ),
                 if (showMoney && info.remaining > 0)
                   ClayBadge(
                     label: 'الباقي ${Money.format(info.remaining)}',
@@ -688,6 +711,15 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
           customTeacherAmount: _draft.customTeacherAmount,
           firstSession: _draft.firstSession,
         );
+        if (_draft.payNow > 0 && _draft.discountType != DiscountType.exempt) {
+          await ref
+              .read(paymentServiceProvider)
+              .payAtEnrolment(
+                studentId: widget.student.id,
+                groupId: groupId,
+                sessions: _draft.payNow,
+              );
+        }
       }
       if (mounted) Navigator.of(context).pop();
     } on ValidationException catch (e) {
@@ -744,6 +776,125 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
           label: 'إلغاء',
           kind: ClayButtonKind.secondary,
           onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+}
+
+/// تغيير «يدفع / مجاني» لانتساب قائم: الأزرار نفسها التي في الانتساب.
+class EnrolmentTermsForm extends ConsumerStatefulWidget {
+  const EnrolmentTermsForm({required this.info, super.key});
+
+  final EnrolmentInfo info;
+
+  /// اسم نوع المجاني من صف الانتساب (نصيب الأستاذ يميّزه).
+  static String freeLabel(GroupStudentRow e) {
+    final amount = e.teacherAmount;
+    if (amount == null) return 'مجاني على الإدارة';
+    if (amount == 0) return 'مجاني لا يُحسب على أحد';
+    if (amount < 0) return 'مجاني على الأستاذ';
+    return 'مجاني';
+  }
+
+  @override
+  ConsumerState<EnrolmentTermsForm> createState() => _EnrolmentTermsFormState();
+}
+
+class _EnrolmentTermsFormState extends ConsumerState<EnrolmentTermsForm> {
+  late final ChoiceDraft _draft = _initial();
+  bool _saving = false;
+  String? _error;
+
+  ChoiceDraft _initial() {
+    final e = widget.info.enrolment;
+    final draft = ChoiceDraft()
+      ..groupId = e.groupId
+      ..discountType = DiscountType.fromCode(e.discountType);
+    draft.discount.text = e.discountValue == 0 ? '' : '${e.discountValue}';
+    if (draft.discountType == DiscountType.exempt) {
+      final amount = e.teacherAmount;
+      if (amount == null) {
+        draft.bearer = DiscountBearer.school;
+      } else if (amount == 0) {
+        draft.bearer = DiscountBearer.custom;
+        draft.teacherAmount.text = '0';
+      } else if (amount < 0) {
+        draft.bearer = DiscountBearer.teacherFull;
+      } else {
+        draft.bearer = DiscountBearer.custom;
+        draft.teacherAmount.text = '$amount';
+      }
+    }
+    return draft;
+  }
+
+  @override
+  void dispose() {
+    _draft.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(enrolmentServiceProvider)
+          .updateTerms(
+            studentId: widget.info.enrolment.studentId,
+            groupId: widget.info.enrolment.groupId,
+            discountType: _draft.discountType,
+            discountValue: int.tryParse(_draft.discount.text.trim()) ?? 0,
+            bearer: _draft.discountType == DiscountType.none
+                ? DiscountBearer.school
+                : _draft.bearer,
+            customTeacherAmount: _draft.customTeacherAmount,
+          );
+      if (mounted) Navigator.of(context).pop();
+    } on ValidationException catch (e) {
+      if (mounted) {
+        setState(
+          () => _error = e.errors.values.isEmpty
+              ? 'تعذّر الحفظ'
+              : e.errors.values.first,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${widget.info.subjectName} · الفوج ${widget.info.groupNumber}',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: ClaySpacing.md),
+        FreeModeField(draft: _draft, onChanged: () => setState(() {})),
+        if (_error != null) ...[
+          const SizedBox(height: ClaySpacing.sm),
+          Text(
+            _error!,
+            style: Theme.of(context).textTheme.bodySmall!
+                .copyWith(color: p.status.danger),
+          ),
+        ],
+        const SizedBox(height: ClaySpacing.lg),
+        ClayButton(
+          label: 'حفظ',
+          loading: _saving,
+          expand: true,
+          onPressed: _save,
         ),
       ],
     );

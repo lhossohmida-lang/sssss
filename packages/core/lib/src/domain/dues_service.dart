@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:drift/drift.dart';
 
 import '../data/local/app_database.dart';
@@ -156,6 +158,89 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
     return dues;
   }
 
+  /// معرّفات حصص الدورة المحسوبة (غير الملغاة) بالترتيب الزمني، كما تظهر في شبكة الحضور.
+  Future<List<String>> countedSessionIds(
+    String groupId,
+    int cycleNumber,
+  ) async {
+    final rows =
+        await (db.select(db.sessions)
+              ..where(
+                (s) =>
+                    s.groupId.equals(groupId) &
+                    s.cycleNumber.equals(cycleNumber) &
+                    s.deletedAt.isNull(),
+              )
+              ..orderBy([
+                (s) => OrderingTerm(expression: s.date),
+                (s) => OrderingTerm(expression: s.startMinutes),
+              ]))
+            .get();
+    return [
+      for (final row in rows)
+        if (SessionStatus.fromCode(row.status).countsInCycle) row.id,
+    ];
+  }
+
+  /// دفعات الشهر لكل تلميذ في دورة: الحصص المعيَّنة فيها، وهل له دفعة غير معيَّنة لحصص.
+  Future<Map<String, PaymentTags>> monthPaymentTags(
+    String groupId,
+    int cycleNumber, {
+    String? studentId,
+  }) async {
+    final rows =
+        await (db.select(db.payments)..where(
+              (p) =>
+                  p.groupId.equals(groupId) &
+                  p.cycleNumber.equals(cycleNumber) &
+                  p.type.equals(PaymentType.month.code) &
+                  p.deletedAt.isNull() &
+                  (studentId == null
+                      ? const Constant(true)
+                      : p.studentId.equals(studentId)),
+            ))
+            .get();
+    final result = <String, PaymentTags>{};
+    for (final row in rows) {
+      final tags = result.putIfAbsent(row.studentId, PaymentTags.new);
+      if (row.periodKey == null) {
+        if (row.amount > 0) tags.untagged = true;
+      } else {
+        tags.sessions.addAll(SessionCoverage.idsOf(row.periodKey));
+      }
+    }
+    return result;
+  }
+
+  /// الحصص المدفوعة لتلميذ في دورة، أو `null` إن لم يكن ملزَماً بها.
+  Future<SessionCoverage?> sessionCoverage({
+    required String studentId,
+    required String groupId,
+    required int cycleNumber,
+  }) async {
+    final due = await cycleDue(
+      studentId: studentId,
+      groupId: groupId,
+      cycleNumber: cycleNumber,
+    );
+    if (due == null) return null;
+    final group = await (db.select(
+      db.groups,
+    )..where((g) => g.id.equals(groupId))).getSingle();
+    final tags = (await monthPaymentTags(
+      groupId,
+      cycleNumber,
+      studentId: studentId,
+    ))[studentId];
+    return SessionCoverage.compute(
+      counted: await countedSessionIds(groupId, cycleNumber),
+      due: due,
+      sessionsPerCycle: group.sessionsPerCycle,
+      tagged: tags?.sessions ?? const {},
+      untagged: tags?.untagged ?? false,
+    );
+  }
+
   /// مستحق تلميذ في مجموعة عن دورة محددة، أو `null` إن لم يكن ملزَماً بها.
   Future<CycleDue?> cycleDue({
     required String studentId,
@@ -215,6 +300,7 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
     required String receivedBy,
     required String receiptNumber,
     String note = '',
+    String? periodKey,
   }) {
     return db.transaction(() async {
       final due = await cycleDue(
@@ -231,6 +317,7 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
         type: PaymentType.month,
         groupId: groupId,
         cycleNumber: cycleNumber,
+        periodKey: periodKey,
         amount: amount,
         receivedBy: receivedBy,
         receiptNumber: receiptNumber,
@@ -681,5 +768,72 @@ SELECT l.student_id, l.group_id, l.cycle, l.price, l.discount_type,
     return (db.select(
       db.payments,
     )..where((p) => p.id.equals(payment.id))).getSingle();
+  }
+}
+
+/// دفعات الشهر لتلميذ في دورة: الحصص التي عُيِّنت لها دفعات، وهل له دفعة لم تُعيَّن لحصص.
+class PaymentTags {
+  final Set<String> sessions = {};
+  bool untagged = false;
+}
+
+/// أي حصص الدورة مدفوعة لتلميذ. دفعة الشهر قد تُعيَّن لحصص بعينها (`period_key` معرّفاتها مفصولة
+/// بفواصل: «دفع هذه الحصة» أو الدفع عند الانتساب)، وغير المعيَّنة تملأ الحصص بالترتيب بعد رصيد
+/// الشهر السابق والحصص المعيَّنة، بقدر ما يغطيه المال.
+class SessionCoverage {
+  const SessionCoverage({
+    required this.paid,
+    required this.credit,
+    required this.filled,
+  });
+
+  /// كل الحصص المدفوعة (من الرصيد والمعيَّنة وغير المعيَّنة).
+  final Set<String> paid;
+
+  /// حصص أول الدورة المدفوعة من رصيد الشهر السابق.
+  final Set<String> credit;
+
+  /// ما ملأته الدفعات غير المعيَّنة، بالترتيب.
+  final List<String> filled;
+
+  static Set<String> idsOf(String? periodKey) => periodKey == null
+      ? const {}
+      : periodKey.split(',').where((id) => id.isNotEmpty).toSet();
+
+  factory SessionCoverage.compute({
+    required List<String> counted,
+    required CycleDue due,
+    required int sessionsPerCycle,
+    required Set<String> tagged,
+    required bool untagged,
+  }) {
+    final creditCount = math.min(
+      due.creditSessions(sessionsPerCycle),
+      counted.length,
+    );
+    final credit = counted.take(creditCount).toSet();
+    if (due.exempt || due.netPrice <= 0) {
+      return SessionCoverage(
+        paid: counted.toSet(),
+        credit: credit,
+        filled: const [],
+      );
+    }
+    final paid = {...credit, ...tagged.where(counted.contains)};
+    final filled = <String>[];
+    if (untagged) {
+      var left = due.coveredSessions(sessionsPerCycle) - paid.length;
+      for (final id in counted) {
+        if (left <= 0) break;
+        if (paid.contains(id)) continue;
+        filled.add(id);
+        left--;
+      }
+    }
+    return SessionCoverage(
+      paid: {...paid, ...filled},
+      credit: credit,
+      filled: filled,
+    );
   }
 }

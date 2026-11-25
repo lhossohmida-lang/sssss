@@ -439,11 +439,11 @@ class _GridRow extends StatelessWidget {
             width: cellWidth,
             status: student.cells[s.id],
             cancelled: cancelled,
-            paid: cancelled ? null : student.paidAt(position),
+            paid: cancelled ? null : student.paidFor(s.id, position),
             credit:
                 !cancelled &&
                 student.coveredSessions != null &&
-                student.creditAt(position),
+                student.creditFor(s.id, position),
           ),
         ),
       );

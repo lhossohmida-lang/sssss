@@ -19,7 +19,25 @@ class GridStudent {
     this.coveredSessions,
     this.creditSessions = 0,
     this.reviewSessionIds = const {},
+    this.paidSessionIds,
+    this.creditSessionIds,
   });
+
+  /// معرّفات حصص الدورة المدفوعة؛ `null` إن لم تُحسب بالمعرّفات (فتُحسب بالترتيب من [coveredSessions]).
+  final Set<String>? paidSessionIds;
+
+  /// معرّفات الحصص المدفوعة من رصيد الشهر السابق.
+  final Set<String>? creditSessionIds;
+
+  /// هل الحصة [sessionId] (ترتيبها [index] بين المحسوبة) مدفوعة؟ `null` إن لم تُحسب المدفوعات.
+  bool? paidFor(String sessionId, int index) {
+    if (coveredSessions == null) return null;
+    return paidSessionIds?.contains(sessionId) ?? paidAt(index);
+  }
+
+  /// هل الحصة [sessionId] مدفوعة من رصيد الشهر السابق؟
+  bool creditFor(String sessionId, int index) =>
+      creditSessionIds?.contains(sessionId) ?? creditAt(index);
 
   final String studentId;
   final String name;
@@ -298,6 +316,25 @@ class GroupGridQueries {
     }
 
     final service = dues;
+    final tags = service == null
+        ? const <String, PaymentTags>{}
+        : await service.monthPaymentTags(groupId, cycle);
+    final counted = [
+      for (final s in sessions)
+        if (SessionStatus.fromCode(s.status).countsInCycle) s.id,
+    ];
+    SessionCoverage? coverageOf(String studentId, CycleDue? due) {
+      if (due == null) return null;
+      final tag = tags[studentId];
+      return SessionCoverage.compute(
+        counted: counted,
+        due: due,
+        sessionsPerCycle: group.sessionsPerCycle,
+        tagged: tag?.sessions ?? const {},
+        untagged: tag?.untagged ?? false,
+      );
+    }
+
     final dueByStudent = <String, CycleDue>{
       if (service != null)
         for (final due in await service.cycleDues(
@@ -329,6 +366,14 @@ class GroupGridQueries {
                 ) ??
                 0,
             reviewSessionIds: reviewGuests[row.read<String>('id')] ?? const {},
+            paidSessionIds: coverageOf(
+              row.read<String>('id'),
+              dueByStudent[row.read<String>('id')],
+            )?.paid,
+            creditSessionIds: coverageOf(
+              row.read<String>('id'),
+              dueByStudent[row.read<String>('id')],
+            )?.credit,
           ),
       ],
     );

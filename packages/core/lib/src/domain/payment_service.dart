@@ -346,6 +346,7 @@ class PaymentService {
           receivedBy: receivedBy,
           receipt: receipt,
           note: note.trim(),
+          periodKey: periodKey,
         ),
         PaymentType.registrationFee => dues.payRegistrationFee(
           studentId: studentId,
@@ -372,6 +373,230 @@ class PaymentService {
       await sms.paymentReceipt(payment);
       return payment;
     });
+  }
+
+  /// يدفع حصة [sessionId] بعينها لتلميذ ملزَم بدورتها: دفعة شهر بثمن حصة معيَّنة لهذه الحصة، فتظهر
+  /// هي مدفوعة (بالأزرق) في الشبكة. يرمي [ValidationException] إن كانت مدفوعة أو الدورة مسدَّدة.
+  Future<PaymentRow> paySession({
+    required String studentId,
+    required String sessionId,
+    String note = '',
+  }) async {
+    final session = await (db.select(
+      db.sessions,
+    )..where((s) => s.id.equals(sessionId))).getSingle();
+    final due = await dues.cycleDue(
+      studentId: studentId,
+      groupId: session.groupId,
+      cycleNumber: session.cycleNumber,
+    );
+    if (due == null || due.exempt || due.remaining == 0) {
+      throw ValidationException.field(
+        fieldAmount,
+        due == null
+            ? 'التلميذ غير ملزَم بهذه الدورة'
+            : due.exempt
+            ? 'التلميذ معفى'
+            : 'الدورة مسدَّدة',
+      );
+    }
+    final coverage = await dues.sessionCoverage(
+      studentId: studentId,
+      groupId: session.groupId,
+      cycleNumber: session.cycleNumber,
+    );
+    if (coverage != null && coverage.paid.contains(sessionId)) {
+      throw ValidationException.field(fieldAmount, 'الحصة مدفوعة');
+    }
+    final group = await (db.select(
+      db.groups,
+    )..where((g) => g.id.equals(session.groupId))).getSingle();
+    final value = Pricing.sessionsValue(
+      netPrice: due.netPrice,
+      sessions: 1,
+      sessionsPerCycle: group.sessionsPerCycle,
+    );
+    return record(
+      studentId: studentId,
+      type: PaymentType.month,
+      amount: min(value, due.remaining),
+      groupId: session.groupId,
+      cycleNumber: session.cycleNumber,
+      periodKey: sessionId,
+      note: note.isEmpty ? 'حصة ${session.date}' : note,
+    );
+  }
+
+  /// يلغي دفع حصة [sessionId] بعينها (الضغط الثاني على «دفع هذه الحصة»): تُنقص دفعتها بثمن حصة أو
+  /// تُحذف، فتعود الحصة غير مدفوعة وحدها. إن كانت مدفوعة من دفعة لم تُعيَّن لحصص، تُعيَّن تلك الدفعات
+  /// أولاً للحصص التي كانت تغطيها حتى لا تنتقل التغطية إلى حصة أخرى. لا يُلغى ما دُفع من رصيد الشهر
+  /// السابق.
+  Future<void> unpaySession({
+    required String studentId,
+    required String sessionId,
+  }) {
+    return db.transaction(() async {
+      final session = await (db.select(
+        db.sessions,
+      )..where((s) => s.id.equals(sessionId))).getSingle();
+      final due = await dues.cycleDue(
+        studentId: studentId,
+        groupId: session.groupId,
+        cycleNumber: session.cycleNumber,
+      );
+      if (due == null) {
+        throw ValidationException.field(
+          fieldAmount,
+          'التلميذ غير ملزَم بهذه الدورة',
+        );
+      }
+      if (due.exempt) {
+        throw ValidationException.field(fieldAmount, 'التلميذ معفى');
+      }
+      final group = await (db.select(
+        db.groups,
+      )..where((g) => g.id.equals(session.groupId))).getSingle();
+      final value = Pricing.sessionsValue(
+        netPrice: due.netPrice,
+        sessions: 1,
+        sessionsPerCycle: group.sessionsPerCycle,
+      );
+      final payments =
+          await (db.select(db.payments)
+                ..where(
+                  (p) =>
+                      p.studentId.equals(studentId) &
+                      p.groupId.equals(session.groupId) &
+                      p.cycleNumber.equals(session.cycleNumber) &
+                      p.type.equals(PaymentType.month.code) &
+                      p.deletedAt.isNull(),
+                )
+                ..orderBy([(p) => OrderingTerm(expression: p.createdAt)]))
+              .get();
+
+      Future<void> take(PaymentRow payment, Set<String> ids) async {
+        final rest = {...ids}..remove(sessionId);
+        final amount = payment.amount - value;
+        if (amount <= 0) {
+          await writer.softDelete(db.payments, key: {'id': payment.id});
+        } else {
+          await writer.patch(
+            db.payments,
+            key: {'id': payment.id},
+            values: {'amount': amount, 'period_key': rest.join(',')},
+          );
+        }
+      }
+
+      // دفعة معيَّنة لهذه الحصة.
+      for (final payment in payments) {
+        if (payment.periodKey == null) continue;
+        final ids = SessionCoverage.idsOf(payment.periodKey);
+        if (ids.contains(sessionId)) {
+          await take(payment, ids);
+          return;
+        }
+      }
+      final coverage = await dues.sessionCoverage(
+        studentId: studentId,
+        groupId: session.groupId,
+        cycleNumber: session.cycleNumber,
+      );
+      if (coverage != null && coverage.credit.contains(sessionId)) {
+        throw ValidationException.field(
+          fieldAmount,
+          'هذه الحصة مدفوعة من رصيد الشهر السابق',
+        );
+      }
+      if (coverage == null || !coverage.filled.contains(sessionId)) {
+        throw ValidationException.field(fieldAmount, 'الحصة غير مدفوعة');
+      }
+      // تُعيَّن الدفعات غير المعيَّنة لما تغطيه من حصص بالترتيب، ثم تُنزع هذه الحصة من دفعتها.
+      final untagged = [
+        for (final payment in payments)
+          if (payment.periodKey == null && payment.amount > 0) payment,
+      ];
+      final filled = coverage.filled;
+      final total = untagged.fold<int>(0, (sum, p) => sum + p.amount);
+      var before = 0;
+      for (final payment in untagged) {
+        final start = before * filled.length ~/ total;
+        before += payment.amount;
+        final end = before * filled.length ~/ total;
+        final ids = filled.sublist(start, end).toSet();
+        if (ids.contains(sessionId)) {
+          await take(payment, ids);
+        } else {
+          await writer.patch(
+            db.payments,
+            key: {'id': payment.id},
+            values: {'period_key': ids.join(',')},
+          );
+        }
+      }
+    });
+  }
+
+  /// يدفع عند الانتساب [sessions] حصة من أول حصة له في دورة التحاقه (كل الدورة إن ساوت حصصها):
+  /// تُعيَّن الدفعة لتلك الحصص فتظهر هي مدفوعة. يعيد `null` إن كان معفى أو لا شيء عليه.
+  Future<PaymentRow?> payAtEnrolment({
+    required String studentId,
+    required String groupId,
+    required int sessions,
+  }) async {
+    if (sessions <= 0) return null;
+    final enrolment =
+        await (db.select(db.groupStudents)
+              ..where(
+                (e) =>
+                    e.studentId.equals(studentId) &
+                    e.groupId.equals(groupId) &
+                    e.deletedAt.isNull() &
+                    e.leftAt.isNull(),
+              )
+              ..orderBy([
+                (e) => OrderingTerm(
+                  expression: e.joinedAt,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(1))
+            .getSingleOrNull();
+    if (enrolment == null) return null;
+    final cycle = enrolment.joinedAtCycleNumber;
+    final due = await dues.cycleDue(
+      studentId: studentId,
+      groupId: groupId,
+      cycleNumber: cycle,
+    );
+    if (due == null || due.exempt || due.remaining == 0) return null;
+    final group = await (db.select(
+      db.groups,
+    )..where((g) => g.id.equals(groupId))).getSingle();
+    final perCycle = group.sessionsPerCycle;
+    final whole = sessions >= perCycle;
+    final amount = whole
+        ? due.remaining
+        : min(
+            Pricing.sessionsValue(
+              netPrice: due.netPrice,
+              sessions: sessions,
+              sessionsPerCycle: perCycle,
+            ),
+            due.remaining,
+          );
+    final counted = await dues.countedSessionIds(groupId, cycle);
+    final first = max(0, enrolment.joinedAtSessionNumber - 1);
+    final ids = counted.skip(first).take(whole ? perCycle : sessions).toList();
+    return record(
+      studentId: studentId,
+      type: PaymentType.month,
+      amount: amount,
+      groupId: groupId,
+      cycleNumber: cycle,
+      periodKey: ids.isEmpty ? null : ids.join(','),
+      note: whole ? '' : 'دفع ${SessionCount.label(sessions)}',
+    );
   }
 
   /// يسجّل دفع [sessions] حصة من دورة [cycleNumber] (ثمن الحصة سعر الدورة ÷ حصصها)، ولا يزيد عن
@@ -435,12 +660,13 @@ class PaymentService {
         cycleNumber: session.cycleNumber,
       );
       if (due == null || due.exempt || due.remaining == 0) continue;
-      await paySessions(
+      final coverage = await dues.sessionCoverage(
         studentId: row.studentId,
         groupId: session.groupId,
         cycleNumber: session.cycleNumber,
-        note: 'حصة ${session.date}',
       );
+      if (coverage == null || coverage.paid.contains(sessionId)) continue;
+      await paySession(studentId: row.studentId, sessionId: sessionId);
       paid++;
     }
     return paid;
@@ -456,6 +682,7 @@ class PaymentService {
     required String receivedBy,
     required String receipt,
     required String note,
+    String? periodKey,
   }) async {
     final payment = await dues.recordMonthPayment(
       studentId: studentId,
@@ -465,6 +692,7 @@ class PaymentService {
       receivedBy: receivedBy,
       receiptNumber: receipt,
       note: note,
+      periodKey: periodKey,
     );
     await _payouts.releasePending(groupId);
     return payment;

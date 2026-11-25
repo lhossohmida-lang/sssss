@@ -240,4 +240,96 @@ void main() {
     expect(money.teacherPending, 130);
     expect(money.admin, 1740);
   });
+
+  Future<Set<String>> paidIds(String student) async {
+    final coverage = await dues.sessionCoverage(
+      studentId: student,
+      groupId: 'g1',
+      cycleNumber: 1,
+    );
+    return coverage!.paid;
+  }
+
+  test('دفع حصة بعينها ثم الضغط ثانية يلغي دفعها وحدها', () async {
+    await enrol('a');
+    final list = await sessions();
+    final third = list[2];
+    await payments.paySession(studentId: 'a', sessionId: third.id);
+    expect(await paidIds('a'), {third.id});
+    // الضغط الثاني لا يدفع حصة أخرى بل يلغي دفع هذه.
+    await payments.unpaySession(studentId: 'a', sessionId: third.id);
+    expect(await paidIds('a'), isEmpty);
+    final left = await (env.db.select(
+      env.db.payments,
+    )..where((p) => p.deletedAt.isNull())).get();
+    expect(left, isEmpty);
+  });
+
+  test('إلغاء دفع حصة من شهر مدفوع كله يُبقي غيرها مدفوعاً', () async {
+    await enrol('a');
+    await payments.paySessions(
+      studentId: 'a',
+      groupId: 'g1',
+      cycleNumber: 1,
+      sessions: 8,
+    );
+    final list = await sessions();
+    expect(await paidIds('a'), hasLength(8));
+    await payments.unpaySession(studentId: 'a', sessionId: list[4].id);
+    final paid = await paidIds('a');
+    expect(paid, hasLength(7));
+    expect(paid.contains(list[4].id), isFalse);
+    final due = await dues.cycleDue(
+      studentId: 'a',
+      groupId: 'g1',
+      cycleNumber: 1,
+    );
+    expect(due!.paid, 1750);
+    // ثم يُدفع ثانية.
+    await payments.paySession(studentId: 'a', sessionId: list[4].id);
+    expect(await paidIds('a'), hasLength(8));
+  });
+
+  test('الدفع عند الانتساب: 3 حصص من الحصة الثالثة', () async {
+    await enrol('a', firstSession: 3);
+    final payment = await payments.payAtEnrolment(
+      studentId: 'a',
+      groupId: 'g1',
+      sessions: 3,
+    );
+    expect(payment!.amount, 750);
+    final list = await sessions();
+    expect(await paidIds('a'), {list[2].id, list[3].id, list[4].id});
+  });
+
+  test('الدفع عند الانتساب: الشهر كله من الحصة الثالثة', () async {
+    await enrol('a', firstSession: 3);
+    await payments.payAtEnrolment(studentId: 'a', groupId: 'g1', sessions: 8);
+    final list = await sessions();
+    expect(await paidIds('a'), {for (final s in list.skip(2)) s.id});
+  });
+
+  test('حذف حضور الفوج كله كأنه لم يكن', () async {
+    await enrol('a');
+    final list = await sessions();
+    await attendance.markAllPresent(list[0].id);
+    await attendance.markAllPresent(list[1].id);
+    expect(await attendance.clearGroup('g1'), 2);
+    final left = await (env.db.select(
+      env.db.attendance,
+    )..where((a) => a.deletedAt.isNull())).get();
+    expect(left, isEmpty);
+  });
+
+  test('حذف حضور تلميذ واحد في حصة', () async {
+    await enrol('a');
+    await enrol('b');
+    final first = (await sessions()).first;
+    await attendance.markAllPresent(first.id);
+    expect(await attendance.clearStudent(first.id, 'a'), isTrue);
+    final left = await (env.db.select(
+      env.db.attendance,
+    )..where((a) => a.deletedAt.isNull())).get();
+    expect(left.single.studentId, 'b');
+  });
 }

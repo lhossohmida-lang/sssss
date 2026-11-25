@@ -29,6 +29,9 @@ class ChoiceDraft {
   /// أول حصة له في الدورة الحالية؛ `null` يعني التالية لما انعقد منها.
   int? firstSession;
 
+  /// عدد الحصص التي يدفعها الآن عند الانتساب (من أول حصة له)؛ 0 لا شيء الآن.
+  int payNow = 0;
+
   /// المبلغ الذي كتبه المدير للأستاذ، أو `null` إن لم يكتب شيئاً.
   int? get customTeacherAmount => teacherAmount.text.trim().isEmpty
       ? null
@@ -120,6 +123,34 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       final result = await ref
           .read(registrationServiceProvider)
           .register(_request(), settings: settings);
+      // الدفع عند الانتساب: ما اختير لكل فوج («يدفع الآن»).
+      for (final c in _choices) {
+        final groupId = c.groupId;
+        if (groupId == null ||
+            c.payNow <= 0 ||
+            c.discountType == DiscountType.exempt ||
+            !result.enrolledGroupIds.contains(groupId)) {
+          continue;
+        }
+        try {
+          await ref
+              .read(paymentServiceProvider)
+              .payAtEnrolment(
+                studentId: result.student.id,
+                groupId: groupId,
+                sessions: c.payNow,
+              );
+        } on ValidationException catch (e) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                'سُجّل التلميذ لكن تعذّر تسجيل الدفعة: '
+                '${e.errors.values.isEmpty ? '' : e.errors.values.first}',
+              ),
+            ),
+          );
+        }
+      }
       final photo = _photo;
       if (photo != null) {
         try {
@@ -571,7 +602,7 @@ class SubjectChoiceCard extends ConsumerWidget {
                     style: text.bodySmall!.copyWith(color: p.status.danger),
                   ),
                 gap,
-                _FreeModeField(draft: draft, onChanged: onChanged),
+                FreeModeField(draft: draft, onChanged: onChanged),
                 gap,
                 ClayDropdown<int?>(
                   label: 'يبدأ من الحصة',
@@ -601,6 +632,20 @@ class SubjectChoiceCard extends ConsumerWidget {
                     onChanged();
                   },
                 ),
+                if (draft.discountType != DiscountType.exempt) ...[
+                  gap,
+                  _PayNowField(
+                    draft: draft,
+                    sessionsPerCycle:
+                        groups
+                            .where((g) => g.id == draft.groupId)
+                            .firstOrNull
+                            ?.group
+                            .sessionsPerCycle ??
+                        0,
+                    onChanged: onChanged,
+                  ),
+                ],
                 gap,
                 ClayDropdown<DiscountType>(
                   label: 'التخفيض',
@@ -676,8 +721,12 @@ class SubjectChoiceCard extends ConsumerWidget {
 
 /// تلميذ مجاني بنقرة: لا يُحسب على أحد، أو على الإدارة (الأستاذ يأخذ حقه)، أو على الأستاذ (لا يأخذ
 /// شيئاً ويعطي المدرسة نصيبها). كل زر يضبط التخفيض «إعفاء كامل» ومن يتحمّله.
-class _FreeModeField extends StatelessWidget {
-  const _FreeModeField({required this.draft, required this.onChanged});
+class FreeModeField extends StatelessWidget {
+  const FreeModeField({
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
 
   final ChoiceDraft draft;
   final VoidCallback onChanged;
@@ -732,6 +781,61 @@ class _FreeModeField extends StatelessWidget {
               selected: onTeacher,
               onTap: () =>
                   pick(DiscountType.exempt, DiscountBearer.teacherFull),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// «يدفع الآن»: لا شيء، أو عدد من الحصص من أول حصة له، أو الشهر كله. تُسجَّل الدفعة بوصل بعد الحفظ.
+class _PayNowField extends StatelessWidget {
+  const _PayNowField({
+    required this.draft,
+    required this.sessionsPerCycle,
+    required this.onChanged,
+  });
+
+  final ChoiceDraft draft;
+  final int sessionsPerCycle;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sessionsPerCycle <= 0) return const SizedBox.shrink();
+    void pick(int n) {
+      draft.payNow = n;
+      onChanged();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'يدفع الآن (من أول حصة له)',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: ClaySpacing.xs),
+        Wrap(
+          spacing: ClaySpacing.sm,
+          runSpacing: ClaySpacing.xs,
+          children: [
+            ClayChip(
+              label: 'لا شيء الآن',
+              selected: draft.payNow == 0,
+              onTap: () => pick(0),
+            ),
+            for (var n = 1; n < sessionsPerCycle; n++)
+              ClayChip(
+                label: SessionCount.label(n),
+                selected: draft.payNow == n,
+                onTap: () => pick(n),
+              ),
+            ClayChip(
+              label: 'الشهر كله',
+              selected: draft.payNow >= sessionsPerCycle,
+              onTap: () => pick(sessionsPerCycle),
             ),
           ],
         ),

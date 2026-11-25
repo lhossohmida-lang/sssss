@@ -88,11 +88,15 @@ class GroupDetailsScreen extends ConsumerWidget {
     GridStudent student,
   ) async {
     final current = student.cells[session.id];
-    // ما يُختار: حالة حضور، أو «دفع هذه الحصة».
+    // ما يُختار: حالة حضور، أو حذف حضوره، أو «دفع هذه الحصة» / إلغاء دفعها (الضغط الثاني).
     const payThis = 'pay';
+    const unpayThis = 'unpay';
+    const clearThis = 'clear';
     final canPay =
         ref.can(PermissionModule.receiveMoney, PermissionAction.use) &&
         student.coveredSessions != null;
+    final paid = student.paidSessionIds?.contains(session.id) ?? false;
+    final credit = student.creditSessionIds?.contains(session.id) ?? false;
     final choice = await showClayBottomSheet<Object>(
       context,
       title: student.name,
@@ -120,14 +124,29 @@ class GroupDetailsScreen extends ConsumerWidget {
                 onTap: () => Navigator.of(sheet).pop(option),
               ),
             ),
-          if (canPay) ...[
+          if (current != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
+              child: ClayListTile(
+                title: 'بلا تسجيل (حذف حضوره كأنه لم يكن)',
+                onTap: () => Navigator.of(sheet).pop(clearThis),
+              ),
+            ),
+          if (canPay && credit)
+            Text(
+              'مدفوعة من رصيد الشهر السابق',
+              style: Theme.of(sheet).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            )
+          else if (canPay) ...[
             const SizedBox(height: ClaySpacing.sm),
             ClayButton(
-              label: 'دفع هذه الحصة',
-              icon: ClayIcons.check,
-              kind: ClayButtonKind.secondary,
+              label: paid ? 'إلغاء دفع هذه الحصة' : 'دفع هذه الحصة',
+              icon: paid ? ClayIcons.close : ClayIcons.check,
+              kind: paid ? ClayButtonKind.danger : ClayButtonKind.secondary,
               expand: true,
-              onPressed: () => Navigator.of(sheet).pop(payThis),
+              onPressed: () =>
+                  Navigator.of(sheet).pop(paid ? unpayThis : payThis),
             ),
           ],
         ],
@@ -135,16 +154,32 @@ class GroupDetailsScreen extends ConsumerWidget {
     );
     if (choice == null || choice == current || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    if (choice == payThis) {
+    if (choice == clearThis) {
+      await ref
+          .read(attendanceServiceProvider)
+          .clearStudent(session.id, student.studentId);
+      messenger.showSnackBar(
+        SnackBar(content: Text('${student.name}: حُذف حضوره في هذه الحصة')),
+      );
+      return;
+    }
+    if (choice == payThis || choice == unpayThis) {
       try {
-        final paid = await ref
-            .read(paymentServiceProvider)
-            .paySessions(
-              studentId: student.studentId,
-              groupId: session.groupId,
-              cycleNumber: session.cycleNumber,
-              note: 'حصة ${session.date}',
-            );
+        final payments = ref.read(paymentServiceProvider);
+        if (choice == unpayThis) {
+          await payments.unpaySession(
+            studentId: student.studentId,
+            sessionId: session.id,
+          );
+          messenger.showSnackBar(
+            SnackBar(content: Text('${student.name}: أُلغي دفع هذه الحصة')),
+          );
+          return;
+        }
+        final paid = await payments.paySession(
+          studentId: student.studentId,
+          sessionId: session.id,
+        );
         messenger.showSnackBar(
           SnackBar(
             content: Text(
@@ -242,7 +277,15 @@ class GroupDetailsScreen extends ConsumerWidget {
         onSessionTap: canRoster
             ? (session) => context.push('/attendance/${session.id}')
             : null,
-        belowCycle: canSeePayouts ? (grid) => GroupMoneyCard(grid: grid) : null,
+        belowCycle: canSeePayouts || canPast
+            ? (grid) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (canSeePayouts) GroupMoneyCard(grid: grid),
+                  if (canPast) ClearGroupAttendanceButton(grid: grid),
+                ],
+              )
+            : null,
         header: [
           if (item != null)
             Padding(
@@ -443,6 +486,72 @@ class _GroupMoneyCardState extends ConsumerState<GroupMoneyCard> {
           ),
         );
       },
+    );
+  }
+}
+
+/// حذف حضور الفوج كأنه لم يكن: في الدورة المعروضة أو في كل الدورات، بعد التأكيد.
+class ClearGroupAttendanceButton extends ConsumerWidget {
+  const ClearGroupAttendanceButton({required this.grid, super.key});
+
+  final GroupGrid grid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: ClaySpacing.md),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: ClayButton(
+          label: 'حذف حضور الفوج',
+          icon: ClayIcons.delete,
+          kind: ClayButtonKind.secondary,
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            final scope = await showClayDialog<String>(
+              context,
+              title: 'حذف حضور الفوج كأنه لم يكن؟',
+              content: const Text(
+                'تعود الحصص بلا تسجيل لكل التلاميذ (ولو كانت مغلقة)، وتُحذف أرصدة الغياب برخصة. '
+                'الحصص والمدفوعات لا تتغير.',
+              ),
+              actions: [
+                Builder(
+                  builder: (context) => ClayButton(
+                    label: 'هذه الدورة (${grid.cycleNumber})',
+                    kind: ClayButtonKind.danger,
+                    onPressed: () => Navigator.of(context).pop('cycle'),
+                  ),
+                ),
+                Builder(
+                  builder: (context) => ClayButton(
+                    label: 'كل الدورات',
+                    kind: ClayButtonKind.danger,
+                    onPressed: () => Navigator.of(context).pop('all'),
+                  ),
+                ),
+                Builder(
+                  builder: (context) => ClayButton(
+                    label: 'إلغاء',
+                    kind: ClayButtonKind.secondary,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            );
+            if (scope == null) return;
+            final count = await ref
+                .read(attendanceServiceProvider)
+                .clearGroup(
+                  grid.group.id,
+                  cycleNumber: scope == 'cycle' ? grid.cycleNumber : null,
+                );
+            messenger.showSnackBar(
+              SnackBar(content: Text('حُذف $count تسجيل حضور من الفوج')),
+            );
+          },
+        ),
+      ),
     );
   }
 }

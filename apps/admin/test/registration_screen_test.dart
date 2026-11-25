@@ -520,6 +520,24 @@ void main() {
     expect(enrolment.joinedAtSessionNumber, 3);
   });
 
+  appTest('يدفع الآن حصتين من الحصة الثالثة: دفعة بثمنهما', (tester) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await pick(tester, 'يبدأ من الحصة', 'الحصة 3');
+    await tester.ensureVisible(find.text('حصتان'));
+    await tester.tap(find.text('حصتان'));
+    await tester.pumpAndSettle();
+    await registerAndRead(tester, o);
+    final paid = await runDb(
+      tester,
+      () => o.runtime.db.select(o.runtime.db.payments).get(),
+    );
+    expect(paid, hasLength(1));
+    expect(paid.single.type, PaymentType.month.code);
+    // 3000 للشهر من 8 حصص: 375 للحصة، 750 للحصتين.
+    expect(paid.single.amount, 750);
+  });
+
   appTest('مبلغ يحدده المدير للأستاذ: حقل يظهر بالاختيار ويُحفظ', (
     tester,
   ) async {

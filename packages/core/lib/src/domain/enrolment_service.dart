@@ -290,6 +290,70 @@ class EnrolmentService {
     });
   }
 
+  /// يغيّر شروط انتساب قائم: التخفيض ومن يتحمّله (منها التلميذ المجاني بأنواعه الثلاثة).
+  Future<void> updateTerms({
+    required String studentId,
+    required String groupId,
+    required DiscountType discountType,
+    int discountValue = 0,
+    DiscountBearer bearer = DiscountBearer.school,
+    int? customTeacherAmount,
+  }) {
+    return db.transaction(() async {
+      final id = StableId.groupStudent(groupId, studentId);
+      final row =
+          await (db.select(db.groupStudents)
+                ..where((e) => e.id.equals(id) & e.deletedAt.isNull()))
+              .getSingleOrNull();
+      final group = await (db.select(
+        db.groups,
+      )..where((g) => g.id.equals(groupId))).getSingleOrNull();
+      if (row == null || group == null) {
+        throw ValidationException.field(fieldGroup, 'الانتساب غير موجود');
+      }
+      final price = row.monthlyPrice;
+      final errors = priceErrors(
+        price: price,
+        discountType: discountType,
+        discountValue: discountValue,
+      );
+      final rate = await groupRate(group);
+      final teacherAmount = Pricing.teacherAmountFor(
+        bearer,
+        rate: rate,
+        price: price,
+        net: Pricing.netPrice(
+          price: price,
+          discountType: discountType,
+          discountValue: discountValue,
+        ),
+        custom: customTeacherAmount,
+      );
+      errors.addAll(
+        bearerErrors(
+          bearer: bearer,
+          customTeacherAmount: customTeacherAmount,
+          teacherAmount: teacherAmount,
+          groupRate: rate,
+        ),
+      );
+      if (errors.isNotEmpty) throw ValidationException(errors);
+      await writer.patch(
+        db.groupStudents,
+        key: {'id': id},
+        values: {
+          'discount_type': discountType.code,
+          'discount_value':
+              discountType == DiscountType.none ||
+                  discountType == DiscountType.exempt
+              ? 0
+              : discountValue,
+          'teacher_amount': teacherAmount == rate ? null : teacherAmount,
+        },
+      );
+    });
+  }
+
   /// يضيف التلميذ إلى قائمة انتظار المادة في مستواه (تُنشأ القائمة إن لم
   /// توجد). يعيد معرّف القائمة. من كان فيها أصلاً لا يتكرر.
   Future<String> addToWaiting({

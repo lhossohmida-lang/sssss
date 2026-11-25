@@ -376,6 +376,54 @@ class AttendanceService {
     });
   }
 
+  /// يحذف حضور تلميذ واحد في حصة (ولو مغلقة) فتعود خانته بلا تسجيل، كأنه لم يُسجَّل. يعيد `false`
+  /// إن لم يكن له حضور فيها.
+  Future<bool> clearStudent(String sessionId, String studentId) {
+    return db.transaction(() async {
+      final rows =
+          await (db.select(db.attendance)..where(
+                (a) =>
+                    a.sessionId.equals(sessionId) &
+                    a.studentId.equals(studentId) &
+                    a.deletedAt.isNull(),
+              ))
+              .get();
+      for (final row in rows) {
+        await writer.softDelete(db.attendance, key: {'id': row.id});
+      }
+      if (rows.isNotEmpty) {
+        await dues.syncExcusedCredit(
+          sessionId: sessionId,
+          studentId: studentId,
+        );
+      }
+      return rows.isNotEmpty;
+    });
+  }
+
+  /// يحذف كل حضور الفوج [groupId] (في الدورة [cycleNumber] وحدها إن أُعطيت، وإلا في كل دوراته)
+  /// كأنه لم يكن، مع أرصدة الغياب برخصة. الحصص والمدفوعات تبقى. يعيد عدد ما حُذف.
+  Future<int> clearGroup(String groupId, {int? cycleNumber}) {
+    return db.transaction(() async {
+      final sessions =
+          await (db.select(db.sessions)..where(
+                (s) =>
+                    s.groupId.equals(groupId) &
+                    s.deletedAt.isNull() &
+                    (cycleNumber == null
+                        ? const Constant(true)
+                        : s.cycleNumber.equals(cycleNumber)),
+              ))
+              .get();
+      var count = 0;
+      for (final session in sessions) {
+        if (session.status == SessionStatus.cancelled.code) continue;
+        count += await clearSession(session.id);
+      }
+      return count;
+    });
+  }
+
   /// يسجّل حاضراً كل من لم يُسجَّل له شيء بعد. يعيد عددهم.
   Future<int> markAllPresent(String sessionId) {
     return db.transaction(() async {
