@@ -5,14 +5,15 @@ import 'package:flutter/material.dart';
 
 import '../clay/clay_button.dart';
 import '../clay/clay_container.dart';
-import '../clay/clay_overlays.dart';
 import '../theme/clay_theme.dart';
 import '../theme/clay_tokens.dart';
 import 'pwa_bridge.dart';
 
 /// بطاقة «ثبّت التطبيق على الشاشة الرئيسية» فوق كل الشاشات في نسخة الويب ما دامت لم تُفتح من أيقونتها:
-/// على Android والحاسوب يثبّتها الزر مباشرة، وعلى iPhone (Safari لا يسمح لأي موقع بالتثبيت) يعرض
-/// الخطوات مرسومة. «لاحقاً» يخفيها حتى الفتح التالي. لا شيء خارج المتصفح.
+/// على Android والحاسوب يثبّتها الزر مباشرة، وعلى iPhone (Safari لا يسمح لأي موقع بالتثبيت) تنفتح الخطوات
+/// مرسومة داخل البطاقة. «لاحقاً» يخفيها حتى الفتح التالي. لا شيء خارج المتصفح.
+///
+/// البطاقة طبقة فوق الملّاح (`ClayApp.overlay`) لا داخله: فلا نوافذ ولا تلميحات منها، وكل ما تعرضه داخلها.
 class PwaInstallOverlay extends StatefulWidget {
   const PwaInstallOverlay({
     this.bridge = const PwaBridge(),
@@ -31,6 +32,7 @@ class PwaInstallOverlay extends StatefulWidget {
 
 class _PwaInstallOverlayState extends State<PwaInstallOverlay> {
   bool _hidden = false;
+  bool _steps = false;
   StreamSubscription<void>? _changes;
 
   @override
@@ -54,11 +56,7 @@ class _PwaInstallOverlayState extends State<PwaInstallOverlay> {
       if (accepted && mounted) setState(() => _hidden = true);
       return;
     }
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (_) => PwaInstallSteps(ios: bridge.isIos),
-    );
+    setState(() => _steps = true);
   }
 
   @override
@@ -80,24 +78,64 @@ class _PwaInstallOverlayState extends State<PwaInstallOverlay> {
             child: Padding(
               padding: const EdgeInsets.all(ClaySpacing.screenPadding),
               child: ClayCard(
-                child: Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.install_mobile_rounded, color: p.accent),
-                    const SizedBox(width: ClaySpacing.sm),
-                    Expanded(
-                      child: Text(
-                        'ثبّت التطبيق على الشاشة الرئيسية: يُفتح بأيقونته ويعمل '
-                        'دون إنترنت',
-                        style: text.bodyMedium,
+                    Row(
+                      children: [
+                        Icon(Icons.install_mobile_rounded, color: p.accent),
+                        const SizedBox(width: ClaySpacing.sm),
+                        Expanded(
+                          child: Text(
+                            'ثبّت التطبيق على الشاشة الرئيسية: يُفتح بأيقونته '
+                            'ويعمل دون إنترنت',
+                            style: text.bodyMedium,
+                          ),
+                        ),
+                        const SizedBox(width: ClaySpacing.sm),
+                        if (!_steps)
+                          // ارتفاع محدد: الزر يملأ ما يُتاح له طولاً (محاذاة وسطية).
+                          SizedBox(
+                            height: 44,
+                            child: ClayButton(
+                              label: 'تثبيت',
+                              onPressed: _install,
+                            ),
+                          ),
+                        Semantics(
+                          button: true,
+                          label: 'لاحقاً',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => setState(() => _hidden = true),
+                            child: SizedBox.square(
+                              dimension: 44,
+                              child: Icon(
+                                Icons.close_rounded,
+                                color: p.textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_steps) ...[
+                      const SizedBox(height: ClaySpacing.md),
+                      PwaInstallSteps(ios: bridge.isIos),
+                      const SizedBox(height: ClaySpacing.sm),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: SizedBox(
+                          height: 44,
+                          child: ClayButton(
+                            label: 'فهمت',
+                            kind: ClayButtonKind.secondary,
+                            onPressed: () => setState(() => _steps = false),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: ClaySpacing.sm),
-                    ClayButton(label: 'تثبيت', onPressed: _install),
-                    IconButton(
-                      tooltip: 'لاحقاً',
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => setState(() => _hidden = true),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -109,7 +147,7 @@ class _PwaInstallOverlayState extends State<PwaInstallOverlay> {
   }
 }
 
-/// خطوات الإضافة إلى الشاشة الرئيسية حين لا يتيح المتصفح التثبيت بضغطة (iPhone وiPad).
+/// خطوات الإضافة إلى الشاشة الرئيسية حين لا يتيح المتصفح التثبيت بضغطة (iPhone وiPad، أو متصفح آخر).
 class PwaInstallSteps extends StatelessWidget {
   const PwaInstallSteps({required this.ios, super.key});
 
@@ -120,11 +158,11 @@ class PwaInstallSteps extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final p = context.palette;
     Widget step(int n, IconData icon, String label) => Padding(
-      padding: const EdgeInsets.only(bottom: ClaySpacing.md),
+      padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 14,
+            radius: 13,
             backgroundColor: p.accent,
             child: Text(
               '$n',
@@ -138,51 +176,39 @@ class PwaInstallSteps extends StatelessWidget {
         ],
       ),
     );
-    return ClayDialog(
-      title: 'التثبيت على الشاشة الرئيسية',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: ios
-            ? [
-                step(
-                  1,
-                  Icons.ios_share_rounded,
-                  'اضغط زر المشاركة أسفل Safari (المربع والسهم للأعلى)',
-                ),
-                step(
-                  2,
-                  Icons.add_box_outlined,
-                  'اختر «إضافة إلى الشاشة الرئيسية» (مرّر القائمة للأسفل إن لم '
-                  'يظهر)',
-                ),
-                step(3, Icons.check_circle_outline_rounded, 'اضغط «إضافة»'),
-                Text(
-                  'تظهر أيقونة التطبيق على الشاشة الرئيسية؛ افتحه منها دائماً.',
-                  style: text.bodySmall!.copyWith(color: p.textMuted),
-                ),
-              ]
-            : [
-                step(
-                  1,
-                  Icons.more_vert_rounded,
-                  'افتح قائمة المتصفح (النقاط الثلاث)',
-                ),
-                step(
-                  2,
-                  Icons.install_mobile_rounded,
-                  'اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»',
-                ),
-              ],
-      ),
-      actions: [
-        Builder(
-          builder: (context) => ClayButton(
-            label: 'فهمت',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-      ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: ios
+          ? [
+              step(
+                1,
+                Icons.ios_share_rounded,
+                'اضغط زر المشاركة أسفل Safari (المربع والسهم للأعلى)',
+              ),
+              step(
+                2,
+                Icons.add_box_outlined,
+                'اختر «إضافة إلى الشاشة الرئيسية» (مرّر القائمة للأسفل إن لم يظهر)',
+              ),
+              step(3, Icons.check_circle_outline_rounded, 'اضغط «إضافة»'),
+              Text(
+                'تظهر أيقونة التطبيق على الشاشة الرئيسية؛ افتحه منها دائماً.',
+                style: text.bodySmall!.copyWith(color: p.textMuted),
+              ),
+            ]
+          : [
+              step(
+                1,
+                Icons.more_vert_rounded,
+                'افتح قائمة المتصفح (النقاط الثلاث)',
+              ),
+              step(
+                2,
+                Icons.install_mobile_rounded,
+                'اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»',
+              ),
+            ],
     );
   }
 }

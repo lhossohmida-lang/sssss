@@ -35,16 +35,13 @@ class FakeBridge implements PwaBridge {
   void announce() => _changes.add(null);
 }
 
+/// كما في التطبيق: البطاقة طبقة في `ClayApp` فوق الملّاح لا داخله (لا Overlay ولا Navigator فوقها).
 Future<void> pump(WidgetTester tester, FakeBridge bridge, {bool web = true}) =>
     tester.pumpWidget(
-      MaterialApp(
-        theme: ClayThemeData.light(AppIdentity.admin),
-        home: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Scaffold(
-            body: PwaInstallOverlay(bridge: bridge, web: web),
-          ),
-        ),
+      ClayApp(
+        app: AppIdentity.admin,
+        home: const Scaffold(body: Center(child: Text('الشاشة'))),
+        overlay: PwaInstallOverlay(bridge: bridge, web: web),
       ),
     );
 
@@ -58,8 +55,17 @@ void main() {
     expect(find.text('تثبيت'), findsNothing);
   });
 
+  testWidgets('the card sits at the bottom with its natural height', (
+    tester,
+  ) async {
+    await pump(tester, FakeBridge(isIos: true));
+    expect(tester.takeException(), isNull);
+    expect(find.text('الشاشة'), findsOneWidget);
+    expect(tester.getSize(find.byType(ClayCard)).height, lessThan(160));
+  });
+
   testWidgets(
-    'iPhone: the button shows the Share then Add to Home Screen steps',
+    'iPhone: the button opens the Share then Add to Home Screen steps',
     (tester) async {
       final bridge = FakeBridge(isIos: true);
       await pump(tester, bridge);
@@ -69,12 +75,13 @@ void main() {
       );
       await tester.tap(find.text('تثبيت'));
       await tester.pumpAndSettle();
-      expect(find.text('التثبيت على الشاشة الرئيسية'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       expect(find.byIcon(Icons.ios_share_rounded), findsOneWidget);
       expect(find.textContaining('إضافة إلى الشاشة الرئيسية'), findsOneWidget);
       expect(bridge.prompts, 0);
       await tester.tap(find.text('فهمت'));
       await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.ios_share_rounded), findsNothing);
       expect(find.text('تثبيت'), findsOneWidget);
     },
   );
@@ -96,7 +103,7 @@ void main() {
 
   testWidgets('Later hides the card', (tester) async {
     await pump(tester, FakeBridge(isIos: true));
-    await tester.tap(find.byTooltip('لاحقاً'));
+    await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pump();
     expect(find.text('تثبيت'), findsNothing);
   });
