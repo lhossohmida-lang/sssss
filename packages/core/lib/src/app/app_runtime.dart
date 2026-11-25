@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -163,6 +163,10 @@ class AppRuntime {
     int localPasswordIterations = PasswordHasher.defaultIterations,
   }) async {
     final settings = config ?? AppConfig.fromEnvironment();
+    // أزمنة التشغيل في وحدة تحكم المتصفح (نسخة الويب) لقياس سرعة الفتح.
+    final clock = Stopwatch()..start();
+    final marks = <String>[];
+    void mark(String step) => marks.add('$step=${clock.elapsedMilliseconds}');
     // في المتصفح (نسخة الويب) لا ملفات: القاعدة في ذاكرة المتصفح الدائمة باسم المدرسة نفسه.
     final resolvedDatabaseFile =
         databaseFile ??
@@ -175,6 +179,7 @@ class AppRuntime {
             ? openWebAppDatabase('school_${_scope(app, settings)}')
             : openAppDatabase(resolvedDatabaseFile!));
 
+    mark('db');
     SupabaseClient? client;
     var ownsSupabase = false;
     if (gateway == null && settings.isConfigured) {
@@ -222,7 +227,9 @@ class AppRuntime {
       writer: () => writer,
       app: app,
     );
+    mark('server');
     await auth.restore();
+    mark('session');
 
     final SyncFactory? factory =
         syncFactory ??
@@ -236,6 +243,8 @@ class AppRuntime {
                 session,
               ));
     final lifecycle = factory == null ? null : SyncLifecycle(auth, factory);
+    mark('ready');
+    if (kIsWeb) debugPrint('school-start-ms ${marks.join(' ')}');
     return AppRuntime._(
       app: app,
       config: settings,

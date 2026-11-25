@@ -37,9 +37,17 @@
       var splash = document.getElementById('splash');
       if (splash) splash.remove();
     });
+    // ملفات القاعدة (SQLite وعاملها) تُطلب من البداية مع كود التطبيق لا بعده، فتكون جاهزة حين تُفتح القاعدة.
+    ['sqlite3.wasm', 'drift_worker.js'].forEach(function (file) {
+      fetch(file).catch(function () {});
+    });
     // عامل الخدمة: يحفظ ملفات التطبيق في الجهاز فيُفتح فوراً ودون إنترنت، ويجلب النسخة الجديدة وحده.
+    // يُسجَّل بعد ظهور الشاشة الأولى، فلا ينافس تنزيلُه كودَ التطبيق في أول فتح.
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
+      var started = false;
+      function startWorker() {
+        if (started) return;
+        started = true;
         navigator.serviceWorker.register('sw.js');
         // أول زيارة تُحمَّل قبل أن يتحكم العامل بالصفحة: يُعاد طلب ما حُمّل (كود التطبيق ومحرّك الرسم) عبره
         // فيُحفظ، فيعمل الفتح التالي دون إنترنت.
@@ -54,7 +62,10 @@
         } else {
           navigator.serviceWorker.addEventListener('controllerchange', warm, { once: true });
         }
-      });
+      }
+      window.addEventListener('flutter-first-frame', startWorker);
+      // احتياط: إن لم تظهر الشاشة الأولى (خطأ في التشغيل) يُسجَّل بعد 20 ثانية.
+      window.addEventListener('load', function () { setTimeout(startWorker, 20000); });
     }
   </script>
   <script src="flutter_bootstrap.js" async></script>

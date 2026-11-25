@@ -23,7 +23,8 @@ from pathlib import Path
 
 # تُحفظ عند أول طلب لا مسبقاً: يستعمل المتصفح أحدها فقط (WebAssembly أو JavaScript، ومحرّك رسم واحد).
 LAZY_PREFIXES = ("canvaskit/",)
-LAZY_FILES = {"main.dart.js", "main.dart.mjs", "main.dart.wasm"}
+# ونص التراخيص (NOTICES، نحو 1.5 م.ب) لا يُفتح إلا من صفحة التراخيص.
+LAZY_FILES = {"main.dart.js", "main.dart.mjs", "main.dart.wasm", "assets/NOTICES"}
 # لا تُحفظ: العامل نفسه، وعامل Flutter المتروك، وملفات البناء الداخلية والخرائط.
 SKIP_FILES = {"sw.js", "flutter_service_worker.js", ".last_build_id"}
 SKIP_SUFFIXES = (".map", ".deps", ".symbols")
@@ -72,7 +73,7 @@ const CDN_HOSTS = {json.dumps(list(CDN_HOSTS))};
 self.addEventListener('install', (event) => {{
   event.waitUntil(
     caches.open(CACHE)
-      .then((cache) => cache.addAll(SHELL.map((path) => new Request(path, {{ cache: 'reload' }}))))
+      .then((cache) => cache.addAll(SHELL.map((path) => new Request(path, {{ cache: 'no-cache' }}))))
       .then(() => self.skipWaiting()),
   );
 }});
