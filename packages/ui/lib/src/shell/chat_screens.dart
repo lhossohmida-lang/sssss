@@ -531,12 +531,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       }
       final runtime = ref.read(runtimeProvider);
       final directory = Directory(
-        '${runtime.photosDirectory.path}${Platform.pathSeparator}chat_attachments',
+        '${runtime.photosDirectory.path}${platformPathSeparator}chat_attachments',
       );
       await directory.create(recursive: true);
       final extension = _safeExtension(picked.name);
       final local = File(
-        '${directory.path}${Platform.pathSeparator}'
+        '${directory.path}$platformPathSeparator'
         '${runtime.writer.newId()}.$extension',
       );
       stagedPath = local.path;

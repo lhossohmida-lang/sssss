@@ -248,7 +248,9 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
     final AppRuntime runtime;
     try {
       runtime = await widget.startRuntime(widget.app, config);
-    } on Object {
+    } on Object catch (error, stack) {
+      // في سجل التطبيق (وحدة تحكم المتصفح في نسخة الويب) لتشخيص سبب التعذّر.
+      debugPrint('school-start-failed: $error \n$stack');
       _fail(epoch);
       return;
     }

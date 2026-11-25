@@ -355,60 +355,58 @@ class _BulkPeopleScreenState extends ConsumerState<BulkPeopleScreen> {
             style: text.bodySmall!.copyWith(color: p.textMuted),
           ),
           const SizedBox(height: ClaySpacing.sm),
-          Wrap(
-            spacing: ClaySpacing.sm,
-            runSpacing: ClaySpacing.sm,
-            children: [
-              ClayButton(
-                label: allShown ? 'إلغاء تحديد الكل' : 'تحديد الكل',
-                kind: ClayButtonKind.secondary,
-                onPressed: shown.isEmpty ? null : () => _toggleAll(shown),
-              ),
-              ClayButton(
-                label: 'تحديد عدد',
-                kind: ClayButtonKind.secondary,
-                onPressed: shown.isEmpty ? null : () => _pickCount(shown),
-              ),
-              if (_selected.isNotEmpty)
-                ClayButton(
+          // سطر واحد من أزرار دائرية صغيرة، فتبقى القائمة تحتها ظاهرة.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _RoundAction(
+                  icon: allShown
+                      ? Icons.remove_done_rounded
+                      : Icons.done_all_rounded,
+                  label: allShown ? 'إلغاء الكل' : 'تحديد الكل',
+                  onPressed: shown.isEmpty ? null : () => _toggleAll(shown),
+                ),
+                _RoundAction(
+                  icon: Icons.format_list_numbered_rounded,
+                  label: 'تحديد عدد',
+                  onPressed: shown.isEmpty ? null : () => _pickCount(shown),
+                ),
+                _RoundAction(
+                  icon: Icons.clear_all_rounded,
                   label: 'مسح التحديد',
-                  kind: ClayButtonKind.secondary,
-                  onPressed: () => setState(_selected.clear),
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => setState(_selected.clear),
                 ),
-            ],
-          ),
-          const SizedBox(height: ClaySpacing.sm),
-          Wrap(
-            spacing: ClaySpacing.sm,
-            runSpacing: ClaySpacing.sm,
-            children: [
-              ClayButton(
-                label: 'طباعة البطاقات ($count)',
-                icon: ClayIcons.print,
-                loading: _busy,
-                onPressed: count == 0 || _busy
-                    ? null
-                    : () => _printCards(chosen),
-              ),
-              if (canReset)
-                ClayButton(
-                  label: 'إرسال بيانات الدخول ($count)',
-                  icon: Icons.key_rounded,
-                  kind: ClayButtonKind.secondary,
+                _RoundAction(
+                  icon: ClayIcons.print,
+                  label: 'طباعة البطاقات',
+                  primary: true,
+                  busy: _busy,
                   onPressed: count == 0 || _busy
                       ? null
-                      : () => _sendCredentials(chosen),
+                      : () => _printCards(chosen),
                 ),
-              if (canSms)
-                ClayButton(
-                  label: 'رسالة مكتوبة ($count)',
-                  icon: ClayIcons.sms,
-                  kind: ClayButtonKind.secondary,
-                  onPressed: count == 0 || _busy
-                      ? null
-                      : () => _compose(chosen),
-                ),
-            ],
+                if (canReset)
+                  _RoundAction(
+                    icon: Icons.key_rounded,
+                    label: 'بيانات الدخول',
+                    onPressed: count == 0 || _busy
+                        ? null
+                        : () => _sendCredentials(chosen),
+                  ),
+                if (canSms)
+                  _RoundAction(
+                    icon: ClayIcons.sms,
+                    label: 'رسالة',
+                    onPressed: count == 0 || _busy
+                        ? null
+                        : () => _compose(chosen),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -447,6 +445,89 @@ class _BulkPeopleScreenState extends ConsumerState<BulkPeopleScreen> {
           onTap: () => _toggle(person.id),
         );
       },
+    );
+  }
+}
+
+/// زر دائري صغير بأيقونة وتحته اسمه، لأفعال صفحة التحديد في سطر واحد.
+class _RoundAction extends StatelessWidget {
+  const _RoundAction({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.primary = false,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool primary;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final text = Theme.of(context).textTheme;
+    final enabled = onPressed != null;
+    final background = !enabled
+        ? p.surfacePressed
+        : primary
+        ? p.accent
+        : p.surface;
+    final foreground = !enabled
+        ? p.textMuted
+        : primary
+        ? p.onAccent
+        : p.accent;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      // الدائرة واسمها زر واحد.
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 76,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Material(
+                color: background,
+                shape: CircleBorder(
+                  side: BorderSide(color: p.outline.withValues(alpha: 0.5)),
+                ),
+                elevation: enabled ? 2 : 0,
+                child: SizedBox.square(
+                  dimension: 48,
+                  child: Center(
+                    child: busy
+                        ? SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: foreground,
+                            ),
+                          )
+                        : Icon(icon, color: foreground, size: 22),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: text.labelSmall!.copyWith(
+                  color: enabled ? null : p.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

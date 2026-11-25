@@ -47,6 +47,8 @@ void main() {
   appTest('«حسابي»: دليل الاستخدام بدروس الأستاذ', (tester) async {
     await openTeacher(tester);
     await tester.tap(find.text('حسابي').last);
+    // شاشة طويلة: بطاقة الحساب أعلى الصفحة تدفع الأزرار للأسفل.
+    tester.view.physicalSize = const Size(420, 2600);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'دليل الاستخدام'));
     await tester.pumpAndSettle();

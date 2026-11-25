@@ -8,6 +8,8 @@ import 'home_screens_test.dart' hide main;
 Future<void> openAccount(WidgetTester tester) async {
   await openTeacher(tester);
   await tester.tap(find.text('حسابي').last);
+  // شاشة طويلة: البطاقة أعلى الصفحة تدفع الأزرار للأسفل.
+  tester.view.physicalSize = const Size(420, 2600);
   await tester.pumpAndSettle();
 }
 
@@ -33,10 +35,22 @@ void main() {
   appTest('حسابي: الاسم والدور والبريد والهاتف والمدرسة', (tester) async {
     await openAccount(tester);
     expect(find.text('الأستاذ كمال'), findsOneWidget);
-    expect(find.text('أستاذ'), findsOneWidget);
+    // الدور تحت الاسم، وعلى البطاقة كذلك.
+    expect(find.text('أستاذ'), findsNWidgets(2));
     expect(find.text('teacher@school.local'), findsOneWidget);
     expect(find.text('0660000001'), findsOneWidget);
-    expect(find.text('مدرسة النجاح'), findsOneWidget);
+    // اسم المدرسة في رأس البطاقة وفي البيانات.
+    expect(find.text('مدرسة النجاح'), findsNWidgets(2));
+    // بطاقته برمزه تُمسح عند الدخول والخروج.
+    expect(find.byType(IdCardView), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(IdCardView),
+        matching: find.byType(ClayQrCode),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('يُمسح الرمز عند الدخول والخروج'), findsOneWidget);
     expect(find.widgetWithText(ClayButton, 'تغيير كلمة السر'), findsOneWidget);
     expect(find.widgetWithText(ClayButton, 'خروج'), findsOneWidget);
   });
@@ -44,6 +58,8 @@ void main() {
   appTest('تغيير كلمة السر: أخطاء الحقول ثم النجاح', (tester) async {
     final runtime = await openTeacher(tester);
     await tester.tap(find.text('حسابي').last);
+    // شاشة طويلة: البطاقة أعلى الصفحة تدفع الأزرار للأسفل.
+    tester.view.physicalSize = const Size(420, 2600);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تغيير كلمة السر'));
     await tester.pumpAndSettle();

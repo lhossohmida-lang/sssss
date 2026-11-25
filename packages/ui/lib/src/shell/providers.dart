@@ -355,7 +355,7 @@ final Provider<GroupFileService> groupFileServiceProvider =
         runtime.db,
         runtime.writer,
         directory: Directory(
-          '${runtime.photosDirectory.path}${Platform.pathSeparator}'
+          '${runtime.photosDirectory.path}$platformPathSeparator'
           'group_files',
         ),
       );

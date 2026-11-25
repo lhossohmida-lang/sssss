@@ -126,7 +126,7 @@ class GoogleDriveController implements DriveController {
       ) {
     _preferences = DevicePreferences(runtime.db);
     final staging = Directory(
-      '${runtime.photosDirectory.parent.path}${Platform.pathSeparator}drive_uploads',
+      '${runtime.photosDirectory.parent.path}${platformPathSeparator}drive_uploads',
     );
     _queue = DriveQueueService(
       runtime.db,
@@ -414,7 +414,7 @@ class GoogleDriveController implements DriveController {
       throw StateError('النسخة لم تعد موجودة في مجلد النسخ الاحتياطية.');
     }
     final temporary = File(
-      '${_queue.stagingDirectory.path}${Platform.pathSeparator}'
+      '${_queue.stagingDirectory.path}$platformPathSeparator'
       'restore-${runtime.writer.newId()}.sqlite',
     );
     try {
@@ -442,7 +442,7 @@ class GoogleDriveController implements DriveController {
       if (await _queue.hasQueuedRemotePath(remotePath)) return false;
 
       temporary = File(
-        '${_queue.stagingDirectory.path}${Platform.pathSeparator}'
+        '${_queue.stagingDirectory.path}$platformPathSeparator'
         'snapshot-${runtime.writer.newId()}.sqlite',
       );
       await backup.createSnapshot(temporary);

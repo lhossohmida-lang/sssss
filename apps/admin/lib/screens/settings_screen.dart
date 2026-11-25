@@ -314,7 +314,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       gap(),
                       ClayTextField(
                         controller: _phone,
-                        label: 'الهاتف',
+                        label: 'هاتف المدرسة',
+                        helper: 'يظهر في الوصولات والرسائل؛ لا يغيّر رقم دخول المدير',
                         enabled: canEdit,
                         keyboardType: TextInputType.phone,
                         textDirection: TextDirection.ltr,

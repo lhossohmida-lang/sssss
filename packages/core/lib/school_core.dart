@@ -5,6 +5,7 @@ export 'src/app/app_config.dart';
 export 'src/app/app_runtime.dart';
 export 'src/app/app_update.dart';
 export 'src/app/device_data.dart';
+export 'src/app/platform_path.dart';
 export 'src/app/school_directory.dart';
 export 'src/app/school_pairing.dart';
 export 'src/app/school_reset.dart';

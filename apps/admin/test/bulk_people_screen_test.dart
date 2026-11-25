@@ -95,10 +95,10 @@ void main() {
     final o = await openTeachers(tester);
     expect(find.text('تحديد الأساتذة'), findsOneWidget);
     expect(find.text('المعروض 3 · المحدَّد 0'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ClayButton, 'تحديد الكل'));
+    await tester.tap(find.text('تحديد الكل'));
     await tester.pumpAndSettle();
     expect(find.text('المعروض 3 · المحدَّد 3'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ClayButton, 'طباعة البطاقات (3)'));
+    await tester.tap(find.text('طباعة البطاقات'));
     await waitFor(tester, () => o.presenter.shown.isNotEmpty);
     final shown = o.presenter.shown.single;
     expect(shown.title, 'بطاقات الأساتذة (3)');
@@ -111,7 +111,7 @@ void main() {
     await tester.tap(find.text('بلال'));
     await tester.pumpAndSettle();
     expect(find.text('المعروض 3 · المحدَّد 1'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ClayButton, 'تحديد عدد'));
+    await tester.tap(find.text('تحديد عدد'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
@@ -123,18 +123,16 @@ void main() {
     await tester.tap(find.widgetWithText(ClayButton, 'تحديد'));
     await tester.pumpAndSettle();
     expect(find.text('المعروض 3 · المحدَّد 2'), findsOneWidget);
-    expect(find.widgetWithText(ClayButton, 'رسالة مكتوبة (2)'), findsOneWidget);
+    expect(find.text('رسالة'), findsOneWidget);
   });
 
   appTest('إرسال بيانات الدخول: كلمة سر جديدة ورسالة لكل أستاذ محدَّد', (
     tester,
   ) async {
     final o = await openTeachers(tester);
-    await tester.tap(find.widgetWithText(ClayButton, 'تحديد الكل'));
+    await tester.tap(find.text('تحديد الكل'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.widgetWithText(ClayButton, 'إرسال بيانات الدخول (3)'),
-    );
+    await tester.tap(find.text('بيانات الدخول'));
     await tester.pumpAndSettle();
     expect(find.textContaining('كلمات السر القديمة لن تعمل'), findsOneWidget);
     await tester.tap(find.widgetWithText(ClayButton, 'توليد وإرسال'));
@@ -159,9 +157,9 @@ void main() {
 
   appTest('رسالة مكتوبة واحدة لكل المحدَّدين', (tester) async {
     final o = await openTeachers(tester);
-    await tester.tap(find.widgetWithText(ClayButton, 'تحديد الكل'));
+    await tester.tap(find.text('تحديد الكل'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ClayButton, 'رسالة مكتوبة (3)'));
+    await tester.tap(find.text('رسالة'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
@@ -213,15 +211,13 @@ void main() {
     await tester.tap(find.byTooltip('تحديد للطباعة والرسائل'));
     await tester.pumpAndSettle();
     expect(find.text('تحديد العمال'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ClayButton, 'تحديد الكل'));
+    await tester.tap(find.text('تحديد الكل'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ClayButton, 'طباعة البطاقات (12)'));
+    await tester.tap(find.text('طباعة البطاقات'));
     await waitFor(tester, () => o.presenter.shown.isNotEmpty);
     expect(pageCount(o.presenter.shown.single.bytes), 2);
     // لا حسابات لهؤلاء العمال: الإرسال يُرفض برسالة.
-    await tester.tap(
-      find.widgetWithText(ClayButton, 'إرسال بيانات الدخول (12)'),
-    );
+    await tester.tap(find.text('بيانات الدخول'));
     await tester.pumpAndSettle();
     expect(find.text('لا حساب دخول بين المحدَّدين'), findsOneWidget);
   });
@@ -306,16 +302,14 @@ void main() {
     await tester.tap(find.text('تحديد وطباعة'));
     await tester.pumpAndSettle();
     expect(find.text('تحديد التلاميذ'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ClayButton, 'تحديد الكل'));
+    await tester.tap(find.text('تحديد الكل'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ClayButton, 'طباعة البطاقات (2)'));
+    await tester.tap(find.text('طباعة البطاقات'));
     await waitFor(tester, () => o.presenter.shown.isNotEmpty);
     expect(o.presenter.shown.single.title, 'بطاقات التلاميذ (2)');
     expect(pageCount(o.presenter.shown.single.bytes), 1);
 
-    await tester.tap(
-      find.widgetWithText(ClayButton, 'إرسال بيانات الدخول (2)'),
-    );
+    await tester.tap(find.text('بيانات الدخول'));
     await tester.pumpAndSettle();
     expect(find.textContaining('لـ 1 وليّ'), findsOneWidget);
     await tester.tap(find.widgetWithText(ClayButton, 'توليد وإرسال'));

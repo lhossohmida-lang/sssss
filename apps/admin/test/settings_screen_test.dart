@@ -123,7 +123,7 @@ void main() {
   appTest('تعديل الحقول وحفظها يكتبها في القاعدة', (tester) async {
     final runtime = await openSettings(tester, owner);
     await tester.enterText(field('اسم المدرسة'), 'مدرسة النجاح');
-    await tester.enterText(field('الهاتف'), '0550123456');
+    await tester.enterText(field('هاتف المدرسة'), '0550123456');
     await tester.enterText(field('المبلغ (دج)'), '2500');
     await tester.enterText(field('هامش المسح قبل الحصة (دقيقة)'), '45');
     await save(tester);
@@ -137,7 +137,7 @@ void main() {
 
   appTest('قيم غير صالحة: أخطاء عربية ولا حفظ', (tester) async {
     final runtime = await openSettings(tester, owner);
-    await tester.enterText(field('الهاتف'), '123');
+    await tester.enterText(field('هاتف المدرسة'), '123');
     await tester.enterText(field('مهلة السماح للتأخر (دقيقة)'), '99');
     await tester.enterText(field('المبلغ (دج)'), '1505');
     await save(tester);

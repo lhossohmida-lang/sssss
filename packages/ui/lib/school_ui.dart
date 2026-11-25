@@ -31,6 +31,7 @@ export 'src/shell/device_reset.dart';
 export 'src/shell/directory_screens.dart';
 export 'src/shell/file_picking.dart';
 export 'src/shell/group_file_viewer.dart';
+export 'src/shell/id_card_view.dart';
 export 'src/shell/keyboard_wedge.dart';
 export 'src/shell/list_page.dart';
 export 'src/shell/mobile_scanner_source.dart';

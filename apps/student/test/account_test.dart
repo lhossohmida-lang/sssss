@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' show Column, TextField;
+import 'package:flutter/material.dart' show Column, Size, TextField;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
@@ -17,18 +17,25 @@ void main() {
   ) async {
     await openParent(tester);
     await tester.tap(find.text('حسابي').last);
+    // شاشة طويلة: البطاقة أعلى الصفحة تدفع الأزرار للأسفل.
+    tester.view.physicalSize = const Size(420, 2600);
     await tester.pumpAndSettle();
     expect(find.text('ولي التلميذ'), findsOneWidget);
     expect(find.text('وليّ'), findsOneWidget);
     expect(find.text('parent@school.local'), findsOneWidget);
     expect(find.text('0550000001'), findsOneWidget);
     expect(find.text('سمير بن علي، نور بن علي'), findsOneWidget);
-    expect(find.text('مدرسة النجاح'), findsOneWidget);
+    // بطاقة لكل ابن برمزه، وفي رأس كل بطاقة اسم المدرسة.
+    expect(find.byType(IdCardView), findsNWidgets(2));
+    expect(find.text('سمير بن علي'), findsOneWidget);
+    expect(find.text('مدرسة النجاح'), findsNWidgets(3));
   });
 
   appTest('تغيير كلمة السر: الحالية الخاطئة ثم الصحيحة', (tester) async {
     await openParent(tester);
     await tester.tap(find.text('حسابي').last);
+    // شاشة طويلة: البطاقة أعلى الصفحة تدفع الأزرار للأسفل.
+    tester.view.physicalSize = const Size(420, 2600);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تغيير كلمة السر'));
     await tester.pumpAndSettle();
@@ -50,6 +57,8 @@ void main() {
   appTest('الخروج يعيد إلى شاشة الدخول', (tester) async {
     await openParent(tester);
     await tester.tap(find.text('حسابي').last);
+    // شاشة طويلة: البطاقة أعلى الصفحة تدفع الأزرار للأسفل.
+    tester.view.physicalSize = const Size(420, 2600);
     await tester.pumpAndSettle();
     // الصفحة تطول بأزرارها فيُمرَّر إلى «خروج» قبل الضغط عليه.
     await tester.ensureVisible(find.widgetWithText(ClayButton, 'خروج'));

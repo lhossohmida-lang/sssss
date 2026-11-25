@@ -29,6 +29,8 @@ FIRST_SCREENS = {
     "student": "اختر مدرستك",
 }
 TIMEOUT_MS = 90_000
+LOCAL_PREVIEW = "تجربة محلية بلا خادم"
+START_FAILED = "تعذّر تشغيل التطبيق"
 
 mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("text/javascript", ".mjs")
@@ -119,6 +121,31 @@ def smoke_app(browser, base: str, app: str, out_dir: Path) -> WebOutcome:
                 f"دون إنترنت لم تظهر «{expected}»: {' | '.join(offline_texts[:6])}"
             )
         page.screenshot(path=str(out_dir / f"{app}-offline.png"))
+
+        # الإدارة: «تجربة محلية بلا خادم» يشغّل التطبيق كله في المتصفح (القاعدة والخدمات وأول الشاشات)، فيُكشف كل ما
+        # لا يعمل على الويب بعد الشاشة الأولى (مثل استعمال Platform الذي أظهر شاشة رمادية بعد الدخول).
+        if app == "admin":
+            context.set_offline(False)
+            page.reload(wait_until="load", timeout=TIMEOUT_MS)
+            wait_for_text(page, expected)
+            button = page.locator("flt-semantics[role=button]", has_text=LOCAL_PREVIEW)
+            if button.count() == 0:
+                outcome.problems.append(f"لا زر «{LOCAL_PREVIEW}» في الشاشة الأولى")
+            else:
+                button.first.click()
+                deadline = time.monotonic() + TIMEOUT_MS / 1000
+                started: list[str] = []
+                while time.monotonic() < deadline:
+                    page.wait_for_timeout(1000)
+                    started = visible_texts(page)
+                    if started and not any(expected in t for t in started):
+                        break
+                outcome.texts += ["— المحلي —", *started[:8]]
+                if any(START_FAILED in t for t in started):
+                    outcome.problems.append(f"التشغيل المحلي فشل: «{START_FAILED}»")
+                elif not started or any(expected in t for t in started):
+                    outcome.problems.append("التشغيل المحلي لم يتجاوز الشاشة الأولى (شاشة رمادية أو لا شيء)")
+                page.screenshot(path=str(out_dir / f"{app}-local.png"))
     except Exception as error:  # noqa: BLE001 — يُسجَّل ويكمل الفحص
         outcome.problems.append(f"خطأ أثناء الفحص: {str(error).splitlines()[0][:200]}")
     finally:

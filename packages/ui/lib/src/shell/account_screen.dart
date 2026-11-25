@@ -27,7 +27,15 @@ typedef AccountDetail = ({String label, String value});
 ///
 /// مشتركة بين التطبيقات الثلاثة؛ كل تطبيق يمرّر [details] و[photo] من بياناته.
 class AccountScreen extends ConsumerWidget {
-  const AccountScreen({this.details = const [], this.photo, super.key});
+  const AccountScreen({
+    this.details = const [],
+    this.photo,
+    this.cards = const [],
+    super.key,
+  });
+
+  /// بطاقات صاحب الحساب برمز QR (بطاقة الأستاذ، وبطاقة كل ابن للوليّ) تظهر تحت رأس الصفحة.
+  final List<Widget> cards;
 
   /// بيانات إضافية تُعرض بعد رقم الدخول (هاتف، أبناء...).
   final List<AccountDetail> details;
@@ -103,6 +111,10 @@ class AccountScreen extends ConsumerWidget {
             ],
           ),
         ),
+        for (final card in cards) ...[
+          const SizedBox(height: ClaySpacing.md),
+          card,
+        ],
         const SizedBox(height: ClaySpacing.md),
         ClayCard(
           flat: true,

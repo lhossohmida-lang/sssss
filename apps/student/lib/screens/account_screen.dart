@@ -11,7 +11,19 @@ class ParentAccountScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final parent = ref.watch(myParentProvider).value;
     final children = ref.watch(childrenProvider).value ?? const [];
+    final school = ref.watch(schoolNameProvider).value ?? '';
     return AccountScreen(
+      // بطاقة كل ابن برمزه: يعرضها على الماسح عند دخول القاعة.
+      cards: [
+        for (final child in children)
+          IdCardView(
+            schoolName: school,
+            name: '${child.firstName} ${child.lastName}',
+            subtitle: 'تلميذ',
+            qrCode: child.qrCode,
+            photo: localPhoto(child.photoLocalPath),
+          ),
+      ],
       details: [
         if (parent != null) (label: 'الهاتف', value: parent.phone),
         if (children.isNotEmpty)

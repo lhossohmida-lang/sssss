@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// كلمة سر مشتقة جاهزة للتخزين: الملح والتكرارات والبصمة.
 class PasswordDigest {
@@ -42,7 +43,7 @@ abstract final class PasswordHasher {
     final salt = Uint8List.fromList([
       for (var i = 0; i < _saltLength; i++) source.nextInt(256),
     ]);
-    return Isolate.run(
+    return _offMainThread(
       () => PasswordDigest(
         salt: base64Encode(salt),
         hash: base64Encode(derive(password, salt, iterations)),
@@ -63,7 +64,7 @@ abstract final class PasswordHasher {
     }
     final iterations = digest.iterations;
     if (iterations < 1) return Future.value(false);
-    return Isolate.run(() {
+    return _offMainThread(() {
       final actual = derive(password, salt, iterations);
       if (actual.length != expected.length) return false;
       var diff = 0;
@@ -92,3 +93,7 @@ abstract final class PasswordHasher {
     return result;
   }
 }
+
+/// حساب ثقيل خارج خيط الواجهة؛ في المتصفح (نسخة الويب) لا `Isolate.run` فيُحسب في الخيط نفسه.
+Future<T> _offMainThread<T>(T Function() work) =>
+    kIsWeb ? Future(work) : Isolate.run(work);

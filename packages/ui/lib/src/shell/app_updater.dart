@@ -113,7 +113,7 @@ updateControllerProvider = Provider<UpdateController?>((ref) {
     source: GitHubUpdateSource(repo: UpdateBuildConfig.repo, assetName: asset),
     downloader: UpdateDownloader(
       directory: Directory(
-        '${runtime.photosDirectory.parent.path}${Platform.pathSeparator}updates',
+        '${runtime.photosDirectory.parent.path}${platformPathSeparator}updates',
       ),
     ),
     installer: switch (defaultTargetPlatform) {

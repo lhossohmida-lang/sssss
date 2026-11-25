@@ -10,9 +10,21 @@ class TeacherAccountScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final teacher = ref.watch(myTeacherProvider).value;
+    final school = ref.watch(schoolNameProvider).value ?? '';
     return AccountScreen(
       photo: localPhoto(teacher?.photoLocalPath),
       details: [if (teacher != null) (label: 'الهاتف', value: teacher.phone)],
+      cards: [
+        if (teacher != null)
+          IdCardView(
+            schoolName: school,
+            name: teacher.name,
+            subtitle: 'أستاذ',
+            qrCode: teacher.qrCode,
+            caption: 'يُمسح الرمز عند الدخول والخروج',
+            photo: localPhoto(teacher.photoLocalPath),
+          ),
+      ],
     );
   }
 }
