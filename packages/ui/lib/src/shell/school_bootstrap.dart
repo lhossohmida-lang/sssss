@@ -20,6 +20,7 @@ import 'providers.dart';
 import 'pwa_install.dart';
 import 'qr_scanning.dart';
 import 'school_app.dart';
+import 'web_error_view.dart';
 
 /// يشغّل وقت تشغيل التطبيق لإعدادات مدرسة ([config] فارغ = معاينة محلية).
 typedef RuntimeStarter = Future<AppRuntime> Function(
@@ -176,6 +177,7 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
   @override
   void initState() {
     super.initState();
+    installWebErrorView();
     _directory = widget.directory ?? _environmentDirectory();
     unawaited(_boot());
   }
@@ -391,6 +393,7 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
         pairing: _pairing,
         child: ProviderScope(
           key: ObjectKey(runtime),
+          observers: kIsWeb ? const [WebFailureObserver()] : null,
           overrides: [
             runtimeProvider.overrideWithValue(runtime),
             initialLoginErrorProvider.overrideWithValue(_loginError),
