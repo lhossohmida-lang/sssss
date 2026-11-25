@@ -654,13 +654,29 @@ void main() {
     expect(student.transportPrice, 1200);
   });
 
-  appTest('فشل إنشاء حساب الوليّ: رسالة ولا تلميذ', (tester) async {
+  appTest('دون إنترنت: يُسجَّل التلميذ وحساب وليّه ينتظر الخادم', (tester) async {
     final o = await openForm(tester);
     o.provisioner.failing = true;
     await fillPeople(tester);
     await pickSubject(tester, 'رياضيات');
     await submit(tester);
-    expect(find.text('لا يوجد اتصال بالإنترنت'), findsOneWidget);
+    expect(find.textContaining('لا إنترنت الآن'), findsOneWidget);
+    expect(
+      await runDb(
+        tester,
+        () => o.runtime.db.select(o.runtime.db.students).get(),
+      ),
+      hasLength(1),
+    );
+  });
+
+  appTest('رفض الخادم لحساب الوليّ: رسالة ولا تلميذ', (tester) async {
+    final o = await openForm(tester);
+    o.provisioner.rejecting = true;
+    await fillPeople(tester);
+    await pickSubject(tester, 'رياضيات');
+    await submit(tester);
+    expect(find.text('يوجد حساب بهذا البريد مسبقاً'), findsOneWidget);
     expect(
       await runDb(
         tester,

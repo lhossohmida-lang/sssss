@@ -76,7 +76,11 @@ class _CredentialsDialog extends StatelessWidget {
           row('رقم الدخول', LoginCredentials.displayLogin(account.email)),
           if (account.password.isNotEmpty) row('كلمة السر', account.password),
           Text(
-            account.smsQueued
+            account.pending
+                ? 'لا إنترنت الآن: حُفظ كل شيء على هذا الجهاز، ويُنشأ الحساب على الخادم '
+                      'وتُرسل الرسالة إلى $phone وحدها عند عودة الاتصال. '
+                      'احفظ كلمة السر الآن فلن تظهر ثانية.'
+                : account.smsQueued
                 ? 'وُضعت رسالة بهذه البيانات في طابور الإرسال إلى $phone. '
                       'احفظ كلمة السر الآن فلن تظهر ثانية.'
                 : 'الحساب موجود من قبل ولم تُنشأ كلمة سر جديدة.',

@@ -56,13 +56,14 @@ part 'app_database.g.dart';
     LocalCredentials,
     DeviceInfo,
     UploadQueue,
+    PendingAccounts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +125,8 @@ class AppDatabase extends _$AppDatabase {
       if (from < 8 && to >= 8) {
         await m.addColumn(workerAttendance, workerAttendance.punches);
       }
+      // 9: حسابات الدخول التي أُنشئت دون إنترنت وتنتظر الخادم (محلي فقط).
+      if (from < 9) await m.createTable(pendingAccounts);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

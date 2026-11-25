@@ -57,6 +57,7 @@ class SyncCoordinator {
     this.engine, {
     this.realtime,
     this.uploads,
+    this.afterSync = const [],
     this.debounce = const Duration(milliseconds: 400),
     this.interval = const Duration(minutes: 2),
     int Function()? clock,
@@ -66,6 +67,10 @@ class SyncCoordinator {
   final SyncEngine engine;
   final RealtimeSource? realtime;
   final UploadWorker? uploads;
+
+  /// أعمال تحتاج الخادم وتُنفَّذ بعد كل جولة ناجحة (مثل إنشاء الحسابات التي أُضيفت دون إنترنت).
+  /// خطأ أحدها لا يوقف المزامنة.
+  final List<Future<void> Function()> afterSync;
   final Duration debounce;
   final Duration interval;
   final int Function() _clock;
@@ -155,6 +160,13 @@ class SyncCoordinator {
       // هذا المنسّق يرفع مخازن Supabase فقط. طابور Drive له اعتماد OAuth
       // ومخزن مستقل، ويعالجه تطبيق الإدارة بعد التحقق من حساب المالك.
       await uploads?.processPending(buckets: const {'photos', 'files'});
+      for (final job in afterSync) {
+        try {
+          await job();
+        } on Object catch (_) {
+          // يُعاد في الجولة التالية.
+        }
+      }
       _emit(
         SyncStatus(
           pending: report.pending,

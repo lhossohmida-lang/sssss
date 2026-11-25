@@ -6,4 +6,5 @@ const Set<String> localOnlyTables = {
   'device_session',
   'local_credentials',
   'device_info',
+  'pending_accounts',
 };

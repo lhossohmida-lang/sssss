@@ -184,3 +184,38 @@ class DeviceInfo extends Table {
   @override
   Set<Column> get primaryKey => {key};
 }
+
+/// حسابات دخول تنتظر الخادم: أُنشئت أو أُعيد توليد كلمة سرها دون إنترنت. يُحفظ كل شيء محلياً
+/// (صاحب الحساب وبياناته وكلمة سره المؤقتة)، وبعد كل جولة مزامنة ناجحة يُنشأ الحساب على الخادم
+/// ويُكتب صفه في `user_accounts` وتوضع رسالة بيانات الدخول في الطابور، ثم يُحذف من هنا.
+/// لا يُزامَن: كلمة السر لا تغادر الجهاز إلا إلى دالة الخادم.
+@DataClassName('PendingAccountRow')
+class PendingAccounts extends Table {
+  /// معرّف الحساب المطلوب (يُعطى لصاحبه محلياً قبل الخادم).
+  TextColumn get id => text()();
+
+  /// `create` أو `reset`.
+  TextColumn get kind => text()();
+
+  TextColumn get email => text()();
+
+  TextColumn get password => text()();
+
+  TextColumn get role => text()();
+
+  TextColumn get entityId => text().nullable()();
+
+  TextColumn get displayName => text().withDefault(const Constant(''))();
+
+  IntColumn get createdAt => integer()();
+
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+
+  /// آخر خطأ؛ ومع [blocked] رفضٌ نهائي من الخادم (البريد مستعمل مثلاً) لا يُعاد.
+  TextColumn get lastError => text().nullable()();
+
+  BoolColumn get blocked => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

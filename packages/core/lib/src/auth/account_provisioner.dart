@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -11,11 +13,15 @@ import 'local_auth_gateway.dart';
 /// تطبيق أن ينشئ مستخدماً في Supabase Auth بمفتاحه العام، فيُستدعى دالة
 /// خادم؛ وفي الوضع المحلي تُحفظ بصمة كلمة السر على الجهاز.
 abstract interface class AccountProvisioner {
-  /// ينشئ الحساب ويعيد معرّفه (وهو نفسه معرّف المستخدم على الخادم).
+  /// ينشئ الحساب ويعيد معرّفه (وهو نفسه معرّف المستخدم على الخادم). [id] المعرّف المطلوب
+  /// (أُعطي لصاحبه محلياً قبل الخادم)؛ قد يعيد الخادم غيره إن لم يدعمه.
+  ///
+  /// انقطاع الشبكة أو عطل مؤقت في الخادم: [AuthFailureException] بـ[AuthFailure.network].
   Future<String> provision({
     required String email,
     required String password,
     required UserRole role,
+    String? id,
   });
 
   /// يغيّر كلمة سر حساب موجود (إعادة توليد بيانات الدخول).
@@ -36,10 +42,11 @@ class LocalAccountProvisioner implements AccountProvisioner {
     required String email,
     required String password,
     required UserRole role,
+    String? id,
   }) async {
-    final id = const Uuid().v4();
-    await gateway.setPassword(id, password);
-    return id;
+    final accountId = id ?? const Uuid().v4();
+    await gateway.setPassword(accountId, password);
+    return accountId;
   }
 
   @override
@@ -62,20 +69,22 @@ class SupabaseAccountProvisioner implements AccountProvisioner {
     required String email,
     required String password,
     required UserRole role,
+    String? id,
   }) async {
     final response = await _invoke('provision-account', {
       'email': email,
       'password': password,
       'role': role.code,
+      'id': ?id,
     });
-    final id = response is Map ? response['id'] : null;
-    if (id is! String || id.isEmpty) {
+    final created = response is Map ? response['id'] : null;
+    if (created is! String || created.isEmpty) {
       throw const AuthFailureException(
         AuthFailure.unknown,
         message: 'رد غير مفهوم من الخادم عند إنشاء الحساب',
       );
     }
-    return id;
+    return created;
   }
 
   @override
@@ -91,7 +100,9 @@ class SupabaseAccountProvisioner implements AccountProvisioner {
 
   Future<Object?> _invoke(String function, Map<String, Object> body) async {
     try {
-      final response = await client.functions.invoke(function, body: body);
+      final response = await client.functions
+          .invoke(function, body: body)
+          .timeout(const Duration(seconds: 20));
       return response.data;
     } on FunctionException catch (e) {
       throw AuthFailureException(
@@ -100,6 +111,11 @@ class SupabaseAccountProvisioner implements AccountProvisioner {
             ? 'يوجد حساب بهذا البريد مسبقاً'
             : 'تعذّر إنشاء الحساب على الخادم (${e.status})',
       );
+    } on AuthFailureException {
+      rethrow;
+    } catch (_) {
+      // دون إنترنت (أو انتهت المهلة): يُحفظ الطلب ويُعاد عند عودة الاتصال.
+      throw const AuthFailureException(AuthFailure.network);
     }
   }
 }

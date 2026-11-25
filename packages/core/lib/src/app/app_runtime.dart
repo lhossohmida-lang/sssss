@@ -28,6 +28,7 @@ import '../data/remote/sync_coordinator.dart';
 import '../data/remote/sync_engine.dart';
 import '../data/remote/sync_profile.dart';
 import '../data/remote/upload_worker.dart';
+import '../domain/account_service.dart';
 import '../domain/cycle_service.dart';
 import '../domain/device_preferences.dart';
 import '../domain/enums.dart';
@@ -231,6 +232,20 @@ class AppRuntime {
     await auth.restore();
     mark('session');
 
+    final AccountProvisioner? resolvedProvisioner =
+        provisioner ??
+        (app != AppIdentity.admin
+            ? null
+            : local != null
+            ? LocalAccountProvisioner(local)
+            : client != null
+            ? SupabaseAccountProvisioner(client)
+            : null);
+    // حسابات أُضيفت دون إنترنت تُنشأ على الخادم بعد كل مزامنة ناجحة (تطبيق الإدارة بالخادم).
+    final pendingAccounts =
+        resolvedProvisioner is SupabaseAccountProvisioner
+        ? AccountService(db, writer, resolvedProvisioner)
+        : null;
     final SyncFactory? factory =
         syncFactory ??
         (client == null
@@ -241,6 +256,12 @@ class AppRuntime {
                 client!,
                 settings.supabaseAnonKey,
                 session,
+                afterSync: [
+                  if (pendingAccounts != null &&
+                      session.role != UserRole.parent &&
+                      session.role != UserRole.teacher)
+                    () => pendingAccounts.processPending(),
+                ],
               ));
     final lifecycle = factory == null ? null : SyncLifecycle(auth, factory);
     mark('ready');
@@ -255,15 +276,7 @@ class AppRuntime {
       localGateway: local,
       photosDirectory: photosDirectory ?? await _photosDirectory(app, settings),
       fileStore: client == null ? null : SupabaseFileStore(client),
-      provisioner:
-          provisioner ??
-          (app != AppIdentity.admin
-              ? null
-              : local != null
-              ? LocalAccountProvisioner(local)
-              : client != null
-              ? SupabaseAccountProvisioner(client)
-              : null),
+      provisioner: resolvedProvisioner,
       pushInstallationStore:
           pushInstallationStore ??
           (client == null ? null : SupabasePushInstallationStore(client)),
@@ -397,8 +410,9 @@ class AppRuntime {
     SyncWriter writer,
     SupabaseClient client,
     String apiKey,
-    AuthSession session,
-  ) {
+    AuthSession session, {
+    List<Future<void> Function()> afterSync = const [],
+  }) {
     final backend = SupabaseBackend(client, db: db, apiKey: apiKey);
     final engine = SyncEngine(
       db,
@@ -410,6 +424,7 @@ class AppRuntime {
       engine,
       realtime: backend.realtime,
       uploads: UploadWorker(db, writer, backend.files),
+      afterSync: afterSync,
     );
   }
 }

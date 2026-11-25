@@ -27422,6 +27422,666 @@ class UploadQueueCompanion extends UpdateCompanion<UploadQueueRow> {
   }
 }
 
+class $PendingAccountsTable extends PendingAccounts
+    with TableInfo<$PendingAccountsTable, PendingAccountRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingAccountsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _passwordMeta = const VerificationMeta(
+    'password',
+  );
+  @override
+  late final GeneratedColumn<String> password = GeneratedColumn<String>(
+    'password',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _blockedMeta = const VerificationMeta(
+    'blocked',
+  );
+  @override
+  late final GeneratedColumn<bool> blocked = GeneratedColumn<bool>(
+    'blocked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("blocked" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    kind,
+    email,
+    password,
+    role,
+    entityId,
+    displayName,
+    createdAt,
+    attempts,
+    lastError,
+    blocked,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_accounts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingAccountRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_emailMeta);
+    }
+    if (data.containsKey('password')) {
+      context.handle(
+        _passwordMeta,
+        password.isAcceptableOrUnknown(data['password']!, _passwordMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_passwordMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('blocked')) {
+      context.handle(
+        _blockedMeta,
+        blocked.isAcceptableOrUnknown(data['blocked']!, _blockedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingAccountRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingAccountRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      )!,
+      password: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}password'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      ),
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      blocked: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}blocked'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingAccountsTable createAlias(String alias) {
+    return $PendingAccountsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingAccountRow extends DataClass
+    implements Insertable<PendingAccountRow> {
+  /// معرّف الحساب المطلوب (يُعطى لصاحبه محلياً قبل الخادم).
+  final String id;
+
+  /// `create` أو `reset`.
+  final String kind;
+  final String email;
+  final String password;
+  final String role;
+  final String? entityId;
+  final String displayName;
+  final int createdAt;
+  final int attempts;
+
+  /// آخر خطأ؛ ومع [blocked] رفضٌ نهائي من الخادم (البريد مستعمل مثلاً) لا يُعاد.
+  final String? lastError;
+  final bool blocked;
+  const PendingAccountRow({
+    required this.id,
+    required this.kind,
+    required this.email,
+    required this.password,
+    required this.role,
+    this.entityId,
+    required this.displayName,
+    required this.createdAt,
+    required this.attempts,
+    this.lastError,
+    required this.blocked,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['kind'] = Variable<String>(kind);
+    map['email'] = Variable<String>(email);
+    map['password'] = Variable<String>(password);
+    map['role'] = Variable<String>(role);
+    if (!nullToAbsent || entityId != null) {
+      map['entity_id'] = Variable<String>(entityId);
+    }
+    map['display_name'] = Variable<String>(displayName);
+    map['created_at'] = Variable<int>(createdAt);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['blocked'] = Variable<bool>(blocked);
+    return map;
+  }
+
+  PendingAccountsCompanion toCompanion(bool nullToAbsent) {
+    return PendingAccountsCompanion(
+      id: Value(id),
+      kind: Value(kind),
+      email: Value(email),
+      password: Value(password),
+      role: Value(role),
+      entityId: entityId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(entityId),
+      displayName: Value(displayName),
+      createdAt: Value(createdAt),
+      attempts: Value(attempts),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      blocked: Value(blocked),
+    );
+  }
+
+  factory PendingAccountRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingAccountRow(
+      id: serializer.fromJson<String>(json['id']),
+      kind: serializer.fromJson<String>(json['kind']),
+      email: serializer.fromJson<String>(json['email']),
+      password: serializer.fromJson<String>(json['password']),
+      role: serializer.fromJson<String>(json['role']),
+      entityId: serializer.fromJson<String?>(json['entityId']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      blocked: serializer.fromJson<bool>(json['blocked']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'kind': serializer.toJson<String>(kind),
+      'email': serializer.toJson<String>(email),
+      'password': serializer.toJson<String>(password),
+      'role': serializer.toJson<String>(role),
+      'entityId': serializer.toJson<String?>(entityId),
+      'displayName': serializer.toJson<String>(displayName),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String?>(lastError),
+      'blocked': serializer.toJson<bool>(blocked),
+    };
+  }
+
+  PendingAccountRow copyWith({
+    String? id,
+    String? kind,
+    String? email,
+    String? password,
+    String? role,
+    Value<String?> entityId = const Value.absent(),
+    String? displayName,
+    int? createdAt,
+    int? attempts,
+    Value<String?> lastError = const Value.absent(),
+    bool? blocked,
+  }) => PendingAccountRow(
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    email: email ?? this.email,
+    password: password ?? this.password,
+    role: role ?? this.role,
+    entityId: entityId.present ? entityId.value : this.entityId,
+    displayName: displayName ?? this.displayName,
+    createdAt: createdAt ?? this.createdAt,
+    attempts: attempts ?? this.attempts,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    blocked: blocked ?? this.blocked,
+  );
+  PendingAccountRow copyWithCompanion(PendingAccountsCompanion data) {
+    return PendingAccountRow(
+      id: data.id.present ? data.id.value : this.id,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      email: data.email.present ? data.email.value : this.email,
+      password: data.password.present ? data.password.value : this.password,
+      role: data.role.present ? data.role.value : this.role,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      blocked: data.blocked.present ? data.blocked.value : this.blocked,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingAccountRow(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('email: $email, ')
+          ..write('password: $password, ')
+          ..write('role: $role, ')
+          ..write('entityId: $entityId, ')
+          ..write('displayName: $displayName, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('blocked: $blocked')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    kind,
+    email,
+    password,
+    role,
+    entityId,
+    displayName,
+    createdAt,
+    attempts,
+    lastError,
+    blocked,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingAccountRow &&
+          other.id == this.id &&
+          other.kind == this.kind &&
+          other.email == this.email &&
+          other.password == this.password &&
+          other.role == this.role &&
+          other.entityId == this.entityId &&
+          other.displayName == this.displayName &&
+          other.createdAt == this.createdAt &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError &&
+          other.blocked == this.blocked);
+}
+
+class PendingAccountsCompanion extends UpdateCompanion<PendingAccountRow> {
+  final Value<String> id;
+  final Value<String> kind;
+  final Value<String> email;
+  final Value<String> password;
+  final Value<String> role;
+  final Value<String?> entityId;
+  final Value<String> displayName;
+  final Value<int> createdAt;
+  final Value<int> attempts;
+  final Value<String?> lastError;
+  final Value<bool> blocked;
+  final Value<int> rowid;
+  const PendingAccountsCompanion({
+    this.id = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.email = const Value.absent(),
+    this.password = const Value.absent(),
+    this.role = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.blocked = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingAccountsCompanion.insert({
+    required String id,
+    required String kind,
+    required String email,
+    required String password,
+    required String role,
+    this.entityId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    required int createdAt,
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.blocked = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       kind = Value(kind),
+       email = Value(email),
+       password = Value(password),
+       role = Value(role),
+       createdAt = Value(createdAt);
+  static Insertable<PendingAccountRow> custom({
+    Expression<String>? id,
+    Expression<String>? kind,
+    Expression<String>? email,
+    Expression<String>? password,
+    Expression<String>? role,
+    Expression<String>? entityId,
+    Expression<String>? displayName,
+    Expression<int>? createdAt,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<bool>? blocked,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (kind != null) 'kind': kind,
+      if (email != null) 'email': email,
+      if (password != null) 'password': password,
+      if (role != null) 'role': role,
+      if (entityId != null) 'entity_id': entityId,
+      if (displayName != null) 'display_name': displayName,
+      if (createdAt != null) 'created_at': createdAt,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (blocked != null) 'blocked': blocked,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingAccountsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? kind,
+    Value<String>? email,
+    Value<String>? password,
+    Value<String>? role,
+    Value<String?>? entityId,
+    Value<String>? displayName,
+    Value<int>? createdAt,
+    Value<int>? attempts,
+    Value<String?>? lastError,
+    Value<bool>? blocked,
+    Value<int>? rowid,
+  }) {
+    return PendingAccountsCompanion(
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      email: email ?? this.email,
+      password: password ?? this.password,
+      role: role ?? this.role,
+      entityId: entityId ?? this.entityId,
+      displayName: displayName ?? this.displayName,
+      createdAt: createdAt ?? this.createdAt,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      blocked: blocked ?? this.blocked,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (password.present) {
+      map['password'] = Variable<String>(password.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (blocked.present) {
+      map['blocked'] = Variable<bool>(blocked.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingAccountsCompanion(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('email: $email, ')
+          ..write('password: $password, ')
+          ..write('role: $role, ')
+          ..write('entityId: $entityId, ')
+          ..write('displayName: $displayName, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('blocked: $blocked, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -27482,6 +28142,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $DeviceInfoTable deviceInfo = $DeviceInfoTable(this);
   late final $UploadQueueTable uploadQueue = $UploadQueueTable(this);
+  late final $PendingAccountsTable pendingAccounts = $PendingAccountsTable(
+    this,
+  );
   late final Index idxSettingsUpdated = Index(
     'idx_settings_updated',
     'CREATE INDEX idx_settings_updated ON settings (updated_at)',
@@ -28032,6 +28695,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localCredentials,
     deviceInfo,
     uploadQueue,
+    pendingAccounts,
     idxSettingsUpdated,
     idxLevelsSort,
     idxLevelsUpdated,
@@ -50955,6 +51619,337 @@ typedef $$UploadQueueTableProcessedTableManager =
       UploadQueueRow,
       PrefetchHooks Function()
     >;
+typedef $$PendingAccountsTableCreateCompanionBuilder =
+    PendingAccountsCompanion Function({
+      required String id,
+      required String kind,
+      required String email,
+      required String password,
+      required String role,
+      Value<String?> entityId,
+      Value<String> displayName,
+      required int createdAt,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<bool> blocked,
+      Value<int> rowid,
+    });
+typedef $$PendingAccountsTableUpdateCompanionBuilder =
+    PendingAccountsCompanion Function({
+      Value<String> id,
+      Value<String> kind,
+      Value<String> email,
+      Value<String> password,
+      Value<String> role,
+      Value<String?> entityId,
+      Value<String> displayName,
+      Value<int> createdAt,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<bool> blocked,
+      Value<int> rowid,
+    });
+
+class $$PendingAccountsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingAccountsTable> {
+  $$PendingAccountsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get password => $composableBuilder(
+    column: $table.password,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get blocked => $composableBuilder(
+    column: $table.blocked,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingAccountsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingAccountsTable> {
+  $$PendingAccountsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get password => $composableBuilder(
+    column: $table.password,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get blocked => $composableBuilder(
+    column: $table.blocked,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingAccountsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingAccountsTable> {
+  $$PendingAccountsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get email =>
+      $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get password =>
+      $composableBuilder(column: $table.password, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<bool> get blocked =>
+      $composableBuilder(column: $table.blocked, builder: (column) => column);
+}
+
+class $$PendingAccountsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingAccountsTable,
+          PendingAccountRow,
+          $$PendingAccountsTableFilterComposer,
+          $$PendingAccountsTableOrderingComposer,
+          $$PendingAccountsTableAnnotationComposer,
+          $$PendingAccountsTableCreateCompanionBuilder,
+          $$PendingAccountsTableUpdateCompanionBuilder,
+          (
+            PendingAccountRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingAccountsTable,
+              PendingAccountRow
+            >,
+          ),
+          PendingAccountRow,
+          PrefetchHooks Function()
+        > {
+  $$PendingAccountsTableTableManager(
+    _$AppDatabase db,
+    $PendingAccountsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingAccountsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingAccountsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingAccountsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String> email = const Value.absent(),
+                Value<String> password = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String?> entityId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<bool> blocked = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingAccountsCompanion(
+                id: id,
+                kind: kind,
+                email: email,
+                password: password,
+                role: role,
+                entityId: entityId,
+                displayName: displayName,
+                createdAt: createdAt,
+                attempts: attempts,
+                lastError: lastError,
+                blocked: blocked,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String kind,
+                required String email,
+                required String password,
+                required String role,
+                Value<String?> entityId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                required int createdAt,
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<bool> blocked = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingAccountsCompanion.insert(
+                id: id,
+                kind: kind,
+                email: email,
+                password: password,
+                role: role,
+                entityId: entityId,
+                displayName: displayName,
+                createdAt: createdAt,
+                attempts: attempts,
+                lastError: lastError,
+                blocked: blocked,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PendingAccountsTable, PendingAccountRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $PendingAccountsTable,
+                    PendingAccountRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingAccountsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingAccountsTable,
+      PendingAccountRow,
+      $$PendingAccountsTableFilterComposer,
+      $$PendingAccountsTableOrderingComposer,
+      $$PendingAccountsTableAnnotationComposer,
+      $$PendingAccountsTableCreateCompanionBuilder,
+      $$PendingAccountsTableUpdateCompanionBuilder,
+      (
+        PendingAccountRow,
+        BaseReferences<_$AppDatabase, $PendingAccountsTable, PendingAccountRow>,
+      ),
+      PendingAccountRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -51049,4 +52044,6 @@ class $AppDatabaseManager {
       $$DeviceInfoTableTableManager(_db, _db.deviceInfo);
   $$UploadQueueTableTableManager get uploadQueue =>
       $$UploadQueueTableTableManager(_db, _db.uploadQueue);
+  $$PendingAccountsTableTableManager get pendingAccounts =>
+      $$PendingAccountsTableTableManager(_db, _db.pendingAccounts);
 }

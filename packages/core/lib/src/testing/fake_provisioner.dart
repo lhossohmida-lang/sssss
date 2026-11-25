@@ -14,6 +14,9 @@ class FakeAccountProvisioner implements AccountProvisioner {
   /// `true`: كل استدعاء يفشل بانقطاع الشبكة (محاكاة انقطاع الخادم).
   bool failing = false;
 
+  /// `true`: الخادم يرفض الإنشاء رفضاً نهائياً (البريد مستعمل).
+  bool rejecting = false;
+
   int _next = 0;
 
   @override
@@ -21,7 +24,14 @@ class FakeAccountProvisioner implements AccountProvisioner {
     required String email,
     required String password,
     required UserRole role,
+    String? id,
   }) async {
+    if (rejecting) {
+      throw const AuthFailureException(
+        AuthFailure.unknown,
+        message: 'يوجد حساب بهذا البريد مسبقاً',
+      );
+    }
     if (failing) throw const AuthFailureException(AuthFailure.network);
     final id = 'acct-${++_next}';
     created[id] = (email: email, password: password, role: role);

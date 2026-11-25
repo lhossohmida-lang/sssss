@@ -219,14 +219,29 @@ void main() {
     expect(o.provisioner.created, hasLength(1));
   });
 
-  appTest('فشل إنشاء الحساب على الخادم: رسالة ولا أستاذ', (tester) async {
+  appTest('دون إنترنت: يُضاف الأستاذ وحسابه ينتظر الخادم', (tester) async {
     final o = await openTeachers(tester);
     o.provisioner.failing = true;
     await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));
     await tester.pumpAndSettle();
     await fillTeacher(tester);
     await saveDialog(tester);
-    expect(find.text('لا يوجد اتصال بالإنترنت'), findsOneWidget);
+    expect(find.textContaining('لا إنترنت الآن'), findsOneWidget);
+    final rows = await runDb(
+      tester,
+      () => o.runtime.db.select(o.runtime.db.teachers).get(),
+    );
+    expect(rows, hasLength(1));
+  });
+
+  appTest('رفض الخادم للحساب: رسالة ولا أستاذ', (tester) async {
+    final o = await openTeachers(tester);
+    o.provisioner.rejecting = true;
+    await tester.tap(find.widgetWithText(ClayButton, 'إضافة أستاذ'));
+    await tester.pumpAndSettle();
+    await fillTeacher(tester);
+    await saveDialog(tester);
+    expect(find.text('يوجد حساب بهذا البريد مسبقاً'), findsOneWidget);
     expect(find.byType(ClayDialog), findsOneWidget);
     final rows = await runDb(
       tester,

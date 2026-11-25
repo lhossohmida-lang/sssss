@@ -47,6 +47,12 @@ export async function handle(req: Request): Promise<Response> {
     ) {
       return json(400, { error: "invalid_request" });
     }
+    // Optional client-chosen id: an account created offline already uses it on the device.
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (body.id !== undefined && (typeof body.id !== "string" || !UUID.test(body.id))) {
+      return json(400, { error: "invalid_request" });
+    }
+    const requestedId = typeof body.id === "string" ? body.id : undefined;
 
     const caller = await getCaller(authorization, supabaseUrl, publishable);
     if (!canManage(caller, body.role, "add")) return json(403, { error: "forbidden" });
@@ -54,9 +60,26 @@ export async function handle(req: Request): Promise<Response> {
     const created = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
       method: "POST",
       headers: { ...adminHeaders(secret), "Content-Type": "application/json" },
-      body: JSON.stringify({ email: body.email, password: body.password, email_confirm: true }),
+      body: JSON.stringify({
+        ...(requestedId ? { id: requestedId } : {}),
+        email: body.email,
+        password: body.password,
+        email_confirm: true,
+      }),
     });
     if (created.status === 409 || created.status === 422) {
+      // A retry of the same offline request (the first reply was lost): the user already exists.
+      if (requestedId) {
+        const same = await fetch(`${supabaseUrl}/auth/v1/admin/users/${requestedId}`, {
+          headers: adminHeaders(secret),
+        });
+        if (same.ok) {
+          const existing: unknown = await same.json();
+          if (isRecord(existing) && existing.email === body.email) {
+            return json(200, { id: requestedId });
+          }
+        }
+      }
       return json(409, { error: "email_exists" });
     }
     if (!created.ok) {

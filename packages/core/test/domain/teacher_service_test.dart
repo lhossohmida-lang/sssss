@@ -162,8 +162,8 @@ void main() {
       );
     });
 
-    test('فشل إنشاء المستخدم لا يترك صفاً ولا رسالة', () async {
-      provisioner.failing = true;
+    test('رفض الخادم النهائي لا يترك صفاً ولا رسالة', () async {
+      provisioner.rejecting = true;
       await expectLater(
         accounts.create(
           role: UserRole.teacher,
@@ -174,7 +174,80 @@ void main() {
         throwsA(isA<AuthFailureException>()),
       );
       expect(await env.db.select(env.db.userAccounts).get(), isEmpty);
+      expect(await env.db.select(env.db.pendingAccounts).get(), isEmpty);
       expect(await sms(), isEmpty);
+    });
+
+    test(
+      'دون إنترنت: يُحفظ الحساب منتظراً، ثم يُنشأ على الخادم وتُرسل رسالته عند عودة الاتصال',
+      () async {
+        await env.teacher(id: 't1');
+        provisioner.failing = true;
+        final result = await accounts.create(
+          role: UserRole.teacher,
+          entityId: 't1',
+          displayName: 'أ',
+          phone: '0550123456',
+        );
+        expect(result.pending, isTrue);
+        expect(result.password.length, 8);
+        await env.db.customStatement(
+          "UPDATE teachers SET auth_user_id = '${result.accountId}' "
+          "WHERE id = 't1'",
+        );
+        // لا صف ولا رسالة قبل الخادم، والهاتف محجوز.
+        expect(await env.db.select(env.db.userAccounts).get(), isEmpty);
+        expect(await sms(), isEmpty);
+        expect(
+          (await accounts.findByEmail('0550123456@school.local'))?.id,
+          result.accountId,
+        );
+        // ما زال دون إنترنت: يبقى منتظراً.
+        final still = await accounts.processPending();
+        expect(still.left, 1);
+        expect(
+          (await env.db.select(env.db.pendingAccounts).getSingle()).attempts,
+          1,
+        );
+
+        provisioner.failing = false;
+        final report = await accounts.processPending();
+        expect(report.done, 1);
+        expect(await env.db.select(env.db.pendingAccounts).get(), isEmpty);
+        final created = provisioner.created.entries.single;
+        expect(created.value.password, result.password);
+        final row = await env.db.select(env.db.userAccounts).getSingle();
+        expect(row.id, created.key);
+        expect(row.entityId, 't1');
+        // الخادم أعاد معرّفاً آخر: الأستاذ يُربط به.
+        final teacher = await (env.db.select(
+          env.db.teachers,
+        )..where((t) => t.id.equals('t1'))).getSingle();
+        expect(teacher.authUserId, created.key);
+        final queued = (await sms()).single;
+        expect(queued.phone, '+213550123456');
+        expect(queued.message, contains(result.password));
+      },
+    );
+
+    test('رفض نهائي عند المعالجة يُعلَّم ولا يُعاد', () async {
+      provisioner.failing = true;
+      await accounts.create(
+        role: UserRole.teacher,
+        entityId: 't1',
+        displayName: 'أ',
+        phone: '0550123456',
+      );
+      provisioner
+        ..failing = false
+        ..rejecting = true;
+      final report = await accounts.processPending();
+      expect(report.blocked, 1);
+      final row = await env.db.select(env.db.pendingAccounts).getSingle();
+      expect(row.blocked, isTrue);
+      expect(row.lastError, contains('مسبقاً'));
+      provisioner.rejecting = false;
+      expect((await accounts.processPending()).done, 0);
     });
 
     test('إعادة توليد كلمة السر: تُرسل ويُفرض تغييرها', () async {
