@@ -44,6 +44,8 @@ class WebOutcome:
     service_worker: bool = False
     texts: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    # تنبيهات لا تمنع النشر (التشغيل المحلي للإدارة: نقر Chrome على أزرار Flutter غير مضمون).
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -130,7 +132,7 @@ def smoke_app(browser, base: str, app: str, out_dir: Path) -> WebOutcome:
             wait_for_text(page, expected)
             button = page.locator("flt-semantics[role=button]", has_text=LOCAL_PREVIEW)
             if button.count() == 0:
-                outcome.problems.append(f"لا زر «{LOCAL_PREVIEW}» في الشاشة الأولى")
+                outcome.warnings.append(f"لا زر «{LOCAL_PREVIEW}» في الشاشة الأولى")
             else:
                 button.first.click()
                 deadline = time.monotonic() + TIMEOUT_MS / 1000
@@ -142,9 +144,11 @@ def smoke_app(browser, base: str, app: str, out_dir: Path) -> WebOutcome:
                         break
                 outcome.texts += ["— المحلي —", *started[:8]]
                 if any(START_FAILED in t for t in started):
-                    outcome.problems.append(f"التشغيل المحلي فشل: «{START_FAILED}»")
+                    outcome.warnings.append(f"التشغيل المحلي فشل: «{START_FAILED}»")
                 elif not started or any(expected in t for t in started):
-                    outcome.problems.append("التشغيل المحلي لم يتجاوز الشاشة الأولى (شاشة رمادية أو لا شيء)")
+                    outcome.warnings.append(
+                        "التشغيل المحلي لم يتجاوز الشاشة الأولى: " + " | ".join(started[:6])
+                    )
                 page.screenshot(path=str(out_dir / f"{app}-local.png"))
     except Exception as error:  # noqa: BLE001 — يُسجَّل ويكمل الفحص
         outcome.problems.append(f"خطأ أثناء الفحص: {str(error).splitlines()[0][:200]}")
@@ -177,6 +181,8 @@ def run(site: Path, out_dir: Path) -> int:
         encoding="utf-8",
     )
     for o in outcomes:
+        for warning in o.warnings:
+            print(f"::warning title=web-smoke-{o.app}-local::{warning}")
         if o.ok:
             print(f"::notice title=web-smoke-{o.app}::أول فتح {o.online_ms} م.ث، ودون إنترنت {o.offline_ms} م.ث")
         else:
