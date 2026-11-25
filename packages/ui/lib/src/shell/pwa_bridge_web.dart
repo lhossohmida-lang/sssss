@@ -29,6 +29,9 @@ class PwaBridge {
         web.window.navigator.maxTouchPoints > 1;
   }
 
+  /// لغة المتصفح، وهي على iPhone لغة الجهاز نفسها التي تُكتب بها أزرار Safari.
+  String get language => web.window.navigator.language;
+
   JSObject? get _prompt {
     final value = globalContext.getProperty<JSAny?>('__pwaInstallPrompt'.toJS);
     return value.isA<JSObject>() ? value! as JSObject : null;

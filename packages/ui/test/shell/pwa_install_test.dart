@@ -10,6 +10,7 @@ class FakeBridge implements PwaBridge {
     this.isStandalone = false,
     this.isIos = false,
     this.canPrompt = false,
+    this.language = 'ar-DZ',
   });
 
   @override
@@ -18,6 +19,8 @@ class FakeBridge implements PwaBridge {
   bool isIos;
   @override
   bool canPrompt;
+  @override
+  String language;
   bool accept = true;
   int prompts = 0;
   final _changes = StreamController<void>.broadcast();
@@ -131,5 +134,36 @@ void main() {
     await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pump();
     expect(find.text('تثبيت'), findsNothing);
+  });
+
+  testWidgets('an iPhone in French: the card and the steps name Safari\'s '
+      'French buttons', (tester) async {
+    await pump(tester, FakeBridge(isIos: true, language: 'fr-FR'));
+    expect(find.text('Installer'), findsOneWidget);
+    await tester.tap(find.text('Installer'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('« Partager »'), findsOneWidget);
+    expect(find.textContaining("« Sur l'écran d'accueil »"), findsOneWidget);
+    expect(find.textContaining('« Ajouter »'), findsOneWidget);
+    expect(find.text('Compris'), findsOneWidget);
+  });
+
+  testWidgets('an iPhone in English: Share, Add to Home Screen, Add', (
+    tester,
+  ) async {
+    await pump(tester, FakeBridge(isIos: true, language: 'en-US'));
+    await tester.tap(find.text('Install'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Share button'), findsOneWidget);
+    expect(find.textContaining('“Add to Home Screen”'), findsOneWidget);
+    expect(find.textContaining('“Add”'), findsOneWidget);
+  });
+
+  test('other languages fall back to Arabic', () {
+    expect(PwaInstallTexts.of('de-DE').code, 'ar');
+    expect(PwaInstallTexts.of('ar').code, 'ar');
+    expect(PwaInstallTexts.of('FR_ca').code, 'fr');
+    expect(PwaInstallTexts.of('en').code, 'en');
   });
 }
