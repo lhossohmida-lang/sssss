@@ -148,6 +148,10 @@ class EnrolmentService {
     if (bearer == DiscountBearer.custom && customTeacherAmount == null) {
       return {fieldTeacherAmount: 'أدخل ما يأخذه الأستاذ عن هذا التلميذ'};
     }
+    // الأستاذ يعطي المدرسة نصيبها من حقه: ما يأخذه قد يكون سالباً.
+    if (bearer == DiscountBearer.teacherFull) {
+      return const {};
+    }
     return teacherAmountErrors(
       teacherAmount: teacherAmount,
       groupRate: groupRate,
@@ -187,6 +191,7 @@ class EnrolmentService {
     int discountValue = 0,
     DiscountBearer bearer = DiscountBearer.school,
     int? customTeacherAmount,
+    int? firstSession,
   }) {
     return db.transaction(() async {
       final group = await (db.select(
@@ -241,9 +246,14 @@ class EnrolmentService {
         group.currentCycleNumber,
         closedOnly: true,
       );
-      final firstSession = held + 1 > group.sessionsPerCycle
+      // أول حصة له: ما اختاره المدير (يبدأ من الحصة 3 مثلاً)، وإلا التالية لما انعقد. ما قبلها من
+      // حصص الدورة رصيد يُخصم من الدورة التالية (يظهر فيها مدفوعاً مقدَّماً).
+      final automatic = held + 1 > group.sessionsPerCycle
           ? group.sessionsPerCycle
           : held + 1;
+      final start = firstSession == null
+          ? automatic
+          : firstSession.clamp(1, group.sessionsPerCycle);
       final stamp = writer.now();
       await writer.save(
         db.groupStudents,
@@ -255,7 +265,7 @@ class EnrolmentService {
           studentId: studentId,
           joinedAt: stamp,
           joinedAtCycleNumber: Value(group.currentCycleNumber),
-          joinedAtSessionNumber: Value(firstSession),
+          joinedAtSessionNumber: Value(start),
           monthlyPrice: price,
           discountType: Value(discountType.code),
           discountValue: Value(

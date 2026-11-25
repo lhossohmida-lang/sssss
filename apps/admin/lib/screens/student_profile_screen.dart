@@ -686,6 +686,7 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
               ? DiscountBearer.school
               : _draft.bearer,
           customTeacherAmount: _draft.customTeacherAmount,
+          firstSession: _draft.firstSession,
         );
       }
       if (mounted) Navigator.of(context).pop();

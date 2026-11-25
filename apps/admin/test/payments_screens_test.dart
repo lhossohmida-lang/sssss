@@ -123,6 +123,8 @@ void main() {
     // المبلغ مملوء بالباقي.
     expect(tester.widget<TextField>(amountField()).controller!.text, '2000');
     await tester.enterText(amountField(), '500');
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
     await tester.pumpAndSettle();
 
@@ -157,6 +159,8 @@ void main() {
     await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
     await tester.enterText(amountField(), '2000');
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
     await tester.pumpAndSettle();
     expect(find.text('مسدَّد بالكامل'), findsOneWidget);
@@ -183,6 +187,8 @@ void main() {
     await tester.tap(find.text('رياضيات · الفوج 1 · الدورة 1'));
     await tester.pumpAndSettle();
     await tester.enterText(amountField(), '500');
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('رجوع'));
@@ -200,11 +206,15 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(amountField(), '3000');
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
     await tester.pumpAndSettle();
     expect(find.textContaining('يزيد عن الباقي'), findsOneWidget);
 
     await tester.enterText(amountField(), '0');
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ClayButton, 'تسجيل الدفعة'));
     await tester.pumpAndSettle();
     expect(find.text('أدخل مبلغاً أكبر من صفر'), findsOneWidget);

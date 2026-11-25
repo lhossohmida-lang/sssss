@@ -88,7 +88,12 @@ class GroupDetailsScreen extends ConsumerWidget {
     GridStudent student,
   ) async {
     final current = student.cells[session.id];
-    final status = await showClayBottomSheet<AttendanceStatus>(
+    // ما يُختار: حالة حضور، أو «دفع هذه الحصة».
+    const payThis = 'pay';
+    final canPay =
+        ref.can(PermissionModule.receiveMoney, PermissionAction.use) &&
+        student.coveredSessions != null;
+    final choice = await showClayBottomSheet<Object>(
       context,
       title: student.name,
       builder: (sheet) => Column(
@@ -115,11 +120,50 @@ class GroupDetailsScreen extends ConsumerWidget {
                 onTap: () => Navigator.of(sheet).pop(option),
               ),
             ),
+          if (canPay) ...[
+            const SizedBox(height: ClaySpacing.sm),
+            ClayButton(
+              label: 'دفع هذه الحصة',
+              icon: ClayIcons.check,
+              kind: ClayButtonKind.secondary,
+              expand: true,
+              onPressed: () => Navigator.of(sheet).pop(payThis),
+            ),
+          ],
         ],
       ),
     );
-    if (status == null || status == current || !context.mounted) return;
+    if (choice == null || choice == current || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
+    if (choice == payThis) {
+      try {
+        final paid = await ref
+            .read(paymentServiceProvider)
+            .paySessions(
+              studentId: student.studentId,
+              groupId: session.groupId,
+              cycleNumber: session.cycleNumber,
+              note: 'حصة ${session.date}',
+            );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '${student.name}: دُفعت حصة (${Money.format(paid.amount)})',
+            ),
+          ),
+        );
+      } on ValidationException catch (e) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              e.errors.values.isEmpty ? 'تعذّر الدفع' : e.errors.values.first,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    final status = choice as AttendanceStatus;
     try {
       await ref
           .read(attendanceServiceProvider)
@@ -198,6 +242,7 @@ class GroupDetailsScreen extends ConsumerWidget {
         onSessionTap: canRoster
             ? (session) => context.push('/attendance/${session.id}')
             : null,
+        belowCycle: canSeePayouts ? (grid) => GroupMoneyCard(grid: grid) : null,
         header: [
           if (item != null)
             Padding(
@@ -313,6 +358,91 @@ class GroupDetailsScreen extends ConsumerWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// مال الفوج في الدورة المعروضة: ما دفعه التلاميذ، وحق الأستاذ، وحق المدير (الأول ناقص الثاني).
+/// يتحدث مع كل دفعة أو حضور (الشبكة تُعاد بنائها فيُعاد الحساب).
+class GroupMoneyCard extends ConsumerStatefulWidget {
+  const GroupMoneyCard({required this.grid, super.key});
+
+  final GroupGrid grid;
+
+  @override
+  ConsumerState<GroupMoneyCard> createState() => _GroupMoneyCardState();
+}
+
+class _GroupMoneyCardState extends ConsumerState<GroupMoneyCard> {
+  late Future<GroupMoney> _money = _load();
+
+  Future<GroupMoney> _load() => ref
+      .read(payoutServiceProvider)
+      .groupMoney(widget.grid.group.id, widget.grid.cycleNumber);
+
+  @override
+  void didUpdateWidget(GroupMoneyCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.grid, widget.grid)) _money = _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final p = context.palette;
+    return FutureBuilder<GroupMoney>(
+      future: _money,
+      builder: (context, snapshot) {
+        final money = snapshot.data;
+        if (money == null) return const SizedBox.shrink();
+        Widget cell(String label, int amount, Color color) => Expanded(
+          child: Column(
+            children: [
+              Text(label, style: text.bodySmall, textAlign: TextAlign.center),
+              const SizedBox(height: ClaySpacing.xs),
+              Text(
+                Money.format(amount),
+                style: text.titleMedium!.copyWith(color: color),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+        return Padding(
+          padding: const EdgeInsets.only(bottom: ClaySpacing.md),
+          child: ClayCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'مال الفوج في الدورة ${widget.grid.cycleNumber}',
+                  style: text.titleSmall,
+                ),
+                const SizedBox(height: ClaySpacing.sm),
+                Row(
+                  children: [
+                    cell('دفع التلاميذ', money.paid, p.text),
+                    cell('حق الأستاذ', money.teacher, p.status.info),
+                    cell(
+                      'حق المدير',
+                      money.admin,
+                      money.admin < 0 ? p.status.danger : p.status.success,
+                    ),
+                  ],
+                ),
+                if (money.teacherPending > 0) ...[
+                  const SizedBox(height: ClaySpacing.sm),
+                  Text(
+                    'وللأستاذ ${Money.format(money.teacherPending)} معلّقة حتى يدفع '
+                    'التلاميذ ما حضروه.',
+                    style: text.bodySmall!.copyWith(color: p.textMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

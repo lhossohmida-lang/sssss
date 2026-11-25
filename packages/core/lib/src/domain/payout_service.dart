@@ -76,6 +76,27 @@ class CyclePayout {
   int get pending => lines.fold(0, (sum, line) => sum + line.pending);
 }
 
+/// مال فوج في دورة: ما دفعه تلاميذه، وحق الأستاذ منه، وما يبقى للمدير.
+class GroupMoney {
+  const GroupMoney({
+    required this.paid,
+    required this.teacher,
+    required this.teacherPending,
+  });
+
+  /// ما دفعه التلاميذ عن هذه الدورة (أشهرهم وأثمان حصص ضيوفها).
+  final int paid;
+
+  /// حق الأستاذ: عن الحصص التي حضرها التلاميذ ودُفعت (وتلميذ مجاني على المدرسة يأخذ عنه حقه كاملاً).
+  final int teacher;
+
+  /// حق الأستاذ المعلّق حتى يدفع التلاميذ ما عليهم.
+  final int teacherPending;
+
+  /// ما يبقى للمدير: ما دفعه التلاميذ ناقص حق الأستاذ.
+  int get admin => paid - teacher;
+}
+
 /// قواعد خلاص الأستاذ (دوال صافية).
 abstract final class PayoutRules {
   /// عدد الحصص التي يغطيها ما دُفع.
@@ -231,6 +252,25 @@ class PayoutService {
       );
     }
     return result;
+  }
+
+  /// ما دفعه تلاميذ [groupId] في دورة [cycleNumber]، وحق أستاذه، وما يبقى للمدير.
+  Future<GroupMoney> groupMoney(String groupId, int cycleNumber) async {
+    final paid = await db
+        .customSelect(
+          'SELECT COALESCE(SUM(amount), 0) AS total FROM payments '
+          'WHERE group_id = ? AND cycle_number = ? AND deleted_at IS NULL '
+          "AND type IN ('month', 'session')",
+          variables: [Variable<String>(groupId), Variable<int>(cycleNumber)],
+          readsFrom: {db.payments},
+        )
+        .getSingle();
+    final payout = await compute(groupId, cycleNumber);
+    return GroupMoney(
+      paid: paid.read<int>('total'),
+      teacher: payout.earned,
+      teacherPending: payout.pending,
+    );
   }
 
   /// ينشئ خلاص اكتمال الدورة ويحفظ التفصيل لكل تلميذ. آمن عند التكرار:

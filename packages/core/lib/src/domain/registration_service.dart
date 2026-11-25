@@ -25,6 +25,7 @@ class SubjectChoice {
     this.discountValue = 0,
     this.bearer = DiscountBearer.school,
     this.customTeacherAmount,
+    this.firstSession,
   });
 
   final String subjectId;
@@ -44,6 +45,9 @@ class SubjectChoice {
   /// من يتحمل التخفيض (انظر [DiscountBearer])، ومبلغ الأستاذ المحدد عند [DiscountBearer.custom].
   final DiscountBearer bearer;
   final int? customTeacherAmount;
+
+  /// رقم أول حصة له في الدورة الحالية؛ `null` يعني التالية لما انعقد منها.
+  final int? firstSession;
 
   bool get isWaiting => groupId == null;
 }
@@ -303,6 +307,7 @@ class RegistrationService {
             discountValue: choice.discountValue,
             bearer: choice.bearer,
             customTeacherAmount: choice.customTeacherAmount,
+            firstSession: choice.firstSession,
           );
           groups.add(groupId);
         }

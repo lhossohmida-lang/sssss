@@ -26,6 +26,9 @@ class ChoiceDraft {
   DiscountBearer bearer = DiscountBearer.school;
   final teacherAmount = TextEditingController();
 
+  /// أول حصة له في الدورة الحالية؛ `null` يعني التالية لما انعقد منها.
+  int? firstSession;
+
   /// المبلغ الذي كتبه المدير للأستاذ، أو `null` إن لم يكتب شيئاً.
   int? get customTeacherAmount => teacherAmount.text.trim().isEmpty
       ? null
@@ -99,6 +102,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 ? DiscountBearer.school
                 : c.bearer,
             customTeacherAmount: c.customTeacherAmount,
+            firstSession: c.groupId == null ? null : c.firstSession,
           ),
     ],
   );
@@ -521,6 +525,7 @@ class SubjectChoiceCard extends ConsumerWidget {
                     : null,
                 onChanged: (value) {
                   draft.groupId = value;
+                  draft.firstSession = null;
                   final chosen = groups.where((g) => g.id == value).firstOrNull;
                   draft.price.text = chosen == null
                       ? ''
@@ -565,6 +570,37 @@ class SubjectChoiceCard extends ConsumerWidget {
                     )]!,
                     style: text.bodySmall!.copyWith(color: p.status.danger),
                   ),
+                gap,
+                _FreeModeField(draft: draft, onChanged: onChanged),
+                gap,
+                ClayDropdown<int?>(
+                  label: 'يبدأ من الحصة',
+                  searchable: false,
+                  value: draft.firstSession,
+                  options: [
+                    const ClayOption(
+                      value: null,
+                      label: 'تلقائياً (التالية لما انعقد)',
+                    ),
+                    for (
+                      var n = 1;
+                      n <=
+                          (groups
+                                  .where((g) => g.id == draft.groupId)
+                                  .firstOrNull
+                                  ?.group
+                                  .sessionsPerCycle ??
+                              0);
+                      n++
+                    )
+                      ClayOption(value: n, label: 'الحصة $n'),
+                  ],
+                  helper: 'ما قبلها من حصص هذا الشهر يُحسب مدفوعاً، ويظهر بالأزرق في الشهر التالي',
+                  onChanged: (value) {
+                    draft.firstSession = value;
+                    onChanged();
+                  },
+                ),
                 gap,
                 ClayDropdown<DiscountType>(
                   label: 'التخفيض',
@@ -634,6 +670,72 @@ class SubjectChoiceCard extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// تلميذ مجاني بنقرة: لا يُحسب على أحد، أو على الإدارة (الأستاذ يأخذ حقه)، أو على الأستاذ (لا يأخذ
+/// شيئاً ويعطي المدرسة نصيبها). كل زر يضبط التخفيض «إعفاء كامل» ومن يتحمّله.
+class _FreeModeField extends StatelessWidget {
+  const _FreeModeField({required this.draft, required this.onChanged});
+
+  final ChoiceDraft draft;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final exempt = draft.discountType == DiscountType.exempt;
+    final noOne =
+        exempt &&
+        draft.bearer == DiscountBearer.custom &&
+        draft.teacherAmount.text.trim() == '0';
+    final onSchool = exempt && draft.bearer == DiscountBearer.school;
+    final onTeacher = exempt && draft.bearer == DiscountBearer.teacherFull;
+    void pick(DiscountType type, DiscountBearer bearer, [String amount = '']) {
+      draft
+        ..discountType = type
+        ..bearer = bearer;
+      draft.teacherAmount.text = amount;
+      onChanged();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'يدفع أم يدرس مجاناً؟',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: ClaySpacing.xs),
+        Wrap(
+          spacing: ClaySpacing.sm,
+          runSpacing: ClaySpacing.xs,
+          children: [
+            ClayChip(
+              label: 'يدفع',
+              selected: !exempt,
+              onTap: () => pick(DiscountType.none, DiscountBearer.school),
+            ),
+            ClayChip(
+              label: 'مجاني لا يُحسب على أحد',
+              selected: noOne,
+              onTap: () =>
+                  pick(DiscountType.exempt, DiscountBearer.custom, '0'),
+            ),
+            ClayChip(
+              label: 'مجاني على الإدارة',
+              selected: onSchool,
+              onTap: () => pick(DiscountType.exempt, DiscountBearer.school),
+            ),
+            ClayChip(
+              label: 'مجاني على الأستاذ',
+              selected: onTeacher,
+              onTap: () =>
+                  pick(DiscountType.exempt, DiscountBearer.teacherFull),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

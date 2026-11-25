@@ -15,10 +15,9 @@ typedef GridCellTap = void Function(SessionRow session, GridStudent student);
 /// ضغطة على عنوان حصة (لفتح ورقة حضورها).
 typedef GridSessionTap = void Function(SessionRow session);
 
-/// هل تُعدَّل خانات هذه الحصة؟ حصة غير ملغاة تاريخها اليوم أو قبله.
+/// هل تُعدَّل خانات هذه الحصة؟ كل حصة غير ملغاة، ماضية أو قادمة ([today] للتوافق).
 bool gridSessionEditable(SessionRow s, String today) =>
-    SessionStatus.fromCode(s.status).countsInCycle &&
-    s.date.compareTo(today) <= 0;
+    SessionStatus.fromCode(s.status).countsInCycle;
 
 /// شبكة حضور دورة مجموعة بتنقل بين الدورات وتقدّم حصصها ودليل الألوان، تُعرض
 /// تحت [header] (بطاقة معلومات المجموعة). مشتركة بين الإدارة والأستاذ.
@@ -28,11 +27,15 @@ class GroupGridView extends ConsumerStatefulWidget {
     this.header = const [],
     this.onCellTap,
     this.onSessionTap,
+    this.belowCycle,
     super.key,
   });
 
   final String groupId;
   final List<Widget> header;
+
+  /// ما يُعرض تحت شريط الدورة للدورة المعروضة (الإدارة: مال الفوج فيها).
+  final Widget Function(GroupGrid grid)? belowCycle;
 
   /// الإدارة: تغيير حضور تلميذ في حصة مضت أو حصة اليوم بضغط خانته. `null` (الأستاذ): للعرض فقط.
   final GridCellTap? onCellTap;
@@ -75,6 +78,7 @@ class _GroupGridViewState extends ConsumerState<GroupGridView> {
               ),
             ),
             const SizedBox(height: ClaySpacing.md),
+            ?widget.belowCycle?.call(g),
             if (g.sessions.isEmpty)
               const ClayEmptyView(
                 title: 'لا حصص في هذه الدورة',
@@ -91,7 +95,7 @@ class _GroupGridViewState extends ConsumerState<GroupGridView> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: ClaySpacing.sm),
                   child: Text(
-                    'اضغط خانة تلميذ لتغيير حضوره في حصة مضت (ولو أُغلقت)، أو رقم '
+                    'اضغط خانة تلميذ لتغيير حضوره أو دفع حصته، في حصة مضت أو قادمة (ولو أُغلقت)، أو رقم '
                     'الحصة لفتح ورقة حضورها.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -436,6 +440,10 @@ class _GridRow extends StatelessWidget {
             status: student.cells[s.id],
             cancelled: cancelled,
             paid: cancelled ? null : student.paidAt(position),
+            credit:
+                !cancelled &&
+                student.coveredSessions != null &&
+                student.creditAt(position),
           ),
         ),
       );
@@ -492,10 +500,14 @@ class _Cell extends StatelessWidget {
     required this.status,
     required this.cancelled,
     this.paid,
+    this.credit = false,
     this.review = false,
   });
 
   final double width;
+
+  /// حصة دُفعت في الشهر السابق (رصيد التحاق في منتصفه أو غياب برخصة): زرقاء بإطار أبيض.
+  final bool credit;
   final AttendanceStatus? status;
   final bool cancelled;
 
@@ -541,7 +553,7 @@ class _Cell extends StatelessWidget {
     final payment = cancelled || paid == null
         ? ''
         : paid!
-        ? ' · مدفوعة'
+        ? (credit ? ' · مدفوعة من الشهر السابق' : ' · مدفوعة')
         : unpaidAttended
         ? ' · لم يدفع'
         : '';
@@ -558,6 +570,12 @@ class _Cell extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: fill,
                     borderRadius: BorderRadius.circular(ClayRadius.sm),
+                    border: credit
+                        ? Border.all(color: Colors.white, width: 2)
+                        : null,
+                    boxShadow: credit
+                        ? [BoxShadow(color: fill, spreadRadius: 1.5)]
+                        : null,
                   ),
                   child: look.$1 == null
                       ? null
@@ -592,6 +610,10 @@ class _Legend extends StatelessWidget {
         const ClayBadge(label: 'غائب برخصة', tone: ClayTone.excused),
         if (showPayment) ...const [
           ClayBadge(label: 'مربع أزرق: حصة مدفوعة', tone: ClayTone.info),
+          ClayBadge(
+            label: 'أزرق بإطار: دُفعت في الشهر السابق',
+            tone: ClayTone.info,
+          ),
           ClayBadge(label: 'مربع أحمر: حضر ولم يدفع', tone: ClayTone.danger),
         ],
         if (showReview)

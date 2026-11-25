@@ -11,6 +11,7 @@ import 'enums.dart';
 import 'group_sql.dart';
 import 'money.dart';
 import 'payout_service.dart';
+import 'pricing.dart';
 import 'sms_event_service.dart';
 
 /// بيانات هذا الجهاز التي لا تُزامَن: بادئة أرقام الوصولات.
@@ -63,6 +64,8 @@ class PayableItem {
     this.periodKey,
     this.credits = 0,
     this.creditSessions = 0,
+    this.netPrice = 0,
+    this.sessionsPerCycle = 0,
   });
 
   final PaymentType type;
@@ -84,6 +87,21 @@ class PayableItem {
   final String? groupId;
   final int? cycleNumber;
   final String? periodKey;
+
+  /// للشهر: سعر الدورة بعد التخفيض وعدد حصصها، لدفع عدد من الحصص (3 أو 5 مثلاً).
+  final int netPrice;
+  final int sessionsPerCycle;
+
+  /// ثمن [sessions] حصة من هذا الشهر (لا يزيد عن الباقي)؛ صفر لغير الشهر.
+  int sessionsAmount(int sessions) {
+    if (type != PaymentType.month || sessionsPerCycle <= 0) return 0;
+    final value = Pricing.sessionsValue(
+      netPrice: netPrice,
+      sessions: sessions,
+      sessionsPerCycle: sessionsPerCycle,
+    );
+    return value > remaining ? remaining : value;
+  }
 
   int get remaining => total - paid < 0 ? 0 : total - paid;
 
@@ -219,6 +237,8 @@ class PaymentService {
             creditSessions: due.creditSessions(g?.sessionsPerCycle ?? 0),
             groupId: due.groupId,
             cycleNumber: due.cycleNumber,
+            netPrice: due.netPrice,
+            sessionsPerCycle: g?.sessionsPerCycle ?? 0,
           ),
         );
       }
@@ -352,6 +372,78 @@ class PaymentService {
       await sms.paymentReceipt(payment);
       return payment;
     });
+  }
+
+  /// يسجّل دفع [sessions] حصة من دورة [cycleNumber] (ثمن الحصة سعر الدورة ÷ حصصها)، ولا يزيد عن
+  /// الباقي. يرمي [ValidationException] إن كانت الدورة مسدَّدة أو التلميذ غير ملزَم بها.
+  Future<PaymentRow> paySessions({
+    required String studentId,
+    required String groupId,
+    required int cycleNumber,
+    int sessions = 1,
+    String note = '',
+  }) async {
+    final due = await dues.cycleDue(
+      studentId: studentId,
+      groupId: groupId,
+      cycleNumber: cycleNumber,
+    );
+    if (due == null || due.exempt || due.remaining == 0) {
+      throw ValidationException.field(
+        fieldAmount,
+        due == null ? 'التلميذ غير ملزَم بهذه الدورة' : 'الدورة مسدَّدة',
+      );
+    }
+    final group = await (db.select(
+      db.groups,
+    )..where((g) => g.id.equals(groupId))).getSingle();
+    final value = Pricing.sessionsValue(
+      netPrice: due.netPrice,
+      sessions: sessions,
+      sessionsPerCycle: group.sessionsPerCycle,
+    );
+    final amount = value > due.remaining ? due.remaining : value;
+    return record(
+      studentId: studentId,
+      type: PaymentType.month,
+      amount: amount,
+      groupId: groupId,
+      cycleNumber: cycleNumber,
+      note: note,
+    );
+  }
+
+  /// يدفع حصة [sessionId] لكل تلميذ حاضر فيها ولم يسدّد دورته (زر واحد في ورقة الحضور). يعيد
+  /// عدد من سُجّلت لهم دفعة.
+  Future<int> paySessionForPresent(String sessionId) async {
+    final session = await (db.select(
+      db.sessions,
+    )..where((s) => s.id.equals(sessionId))).getSingle();
+    final present =
+        await (db.select(db.attendance)..where(
+              (a) =>
+                  a.sessionId.equals(sessionId) &
+                  a.deletedAt.isNull() &
+                  a.status.equals(AttendanceStatus.present.code),
+            ))
+            .get();
+    var paid = 0;
+    for (final row in present) {
+      final due = await dues.cycleDue(
+        studentId: row.studentId,
+        groupId: session.groupId,
+        cycleNumber: session.cycleNumber,
+      );
+      if (due == null || due.exempt || due.remaining == 0) continue;
+      await paySessions(
+        studentId: row.studentId,
+        groupId: session.groupId,
+        cycleNumber: session.cycleNumber,
+        note: 'حصة ${session.date}',
+      );
+      paid++;
+    }
+    return paid;
   }
 
   /// دفع شهر: يُفرَج بعده عن نصيب الأستاذ المعلّق في دورات المجموعة

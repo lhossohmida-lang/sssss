@@ -213,9 +213,8 @@ class AccountService {
     final password = LoginCredentials.generatePassword();
     // حساب لم يصل الخادم بعد: تتغير كلمة السر التي سيُنشأ بها.
     final waiting =
-        await (db.select(db.pendingAccounts)..where(
-              (t) => t.id.equals(accountId) & t.kind.equals(_create),
-            ))
+        await (db.select(db.pendingAccounts)
+              ..where((t) => t.id.equals(accountId) & t.kind.equals(_create)))
             .getSingleOrNull();
     if (waiting != null) {
       await (db.update(db.pendingAccounts)

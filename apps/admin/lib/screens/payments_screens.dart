@@ -402,6 +402,37 @@ class _PaymentFormScreenState extends ConsumerState<PaymentFormScreen> {
                     textDirection: TextDirection.ltr,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
+                  if (_selected!.type == PaymentType.month &&
+                      _selected!.sessionsPerCycle > 0) ...[
+                    const SizedBox(height: ClaySpacing.sm),
+                    Text('أو ادفع عدداً من الحصص', style: text.bodySmall),
+                    const SizedBox(height: ClaySpacing.xs),
+                    Wrap(
+                      spacing: ClaySpacing.sm,
+                      runSpacing: ClaySpacing.xs,
+                      children: [
+                        for (var n = 1; n <= _selected!.sessionsPerCycle; n++)
+                          if (n == 1 ||
+                              _selected!.sessionsAmount(n - 1) <
+                                  _selected!.remaining)
+                            ClayChip(
+                              label: n == _selected!.sessionsPerCycle
+                                  ? 'الشهر كله'
+                                  : SessionCount.label(n),
+                              selected:
+                                  _amount.text.trim() ==
+                                  '${_selected!.sessionsAmount(n)}',
+                              onTap: () => setState(() {
+                                _amount.text =
+                                    '${_selected!.sessionsAmount(n)}';
+                                if (n < _selected!.sessionsPerCycle) {
+                                  _note.text = 'دفع ${SessionCount.label(n)}';
+                                }
+                              }),
+                            ),
+                      ],
+                    ),
+                  ],
                   if (_selected!.type == PaymentType.month) ...[
                     const SizedBox(height: ClaySpacing.md),
                     ClayTextField(controller: _note, label: 'ملاحظة (اختياري)'),

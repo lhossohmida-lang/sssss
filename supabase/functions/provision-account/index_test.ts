@@ -288,3 +288,31 @@ Deno.test("without directory secrets no directory call is made", async () => {
   );
   assert(result.status === 200 && calls.length === 0, `${result.status} ${calls.length}`);
 });
+
+Deno.test("an account made offline keeps its client-chosen id, also on a retry", async () => {
+  const id = "8f0e2a4c-1b3d-4e5f-9a7b-6c5d4e3f2a1b";
+  const body = { email: "0550123456@school.local", password: PASSWORD, role: "parent", id };
+  const withId: Route = (url, init) => {
+    if (url.pathname !== "/auth/v1/admin/users" || init?.method !== "POST") return undefined;
+    assert(JSON.parse(String(init.body)).id === id, "the requested id is passed to auth");
+    return Response.json({ id });
+  };
+  const first = await run({ role: "owner" }, body, withId);
+  assert(first.status === 200 && first.text === JSON.stringify({ id }), first.text);
+
+  // The first reply was lost: auth now says the email exists, and the user with that id is ours.
+  const retry: Route = (url, init) => {
+    if (url.pathname === "/auth/v1/admin/users" && init?.method === "POST") {
+      return new Response("exists", { status: 422 });
+    }
+    if (url.pathname === `/auth/v1/admin/users/${id}`) {
+      return Response.json({ id, email: "0550123456@school.local" });
+    }
+    return undefined;
+  };
+  const again = await run({ role: "owner" }, body, retry);
+  assert(again.status === 200 && again.text === JSON.stringify({ id }), again.text);
+
+  const bad = await run({ role: "owner" }, { ...body, id: "not-a-uuid" }, withId);
+  assert(bad.status === 400, "a malformed id is refused");
+});

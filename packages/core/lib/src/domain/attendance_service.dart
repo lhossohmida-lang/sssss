@@ -355,6 +355,27 @@ class AttendanceService {
     });
   }
 
+  /// يحذف حضور الحصة كله (للإدارة)، ولو كانت مغلقة، فتعود بلا تسجيل. أرصدة الغياب برخصة تُحذف
+  /// معه. يعيد عدد التسجيلات المحذوفة.
+  Future<int> clearSession(String sessionId) {
+    return db.transaction(() async {
+      final session = await _openSession(sessionId);
+      final rows =
+          await (db.select(db.attendance)..where(
+                (a) => a.sessionId.equals(session.id) & a.deletedAt.isNull(),
+              ))
+              .get();
+      for (final row in rows) {
+        await writer.softDelete(db.attendance, key: {'id': row.id});
+        await dues.syncExcusedCredit(
+          sessionId: session.id,
+          studentId: row.studentId,
+        );
+      }
+      return rows.length;
+    });
+  }
+
   /// يسجّل حاضراً كل من لم يُسجَّل له شيء بعد. يعيد عددهم.
   Future<int> markAllPresent(String sessionId) {
     return db.transaction(() async {

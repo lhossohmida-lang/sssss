@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_core/school_core.dart';
+import 'package:school_ui/school_ui.dart';
 import 'package:school_ui/testing.dart';
 
 import 'group_details_screen_test.dart' hide main;
@@ -68,5 +69,59 @@ void main() {
     await tester.tap(find.byKey(ValueKey('grid-session-${first.id}')));
     await tester.pumpAndSettle();
     expect(find.textContaining('حاضر 2 · غائب 0'), findsOneWidget);
+  });
+
+  appTest('دفع حصة من خانة التلميذ في الشبكة', (tester) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    final runtime = await openDetails(tester);
+    await tester.pumpAndSettle();
+    final db = runtime.db;
+    final first = await runDb(
+      tester,
+      () =>
+          (db.select(db.sessions)
+                ..orderBy([(s) => OrderingTerm(expression: s.date)])
+                ..limit(1))
+              .getSingle(),
+    );
+    await tester.tap(find.byKey(ValueKey('grid-cell-${first.id}-s1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'دفع هذه الحصة'));
+    await tester.pumpAndSettle();
+    final paid = await runDb(tester, () => db.select(db.payments).get());
+    expect(paid, hasLength(1));
+    expect(paid.single.studentId, 's1');
+    expect(find.textContaining('دُفعت حصة'), findsOneWidget);
+  });
+
+  appTest('ورقة الحصة: حذف حضورها كله بعد التأكيد', (tester) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    final runtime = await openDetails(tester);
+    await tester.pumpAndSettle();
+    final db = runtime.db;
+    final first = await runDb(
+      tester,
+      () =>
+          (db.select(db.sessions)
+                ..orderBy([(s) => OrderingTerm(expression: s.date)])
+                ..limit(1))
+              .getSingle(),
+    );
+    await tester.tap(find.byKey(ValueKey('grid-session-${first.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'حذف حضور الحصة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ClayButton, 'حذف الحضور'));
+    await tester.pumpAndSettle();
+    final left = await runDb(
+      tester,
+      () =>
+          (db.select(db.attendance)..where(
+                (a) => a.sessionId.equals(first.id) & a.deletedAt.isNull(),
+              ))
+              .get(),
+    );
+    expect(left, isEmpty);
+    expect(find.textContaining('بلا تسجيل 2'), findsOneWidget);
   });
 }

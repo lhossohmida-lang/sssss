@@ -185,7 +185,127 @@ class AdminSessionRoster extends ConsumerWidget {
       canWrite: canWrite,
       canExcuse: canWrite,
       // تلاميذ لمرة واحدة أو من فوج آخر يحضرون هذه الحصة ويدفعون ثمنها.
-      belowHeader: canWrite ? (roster) => GuestsButton(roster: roster) : null,
+      belowHeader: canWrite
+          ? (roster) => Column(
+              children: [
+                GuestsButton(roster: roster),
+                SessionActions(roster: roster),
+              ],
+            )
+          : null,
+    );
+  }
+}
+
+/// أزرار الإدارة في ورقة الحصة: دفع الحصة لكل حاضر لم يسدّد دورته، وحذف حضور الحصة كله.
+class SessionActions extends ConsumerStatefulWidget {
+  const SessionActions({required this.roster, super.key});
+
+  final SessionRoster roster;
+
+  @override
+  ConsumerState<SessionActions> createState() => _SessionActionsState();
+}
+
+class _SessionActionsState extends ConsumerState<SessionActions> {
+  bool _busy = false;
+
+  Future<void> _run(Future<String> Function() action) async {
+    if (_busy) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      final message = await action();
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } on ValidationException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.errors.values.isEmpty ? 'تعذّرت العملية' : e.errors.values.first,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _clear() async {
+    final sure = await showClayDialog<bool>(
+      context,
+      title: 'حذف حضور الحصة كله؟',
+      content: const Text(
+        'تعود الحصة بلا تسجيل لكل تلاميذها (ولو كانت مغلقة)، وتُحذف أرصدة الغياب برخصة فيها. '
+        'المدفوعات لا تتغير.',
+      ),
+      actions: [
+        Builder(
+          builder: (context) => ClayButton(
+            label: 'إلغاء',
+            kind: ClayButtonKind.secondary,
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ),
+        Builder(
+          builder: (context) => ClayButton(
+            label: 'حذف الحضور',
+            kind: ClayButtonKind.danger,
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ),
+      ],
+    );
+    if (sure != true || !mounted) return;
+    await _run(() async {
+      final count = await ref
+          .read(attendanceServiceProvider)
+          .clearSession(widget.roster.session.id);
+      return 'حُذف حضور $count تلميذ في هذه الحصة';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roster = widget.roster;
+    if (roster.cancelled) return const SizedBox.shrink();
+    final canPay = ref.can(PermissionModule.receiveMoney, PermissionAction.use);
+    final marked = roster.students.length - roster.unmarked;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        ClaySpacing.screenPadding,
+        0,
+        ClaySpacing.screenPadding,
+        ClaySpacing.md,
+      ),
+      child: Wrap(
+        spacing: ClaySpacing.sm,
+        runSpacing: ClaySpacing.sm,
+        children: [
+          if (canPay && roster.count(AttendanceStatus.present) > 0)
+            ClayButton(
+              label: 'دفع الحصة للحاضرين',
+              icon: ClayIcons.check,
+              kind: ClayButtonKind.secondary,
+              loading: _busy,
+              onPressed: () => _run(() async {
+                final count = await ref
+                    .read(paymentServiceProvider)
+                    .paySessionForPresent(roster.session.id);
+                return count == 0
+                    ? 'كل الحاضرين سدّدوا دورتهم أو معفون'
+                    : 'دُفعت الحصة لـ$count تلميذ';
+              }),
+            ),
+          if (marked > 0)
+            ClayButton(
+              label: 'حذف حضور الحصة',
+              icon: ClayIcons.delete,
+              kind: ClayButtonKind.secondary,
+              loading: _busy,
+              onPressed: _clear,
+            ),
+        ],
+      ),
     );
   }
 }

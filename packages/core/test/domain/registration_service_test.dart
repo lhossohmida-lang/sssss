@@ -560,27 +560,30 @@ void main() {
       expect(errors[RegistrationService.fieldPhone], contains('أستاذ'));
     });
 
-    test('دون إنترنت: يُسجَّل التلميذ ووليّه، وحساب الوليّ ينتظر الخادم', () async {
-      provisioner.failing = true;
-      final result = await service.register(request(), settings: settings);
-      expect(result.parentAccount.pending, isTrue);
-      expect(await env.db.select(env.db.students).get(), hasLength(1));
-      final parent = await env.db.select(env.db.parents).getSingle();
-      expect(parent.authUserId, result.parentAccount.accountId);
-      // أخ ثانٍ لنفس الوليّ دون إنترنت: يُربط بنفس الحساب المنتظر.
-      final brother = await service.register(
-        request(first: 'أخوه'),
-        settings: settings,
-      );
-      expect(brother.parentAccount.accountId, result.parentAccount.accountId);
-      expect(await env.db.select(env.db.pendingAccounts).get(), hasLength(1));
+    test(
+      'دون إنترنت: يُسجَّل التلميذ ووليّه، وحساب الوليّ ينتظر الخادم',
+      () async {
+        provisioner.failing = true;
+        final result = await service.register(request(), settings: settings);
+        expect(result.parentAccount.pending, isTrue);
+        expect(await env.db.select(env.db.students).get(), hasLength(1));
+        final parent = await env.db.select(env.db.parents).getSingle();
+        expect(parent.authUserId, result.parentAccount.accountId);
+        // أخ ثانٍ لنفس الوليّ دون إنترنت: يُربط بنفس الحساب المنتظر.
+        final brother = await service.register(
+          request(first: 'أخوه'),
+          settings: settings,
+        );
+        expect(brother.parentAccount.accountId, result.parentAccount.accountId);
+        expect(await env.db.select(env.db.pendingAccounts).get(), hasLength(1));
 
-      provisioner.failing = false;
-      expect((await accounts.processPending()).done, 1);
-      final account = await env.db.select(env.db.userAccounts).getSingle();
-      final linked = await env.db.select(env.db.parents).getSingle();
-      expect(linked.authUserId, account.id);
-    });
+        provisioner.failing = false;
+        expect((await accounts.processPending()).done, 1);
+        final account = await env.db.select(env.db.userAccounts).getSingle();
+        final linked = await env.db.select(env.db.parents).getSingle();
+        expect(linked.authUserId, account.id);
+      },
+    );
 
     test('رفض الخادم النهائي لحساب الوليّ: لا تلميذ ولا وليّ', () async {
       provisioner.rejecting = true;

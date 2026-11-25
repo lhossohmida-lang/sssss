@@ -242,8 +242,7 @@ class AppRuntime {
             ? SupabaseAccountProvisioner(client)
             : null);
     // حسابات أُضيفت دون إنترنت تُنشأ على الخادم بعد كل مزامنة ناجحة (تطبيق الإدارة بالخادم).
-    final pendingAccounts =
-        resolvedProvisioner is SupabaseAccountProvisioner
+    final pendingAccounts = resolvedProvisioner is SupabaseAccountProvisioner
         ? AccountService(db, writer, resolvedProvisioner)
         : null;
     final SyncFactory? factory =

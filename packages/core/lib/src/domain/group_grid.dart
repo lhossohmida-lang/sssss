@@ -17,6 +17,7 @@ class GridStudent {
     required this.cells,
     required this.leftGroup,
     this.coveredSessions,
+    this.creditSessions = 0,
     this.reviewSessionIds = const {},
   });
 
@@ -26,6 +27,12 @@ class GridStudent {
   /// عدد حصص الدورة التي يغطيها ما دفعه التلميذ (كلها إن كان معفى أو سعره صفر)؛ `null` إن لم تُحسب
   /// المدفوعات (تطبيق الأستاذ لا يقرأ المدفوعات) أو لم يكن ملزَماً بهذه الدورة.
   final int? coveredSessions;
+
+  /// حصص من أول الدورة دُفعت في دورة سابقة (رصيد التحاق في منتصفها أو غياب برخصة): تظهر بالأزرق.
+  final int creditSessions;
+
+  /// هل حصة ترتيبها [index] مدفوعة من رصيد دورة سابقة؟
+  bool creditAt(int index) => index < creditSessions;
 
   /// هل حصة ترتيبها [index] بين حصص الدورة المحسوبة (غير الملغاة، بالترتيب الزمني) مدفوعة؟ فمن
   /// دفع شهره تظهر حصصه كلها مدفوعة حتى قبل أن يحضرها. `null` إن لم تُحسب المدفوعات.
@@ -316,6 +323,11 @@ class GroupGridQueries {
             leftGroup: row.read<int?>('left_at') != null,
             coveredSessions: dueByStudent[row.read<String>('id')]
                 ?.coveredSessions(group.sessionsPerCycle),
+            creditSessions:
+                dueByStudent[row.read<String>('id')]?.creditSessions(
+                  group.sessionsPerCycle,
+                ) ??
+                0,
             reviewSessionIds: reviewGuests[row.read<String>('id')] ?? const {},
           ),
       ],

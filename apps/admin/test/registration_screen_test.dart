@@ -488,6 +488,38 @@ void main() {
     expect(enrolment.teacherAmount, 0);
   });
 
+  appTest('أزرار المجاني: على الأستاذ يُخصم من حقه نصيب المدرسة', (
+    tester,
+  ) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await tester.ensureVisible(find.text('مجاني على الأستاذ'));
+    await tester.tap(find.text('مجاني على الأستاذ'));
+    await tester.pumpAndSettle();
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.discountType, 'exempt');
+    expect(enrolment.teacherAmount, isNegative);
+  });
+
+  appTest('مجاني لا يُحسب على أحد: الأستاذ لا يأخذ شيئاً', (tester) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await tester.ensureVisible(find.text('مجاني لا يُحسب على أحد'));
+    await tester.tap(find.text('مجاني لا يُحسب على أحد'));
+    await tester.pumpAndSettle();
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.discountType, 'exempt');
+    expect(enrolment.teacherAmount, 0);
+  });
+
+  appTest('يبدأ من الحصة الثالثة: تُحفظ مع الانتساب', (tester) async {
+    final o = await openForm(tester);
+    await addSharedGroup(tester, o);
+    await pick(tester, 'يبدأ من الحصة', 'الحصة 3');
+    final enrolment = await registerAndRead(tester, o);
+    expect(enrolment.joinedAtSessionNumber, 3);
+  });
+
   appTest('مبلغ يحدده المدير للأستاذ: حقل يظهر بالاختيار ويُحفظ', (
     tester,
   ) async {
@@ -654,7 +686,9 @@ void main() {
     expect(student.transportPrice, 1200);
   });
 
-  appTest('دون إنترنت: يُسجَّل التلميذ وحساب وليّه ينتظر الخادم', (tester) async {
+  appTest('دون إنترنت: يُسجَّل التلميذ وحساب وليّه ينتظر الخادم', (
+    tester,
+  ) async {
     final o = await openForm(tester);
     o.provisioner.failing = true;
     await fillPeople(tester);

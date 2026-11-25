@@ -210,7 +210,9 @@ class _SessionRosterScreenState extends ConsumerState<SessionRosterScreen> {
                         'بلا تسجيل ${r.unmarked}',
                         style: text.bodySmall,
                       ),
-                      if (editable && !r.closed && r.unmarked > 0) ...[
+                      if (editable &&
+                          (!r.closed || widget.canExcuse) &&
+                          r.unmarked > 0) ...[
                         const SizedBox(height: ClaySpacing.md),
                         ClayButton(
                           label: 'تسجيل الكل حاضراً',
