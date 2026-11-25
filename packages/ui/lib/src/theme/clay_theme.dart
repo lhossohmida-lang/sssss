@@ -164,6 +164,7 @@ class ClayApp extends StatelessWidget {
     this.themeMode = ThemeMode.system,
     this.title,
     this.overlay,
+    this.footer,
     super.key,
   }) : assert(
          (home != null) != (routerConfig != null),
@@ -179,6 +180,10 @@ class ClayApp extends StatelessWidget {
   /// طبقة فوق كل الصفحات والنوافذ (بطاقة التحديث)؛ لا تمنع اللمس خارج ما ترسمه.
   final Widget? overlay;
 
+  /// شريط تحت كل الصفحات يأخذ مكانه منها فلا يغطي أزرارها (بطاقة تثبيت نسخة
+  /// الويب). يُرسم بلا ارتفاع حين لا يكون فيه شيء.
+  final Widget? footer;
+
   @override
   Widget build(BuildContext context) {
     final common = (
@@ -189,12 +194,23 @@ class ClayApp extends StatelessWidget {
       locale: AppIdentity.locale,
     );
     final top = overlay;
-    Widget rtl(BuildContext context, Widget? child) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: top == null
-          ? child!
-          : Stack(fit: StackFit.expand, children: [child!, top]),
-    );
+    final bottom = footer;
+    Widget rtl(BuildContext context, Widget? child) {
+      var body = child!;
+      if (bottom != null) {
+        body = Column(
+          children: [
+            Expanded(child: body),
+            bottom,
+          ],
+        );
+      }
+      if (top != null) {
+        body = Stack(fit: StackFit.expand, children: [body, top]);
+      }
+      return Directionality(textDirection: TextDirection.rtl, child: body);
+    }
+
     if (routerConfig != null) {
       return MaterialApp.router(
         title: common.title,

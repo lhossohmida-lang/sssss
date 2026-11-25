@@ -343,7 +343,8 @@ class _SchoolAppState extends ConsumerState<SchoolApp> {
     return ClayApp(
       app: _runtime.app,
       routerConfig: _router,
-      overlay: kIsWeb ? const PwaInstallOverlay() : const UpdateOverlay(),
+      overlay: kIsWeb ? null : const UpdateOverlay(),
+      footer: kIsWeb ? const PwaInstallOverlay() : null,
     );
   }
 }

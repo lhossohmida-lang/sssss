@@ -67,76 +67,70 @@ class _PwaInstallOverlayState extends State<PwaInstallOverlay> {
     }
     final p = context.palette;
     final text = Theme.of(context).textTheme;
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: SafeArea(
-        top: false,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Material(
-            type: MaterialType.transparency,
-            child: Padding(
-              padding: const EdgeInsets.all(ClaySpacing.screenPadding),
-              child: ClayCard(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.install_mobile_rounded, color: p.accent),
-                        const SizedBox(width: ClaySpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'ثبّت التطبيق على الشاشة الرئيسية: يُفتح بأيقونته '
-                            'ويعمل دون إنترنت',
-                            style: text.bodyMedium,
-                          ),
-                        ),
-                        const SizedBox(width: ClaySpacing.sm),
-                        if (!_steps)
-                          // ارتفاع محدد: الزر يملأ ما يُتاح له طولاً (محاذاة وسطية).
-                          SizedBox(
-                            height: 44,
-                            child: ClayButton(
-                              label: 'تثبيت',
-                              onPressed: _install,
+    // شريط تحت الصفحة بلون خلفيتها (لا فوقها)، فلا يغطي زر «دخول» ولا غيره.
+    return ColoredBox(
+      color: p.background,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Material(
+              type: MaterialType.transparency,
+              child: Padding(
+                padding: const EdgeInsets.all(ClaySpacing.screenPadding),
+                child: ClayCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.install_mobile_rounded, color: p.accent),
+                          const SizedBox(width: ClaySpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'ثبّت التطبيق على الشاشة الرئيسية: يُفتح بأيقونته '
+                              'ويعمل دون إنترنت',
+                              style: text.bodyMedium,
                             ),
                           ),
-                        Semantics(
-                          button: true,
-                          label: 'لاحقاً',
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => setState(() => _hidden = true),
-                            child: SizedBox.square(
-                              dimension: 44,
-                              child: Icon(
-                                Icons.close_rounded,
-                                color: p.textMuted,
+                          const SizedBox(width: ClaySpacing.sm),
+                          if (!_steps)
+                            ClayButton(label: 'تثبيت', onPressed: _install),
+                          Semantics(
+                            button: true,
+                            label: 'لاحقاً',
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => setState(() => _hidden = true),
+                              child: SizedBox.square(
+                                dimension: 44,
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  color: p.textMuted,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    if (_steps) ...[
-                      const SizedBox(height: ClaySpacing.md),
-                      PwaInstallSteps(ios: bridge.isIos),
-                      const SizedBox(height: ClaySpacing.sm),
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: SizedBox(
-                          height: 44,
+                        ],
+                      ),
+                      if (_steps) ...[
+                        const SizedBox(height: ClaySpacing.md),
+                        PwaInstallSteps(ios: bridge.isIos),
+                        const SizedBox(height: ClaySpacing.sm),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
                           child: ClayButton(
                             label: 'فهمت',
                             kind: ClayButtonKind.secondary,
                             onPressed: () => setState(() => _steps = false),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

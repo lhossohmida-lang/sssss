@@ -35,13 +35,13 @@ class FakeBridge implements PwaBridge {
   void announce() => _changes.add(null);
 }
 
-/// كما في التطبيق: البطاقة طبقة في `ClayApp` فوق الملّاح لا داخله (لا Overlay ولا Navigator فوقها).
+/// كما في التطبيق: البطاقة شريط `footer` في `ClayApp` تحت الملّاح لا داخله (لا Overlay ولا Navigator فوقها).
 Future<void> pump(WidgetTester tester, FakeBridge bridge, {bool web = true}) =>
     tester.pumpWidget(
       ClayApp(
         app: AppIdentity.admin,
         home: const Scaffold(body: Center(child: Text('الشاشة'))),
-        overlay: PwaInstallOverlay(bridge: bridge, web: web),
+        footer: PwaInstallOverlay(bridge: bridge, web: web),
       ),
     );
 
@@ -62,6 +62,31 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('الشاشة'), findsOneWidget);
     expect(tester.getSize(find.byType(ClayCard)).height, lessThan(160));
+  });
+
+  testWidgets('the card takes its own space under the page: it never covers '
+      'the bottom button of the page', (tester) async {
+    var pressed = 0;
+    await tester.pumpWidget(
+      ClayApp(
+        app: AppIdentity.admin,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: ElevatedButton(
+              onPressed: () => pressed++,
+              child: const Text('دخول'),
+            ),
+          ),
+        ),
+        footer: PwaInstallOverlay(bridge: FakeBridge(isIos: true), web: true),
+      ),
+    );
+    final button = tester.getRect(find.text('دخول'));
+    final card = tester.getRect(find.byType(ClayCard));
+    expect(button.bottom, lessThanOrEqualTo(card.top));
+    await tester.tap(find.text('دخول'));
+    expect(pressed, 1);
   });
 
   testWidgets(

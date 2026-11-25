@@ -405,7 +405,7 @@ class _SchoolBootstrapState extends State<SchoolBootstrap>
     // قبل الاتصال بالمدرسة (الربط ودليل المدارس واختيار المدرسة): بطاقة التثبيت على الشاشة الرئيسية في نسخة الويب.
     return ClayApp(
       app: widget.app,
-      overlay: kIsWeb ? const PwaInstallOverlay() : null,
+      footer: kIsWeb ? const PwaInstallOverlay() : null,
       home: switch (_phase) {
         _Phase.pairing => PairingScreen(
           app: widget.app,
