@@ -125,9 +125,12 @@ class GoogleDriveController implements DriveController {
         'GOOGLE_DRIVE_IOS_CLIENT_ID',
       ) {
     _preferences = DevicePreferences(runtime.db);
-    final staging = Directory(
-      '${runtime.photosDirectory.parent.path}${platformPathSeparator}drive_uploads',
-    );
+    // في المتصفح لا مجلدات (ولا Drive): `parent` يستعمل Platform فيرمي هناك.
+    final staging = kIsWeb
+        ? Directory('drive_uploads')
+        : Directory(
+            '${runtime.photosDirectory.parent.path}${platformPathSeparator}drive_uploads',
+          );
     _queue = DriveQueueService(
       runtime.db,
       runtime.writer,
