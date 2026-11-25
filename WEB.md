@@ -4,11 +4,11 @@
 الرئيسية فيُفتح كتطبيق بأيقونته دون شريط المتصفح. هي الطريقة المجانية الوحيدة لمستعملي iPhone (التثبيت من رابط لتطبيق
 iPhone أصلي يحتاج حساب Apple المدفوع؛ انظر `IOS.md`)، وتعمل كذلك على Android والحاسوب.
 
-| التطبيق | الرابط (بعد النشر) |
+| التطبيق | الرابط |
 |---|---|
-| الإدارة | `https://<اسم المشروع>.pages.dev/admin/` |
-| الأستاذ | `https://<اسم المشروع>.pages.dev/teacher/` |
-| وليّ التلميذ | `https://<اسم المشروع>.pages.dev/student/` |
+| الإدارة | <https://school-apps.pages.dev/admin/> |
+| الأستاذ | <https://school-apps.pages.dev/teacher/> |
+| وليّ التلميذ | <https://school-apps.pages.dev/student/> |
 
 والصفحة الأولى `https://<اسم المشروع>.pages.dev/` فيها الأزرار الثلاثة. اسم المشروع الافتراضي `school-apps`.
 
