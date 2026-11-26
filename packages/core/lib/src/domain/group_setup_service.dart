@@ -25,6 +25,9 @@ enum CyclePaymentChoice {
 
   /// سُدِّد جزء منها ([GroupSetupStudent.partialAmount]).
   partial,
+
+  /// سُدِّد عدد من الحصص ([GroupSetupStudent.paidSessions]) من أول حصة له.
+  sessions,
 }
 
 /// بيانات تلميذ يُضاف إلى فوج من صفحة إعداد الفوج.
@@ -37,7 +40,23 @@ class GroupSetupStudent {
     this.levelId,
     this.payment = CyclePaymentChoice.unpaid,
     this.partialAmount = 0,
+    this.paidSessions = 0,
+    this.firstSession,
+    this.discountType = DiscountType.none,
+    this.bearer = DiscountBearer.school,
+    this.customTeacherAmount,
   });
+
+  /// عدد الحصص المسدَّدة حين يكون [payment] بالحصص.
+  final int paidSessions;
+
+  /// أول حصة له في الدورة الحالية (التحق في منتصف الشهر)؛ `null` التالية لما انعقد.
+  final int? firstSession;
+
+  /// تلميذ مجاني: [DiscountType.exempt] ومن يتحمّله ([bearer]، و[customTeacherAmount] = 0 لا أحد).
+  final DiscountType discountType;
+  final DiscountBearer bearer;
+  final int? customTeacherAmount;
 
   final String firstName;
   final String lastName;
@@ -179,7 +198,16 @@ class GroupSetupService {
         parentPhone: input.parentPhone,
         levelId: input.levelId,
         // السعر سعر الفوج الذي عُيِّن عند إنشائه: لا يُمرَّر هنا.
-        choices: [SubjectChoice(subjectId: group.subjectId, groupId: group.id)],
+        choices: [
+          SubjectChoice(
+            subjectId: group.subjectId,
+            groupId: group.id,
+            discountType: input.discountType,
+            bearer: input.bearer,
+            customTeacherAmount: input.customTeacherAmount,
+            firstSession: input.firstSession,
+          ),
+        ],
         date: DateKey.of(_clock()),
       ),
       settings: settings,
@@ -193,8 +221,9 @@ class GroupSetupService {
   /// بسببه (منتسب أصلاً، محذوف...). يرمي [ValidationException] إن لم يكن الفوج متاحاً.
   Future<ExistingStudentsResult> addExisting(
     String groupId,
-    Iterable<String> studentIds,
-  ) async {
+    Iterable<String> studentIds, {
+    int? firstSession,
+  }) async {
     final enrol = enrolments?.call();
     if (enrol == null) {
       throw StateError('خدمة الانتساب غير مهيّأة');
@@ -211,7 +240,11 @@ class GroupSetupService {
         continue;
       }
       try {
-        await enrol.enrol(studentId: id, groupId: group.id);
+        await enrol.enrol(
+          studentId: id,
+          groupId: group.id,
+          firstSession: firstSession,
+        );
         added.add(id);
       } on ValidationException catch (e) {
         skipped[id] = e.toString();
@@ -235,9 +268,34 @@ class GroupSetupService {
         remaining: remaining,
       );
     }
-    final amount = input.payment == CyclePaymentChoice.full
-        ? remaining
-        : input.partialAmount;
+    if (input.payment == CyclePaymentChoice.full ||
+        input.payment == CyclePaymentChoice.sessions) {
+      // الشهر كله أو عدد حصص: يُعيَّن من أول حصة له، فتظهر حصصه هو مدفوعة.
+      try {
+        final payment = await payments.payAtEnrolment(
+          studentId: studentId,
+          groupId: group.id,
+          sessions: input.payment == CyclePaymentChoice.full
+              ? group.sessionsPerCycle
+              : input.paidSessions,
+        );
+        final paid = payment?.amount ?? 0;
+        return GroupSetupResult(
+          registration: registered,
+          paidNow: paid,
+          remaining: remaining - paid,
+          payment: payment,
+        );
+      } on ValidationException catch (e) {
+        return GroupSetupResult(
+          registration: registered,
+          paidNow: 0,
+          remaining: remaining,
+          paymentError: e.errors[fieldAmount] ?? e.errors.values.firstOrNull,
+        );
+      }
+    }
+    final amount = input.partialAmount;
     if (amount <= 0) {
       return GroupSetupResult(
         registration: registered,
@@ -280,6 +338,21 @@ class GroupSetupService {
       cycleNumber: group.currentCycleNumber,
     );
     return dueList.firstOrNull;
+  }
+
+  /// يسدّد [sessions] حصة من الدورة الحالية لتلميذ في الفوج (التالية غير المدفوعة).
+  Future<PaymentRow> payCurrentSessions({
+    required String groupId,
+    required String studentId,
+    required int sessions,
+  }) async {
+    final group = await _group(groupId);
+    return payments.payNextSessions(
+      studentId: studentId,
+      groupId: group.id,
+      cycleNumber: group.currentCycleNumber,
+      sessions: sessions,
+    );
   }
 
   /// يسدّد [amount] من الدورة الحالية لتلميذ في الفوج (للباقي بعد الإضافة).

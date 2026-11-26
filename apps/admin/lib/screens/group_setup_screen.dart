@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:school_core/school_core.dart';
 import 'package:school_ui/school_ui.dart';
 
+import 'registration_screen.dart' show ChoiceDraft, FreeModeField;
 import 'student_picker.dart';
 
 /// تلاميذ الفوج ووضع تسديد دورته الحالية (ويُعاد جلبه بعد كل إضافة أو دفعة).
@@ -97,10 +98,37 @@ class _GroupSetupScreenState extends ConsumerState<GroupSetupScreen> {
     };
     final picked = await pickExistingStudents(context, exclude: inGroup);
     if (picked == null || picked.isEmpty || !mounted) return;
+    final perCycle =
+        ref.read(groupItemProvider(widget.groupId))?.group.sessionsPerCycle ??
+        0;
+    // أول حصة لهم في هذا الشهر (التحاق في منتصفه): 0 = تلقائياً.
+    final start = perCycle <= 0
+        ? 0
+        : await showClayBottomSheet<int>(
+            context,
+            title: 'يبدأ من الحصة',
+            builder: (sheet) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClayListTile(
+                  title: 'تلقائياً (التالية لما انعقد)',
+                  onTap: () => Navigator.of(sheet).pop(0),
+                ),
+                for (var n = 1; n <= perCycle; n++)
+                  ClayListTile(
+                    title: 'الحصة $n',
+                    onTap: () => Navigator.of(sheet).pop(n),
+                  ),
+              ],
+            ),
+          );
+    if (start == null || !mounted) return;
     try {
       final result = await ref.read(groupSetupServiceProvider).addExisting(
         widget.groupId,
         [for (final student in picked) student.id],
+        firstSession: start == 0 ? null : start,
       );
       if (!mounted) return;
       _refresh();
@@ -388,6 +416,10 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
   final _phone = TextEditingController();
   final _partial = TextEditingController();
   CyclePaymentChoice _payment = CyclePaymentChoice.unpaid;
+  int _sessions = 1;
+
+  /// المجاني وأول حصة (الأزرار نفسها التي في استمارة التسجيل).
+  final _draft = ChoiceDraft();
   bool _busy = false;
   Map<String, String> _errors = const {};
   String? _formError;
@@ -399,6 +431,7 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
     _parent.dispose();
     _phone.dispose();
     _partial.dispose();
+    _draft.dispose();
     super.dispose();
   }
 
@@ -408,6 +441,7 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
     _last.clear();
     _partial.clear();
     _payment = CyclePaymentChoice.unpaid;
+    _sessions = 1;
     _errors = const {};
   }
 
@@ -436,8 +470,17 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
               lastName: _last.text,
               parentName: _parent.text,
               parentPhone: _phone.text,
-              payment: _payment,
+              payment: _draft.discountType == DiscountType.exempt
+                  ? CyclePaymentChoice.unpaid
+                  : _payment,
               partialAmount: amount,
+              paidSessions: _sessions,
+              firstSession: _draft.firstSession,
+              discountType: _draft.discountType,
+              bearer: _draft.discountType == DiscountType.none
+                  ? DiscountBearer.school
+                  : _draft.bearer,
+              customTeacherAmount: _draft.customTeacherAmount,
             ),
             settings: settings,
           );
@@ -462,6 +505,10 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
     final p = context.palette;
     final text = Theme.of(context).textTheme;
     final price = ref.watch(groupSetupPriceProvider(widget.groupId)).value;
+    final perCycle =
+        ref.watch(groupItemProvider(widget.groupId))?.group.sessionsPerCycle ??
+        0;
+    final exempt = _draft.discountType == DiscountType.exempt;
     String full() => price == null
         ? 'مسدّدة كاملة'
         : 'مسدّدة كاملة (${Money.format(price)})';
@@ -501,7 +548,27 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
             textInputAction: TextInputAction.next,
             helper: 'تصله رسالة ببيانات دخول حسابه تلقائياً',
           ),
-          if (widget.canPay) ...[
+          const SizedBox(height: ClaySpacing.lg),
+          FreeModeField(draft: _draft, onChanged: () => setState(() {})),
+          if (perCycle > 0) ...[
+            const SizedBox(height: ClaySpacing.md),
+            ClayDropdown<int?>(
+              label: 'يبدأ من الحصة',
+              searchable: false,
+              value: _draft.firstSession,
+              options: [
+                const ClayOption(
+                  value: null,
+                  label: 'تلقائياً (التالية لما انعقد)',
+                ),
+                for (var n = 1; n <= perCycle; n++)
+                  ClayOption(value: n, label: 'الحصة $n'),
+              ],
+              helper: 'التحق في منتصف الشهر؟ اختر أول حصة حضرها. ما قبلها يُحسب له في الشهر التالي',
+              onChanged: (value) => setState(() => _draft.firstSession = value),
+            ),
+          ],
+          if (widget.canPay && !exempt) ...[
             const SizedBox(height: ClaySpacing.lg),
             Text('الدورة الحالية', style: text.titleSmall),
             const SizedBox(height: ClaySpacing.sm),
@@ -521,6 +588,13 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
                   onTap: () =>
                       setState(() => _payment = CyclePaymentChoice.full),
                 ),
+                if (perCycle > 1)
+                  ClayChip(
+                    label: 'سدّد عدداً من الحصص',
+                    selected: _payment == CyclePaymentChoice.sessions,
+                    onTap: () =>
+                        setState(() => _payment = CyclePaymentChoice.sessions),
+                  ),
                 ClayChip(
                   label: 'سُدِّد جزء منها',
                   selected: _payment == CyclePaymentChoice.partial,
@@ -529,6 +603,23 @@ class _AddStudentFormState extends ConsumerState<_AddStudentForm> {
                 ),
               ],
             ),
+            if (_payment == CyclePaymentChoice.sessions) ...[
+              const SizedBox(height: ClaySpacing.md),
+              Text('كم حصة دفع؟ (من أول حصة له)', style: text.bodySmall),
+              const SizedBox(height: ClaySpacing.xs),
+              Wrap(
+                spacing: ClaySpacing.sm,
+                runSpacing: ClaySpacing.xs,
+                children: [
+                  for (var n = 1; n < perCycle; n++)
+                    ClayChip(
+                      label: SessionCount.label(n),
+                      selected: _sessions == n,
+                      onTap: () => setState(() => _sessions = n),
+                    ),
+                ],
+              ),
+            ],
             if (_payment == CyclePaymentChoice.partial) ...[
               const SizedBox(height: ClaySpacing.md),
               ClayTextField(
@@ -600,6 +691,9 @@ class _PayFormState extends ConsumerState<_PayForm> {
   bool _busy = false;
   String? _error;
 
+  /// عدد الحصص المختار للدفع بالحصص؛ `null` يعني المبلغ المكتوب.
+  int? _sessions;
+
   @override
   void dispose() {
     _amount.dispose();
@@ -614,13 +708,21 @@ class _PayFormState extends ConsumerState<_PayForm> {
       _error = null;
     });
     try {
-      await ref
-          .read(groupSetupServiceProvider)
-          .payCurrentCycle(
-            groupId: widget.groupId,
-            studentId: widget.row.studentId,
-            amount: amount,
-          );
+      final service = ref.read(groupSetupServiceProvider);
+      final sessions = _sessions;
+      if (sessions != null) {
+        await service.payCurrentSessions(
+          groupId: widget.groupId,
+          studentId: widget.row.studentId,
+          sessions: sessions,
+        );
+      } else {
+        await service.payCurrentCycle(
+          groupId: widget.groupId,
+          studentId: widget.row.studentId,
+          amount: amount,
+        );
+      }
       if (mounted) Navigator.of(context).pop(true);
     } on ValidationException catch (e) {
       if (mounted) {
@@ -634,6 +736,9 @@ class _PayFormState extends ConsumerState<_PayForm> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final perCycle =
+        ref.watch(groupItemProvider(widget.groupId))?.group.sessionsPerCycle ??
+        0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -649,8 +754,28 @@ class _PayFormState extends ConsumerState<_PayForm> {
           error: _error,
           keyboardType: TextInputType.number,
           textDirection: TextDirection.ltr,
+          onChanged: (_) {
+            if (_sessions != null) setState(() => _sessions = null);
+          },
           onSubmitted: (_) => _submit(),
         ),
+        if (perCycle > 1) ...[
+          const SizedBox(height: ClaySpacing.sm),
+          Text('أو ادفع عدداً من الحصص', style: text.bodySmall),
+          const SizedBox(height: ClaySpacing.xs),
+          Wrap(
+            spacing: ClaySpacing.sm,
+            runSpacing: ClaySpacing.xs,
+            children: [
+              for (var n = 1; n < perCycle; n++)
+                ClayChip(
+                  label: SessionCount.label(n),
+                  selected: _sessions == n,
+                  onTap: () => setState(() => _sessions = n),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: ClaySpacing.lg),
         ClayButton(
           label: 'تسديد',

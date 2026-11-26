@@ -537,6 +537,69 @@ class PaymentService {
     });
   }
 
+  /// يدفع [sessions] حصة غير مدفوعة من الدورة [cycleNumber] بالترتيب، من أول حصة للتلميذ فيها (حصة
+  /// التحاقه إن كانت دورة التحاقه): تُعيَّن الدفعة لتلك الحصص فتظهر هي مدفوعة.
+  Future<PaymentRow> payNextSessions({
+    required String studentId,
+    required String groupId,
+    required int cycleNumber,
+    required int sessions,
+  }) async {
+    final due = await dues.cycleDue(
+      studentId: studentId,
+      groupId: groupId,
+      cycleNumber: cycleNumber,
+    );
+    if (due == null || due.exempt || due.remaining == 0) {
+      throw ValidationException.field(
+        fieldAmount,
+        due == null ? 'التلميذ غير ملزَم بهذه الدورة' : 'الدورة مسدَّدة',
+      );
+    }
+    final group = await (db.select(
+      db.groups,
+    )..where((g) => g.id.equals(groupId))).getSingle();
+    final enrolment =
+        await (db.select(db.groupStudents)
+              ..where(
+                (e) =>
+                    e.studentId.equals(studentId) &
+                    e.groupId.equals(groupId) &
+                    e.deletedAt.isNull(),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    final coverage = await dues.sessionCoverage(
+      studentId: studentId,
+      groupId: groupId,
+      cycleNumber: cycleNumber,
+    );
+    final counted = await dues.countedSessionIds(groupId, cycleNumber);
+    final first =
+        enrolment != null && enrolment.joinedAtCycleNumber == cycleNumber
+        ? max(0, enrolment.joinedAtSessionNumber - 1)
+        : 0;
+    final ids = counted
+        .skip(first)
+        .where((id) => !(coverage?.paid.contains(id) ?? false))
+        .take(sessions)
+        .toList();
+    final value = Pricing.sessionsValue(
+      netPrice: due.netPrice,
+      sessions: sessions,
+      sessionsPerCycle: group.sessionsPerCycle,
+    );
+    return record(
+      studentId: studentId,
+      type: PaymentType.month,
+      amount: min(value, due.remaining),
+      groupId: groupId,
+      cycleNumber: cycleNumber,
+      periodKey: ids.isEmpty ? null : ids.join(','),
+      note: 'دفع ${SessionCount.label(sessions)}',
+    );
+  }
+
   /// يدفع عند الانتساب [sessions] حصة من أول حصة له في دورة التحاقه (كل الدورة إن ساوت حصصها):
   /// تُعيَّن الدفعة لتلك الحصص فتظهر هي مدفوعة. يعيد `null` إن كان معفى أو لا شيء عليه.
   Future<PaymentRow?> payAtEnrolment({

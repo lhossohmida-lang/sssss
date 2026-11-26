@@ -251,6 +251,66 @@ void main() {
     );
   });
 
+  appTest('التحق من الحصة 3 وسدّد حصتين: تُحفظ أول حصة ودفعة بثمنهما', (
+    tester,
+  ) async {
+    final o = await openDetails(tester);
+    await openAddForm(tester);
+    final dropdown = find.descendant(
+      of: find
+          .ancestor(
+            of: find.text('يبدأ من الحصة'),
+            matching: find.byType(Column),
+          )
+          .first,
+      matching: find.byWidgetPredicate((w) => w is DropdownButton),
+    );
+    await tester.ensureVisible(dropdown);
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الحصة 3').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('سدّد عدداً من الحصص'));
+    await tester.tap(find.text('سدّد عدداً من الحصص'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('حصتان'));
+    await tester.tap(find.text('حصتان'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'حفظ'));
+    await save(tester);
+    final db = o.runtime.db;
+    final enrolment = await runDb(
+      tester,
+      () => db.select(db.groupStudents).getSingle(),
+    );
+    expect(enrolment.joinedAtSessionNumber, 3);
+    final payments = await runDb(tester, () => db.select(db.payments).get());
+    // 2000 للشهر من 8 حصص: 250 للحصة، 500 للحصتين.
+    expect(payments.single.amount, 500);
+    expect(payments.single.periodKey, isNotNull);
+  });
+
+  appTest('مجاني على الأستاذ من إعداد الفوج: لا دفعة والأستاذ يُخصم منه', (
+    tester,
+  ) async {
+    final o = await openDetails(tester);
+    await openAddForm(tester);
+    await tester.ensureVisible(find.text('مجاني على الأستاذ'));
+    await tester.tap(find.text('مجاني على الأستاذ'));
+    await tester.pumpAndSettle();
+    expect(find.text('الدورة الحالية'), findsNothing);
+    await tester.ensureVisible(find.widgetWithText(ClayButton, 'حفظ'));
+    await save(tester);
+    final db = o.runtime.db;
+    final enrolment = await runDb(
+      tester,
+      () => db.select(db.groupStudents).getSingle(),
+    );
+    expect(enrolment.discountType, DiscountType.exempt.code);
+    expect(enrolment.teacherAmount, isNegative);
+    expect(await runDb(tester, () => db.select(db.payments).get()), isEmpty);
+  });
+
   appTest('سُدِّد جزء: يطلب المبلغ، ثم يبقى الباقي ويُسدَّد لاحقاً بوصل ثان', (
     tester,
   ) async {
@@ -462,6 +522,9 @@ void main() {
       await tester.pump();
       expect(find.text('المحدَّد: 2'), findsOneWidget);
       await tester.tap(find.widgetWithText(ClayButton, 'إضافة (2)'));
+      await tester.pumpAndSettle();
+      // أول حصة لهم: تلقائياً.
+      await tester.tap(find.text('تلقائياً (التالية لما انعقد)'));
       await tester.pumpAndSettle();
 
       expect(find.text('أُضيف تلميذان إلى الفوج'), findsOneWidget);
